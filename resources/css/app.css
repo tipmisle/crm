@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.vue';
+@source '../**/*.ts';
+
+@theme {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-ink-950: #0b0c0f;
+    --color-ink-900: #12141a;
+    --color-ink-800: #1b1e27;
+    --color-ink-700: #262a36;
+    --color-ink-600: #343948;
+    --color-ink-500: #4b5163;
+
+    --color-accent-50: #f2f1fd;
+    --color-accent-100: #e4e2fb;
+    --color-accent-200: #c9c5f6;
+    --color-accent-300: #ada6f0;
+    --color-accent-400: #8f85e8;
+    --color-accent-500: #6c62df;
+    --color-accent-600: #5a4fd1;
+    --color-accent-700: #4a3fb0;
+    --color-accent-800: #3b338c;
+    --color-accent-900: #2c2669;
+
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.625rem;
+}
+
+@layer base {
+    body {
+        @apply bg-neutral-50 text-neutral-900 antialiased;
+    }
+}
+
+@layer utilities {
+    .scrollbar-thin {
+        scrollbar-width: thin;
+    }
+}

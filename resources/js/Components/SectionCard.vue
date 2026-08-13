@@ -1,0 +1,24 @@
+<script setup lang="ts">
+withDefaults(
+    defineProps<{
+        title: string;
+        subtitle?: string;
+    }>(),
+    {},
+);
+</script>
+
+<template>
+    <section class="rounded-xl border border-neutral-200 bg-white">
+        <header class="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+            <div>
+                <h2 class="text-sm font-semibold text-neutral-900">{{ title }}</h2>
+                <p v-if="subtitle" class="text-xs text-neutral-500">{{ subtitle }}</p>
+            </div>
+            <slot name="actions" />
+        </header>
+        <div class="p-5">
+            <slot />
+        </div>
+    </section>
+</template>
