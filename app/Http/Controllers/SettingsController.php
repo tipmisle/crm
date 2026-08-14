@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Channel;
+use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,9 +15,23 @@ class SettingsController extends Controller
     {
         $workspace = $request->user()->currentWorkspace;
 
+        $pending = $request->session()->get('meta_pending_accounts');
+
         return Inertia::render('Settings/Edit', [
             'workspace' => $workspace,
-            'channels' => Channel::where('workspace_id', $workspace->id)->orderBy('type')->get(),
+            'channels' => Channel::where('workspace_id', $workspace->id)
+                ->whereIn('type', ['instagram', 'facebook_messenger'])
+                ->orderBy('type')
+                ->get(),
+            'services' => Service::where('workspace_id', $workspace->id)->orderBy('name')->get(),
+            'metaPendingAccounts' => $pending
+                ? collect($pending['accounts'])->map(fn ($a) => [
+                    'channel_type' => $a['channel_type'],
+                    'external_account_id' => $a['external_account_id'],
+                    'display_name' => $a['display_name'],
+                    'username' => $a['username'],
+                ])->values()
+                : null,
         ]);
     }
 
@@ -31,6 +46,22 @@ class SettingsController extends Controller
 
         $request->user()->currentWorkspace->update($data);
 
-        return back()->with('success', 'Business settings saved.');
+        return back()->with('success', 'Nastavitve podjetja shranjene.');
+    }
+
+    public function updateCapabilities(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'orders_enabled' => 'required|boolean',
+            'appointments_enabled' => 'required|boolean',
+        ]);
+
+        if (! $data['orders_enabled'] && ! $data['appointments_enabled']) {
+            return back()->with('error', 'Vsaj eno od Naročila ali Termini mora ostati vklopljeno.');
+        }
+
+        $request->user()->currentWorkspace->update($data);
+
+        return back()->with('success', 'Način poslovanja posodobljen.');
     }
 }

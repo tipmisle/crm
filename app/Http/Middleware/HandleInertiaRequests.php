@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Conversation;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -37,6 +38,13 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
             ],
             'workspace' => $user?->currentWorkspace,
+            'unreadInboxCount' => $user?->current_workspace_id
+                ? (int) Conversation::where('unread_count', '>', 0)->sum('unread_count')
+                : 0,
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+            ],
         ];
     }
 }

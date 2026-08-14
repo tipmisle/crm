@@ -13,11 +13,11 @@ enum ConversationStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::NewEnquiry => 'New enquiry',
-            self::NeedsQuote => 'Needs quote',
-            self::WaitingForCustomer => 'Waiting for customer',
-            self::OrderConfirmed => 'Order confirmed',
-            self::Closed => 'Closed',
+            self::NewEnquiry => 'Novo povpraševanje',
+            self::NeedsQuote => 'Potrebna ponudba',
+            self::WaitingForCustomer => 'Čaka na stranko',
+            self::OrderConfirmed => 'Naročilo potrjeno',
+            self::Closed => 'Zaključeno',
         };
     }
 }

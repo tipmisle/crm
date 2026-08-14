@@ -63,7 +63,7 @@ class CustomerController extends Controller
             'last_interaction_at' => now(),
         ]);
 
-        ActivityLog::record('customer_created', "{$customer->full_name} added as a customer", $customer);
+        ActivityLog::record('customer_created', "Stranka {$customer->full_name} je bila dodana", $customer);
 
         return redirect()->route('customers.show', $customer);
     }
@@ -75,6 +75,9 @@ class CustomerController extends Controller
             'primaryChannel',
             'orders' => fn ($q) => $q->orderByDesc('created_at'),
             'orders.channel',
+            'appointments' => fn ($q) => $q->orderByDesc('appointment_date')->orderByDesc('start_time'),
+            'appointments.channel',
+            'appointments.service',
             'conversations' => fn ($q) => $q->orderByDesc('last_message_at'),
             'conversations.channel',
         ]);
@@ -84,6 +87,9 @@ class CustomerController extends Controller
         })->orWhere(function ($q) use ($customer) {
             $q->where('subject_type', \App\Models\Order::class)
                 ->whereIn('subject_id', $customer->orders->pluck('id'));
+        })->orWhere(function ($q) use ($customer) {
+            $q->where('subject_type', \App\Models\Appointment::class)
+                ->whereIn('subject_id', $customer->appointments->pluck('id'));
         })->orderByDesc('created_at')->limit(30)->get();
 
         return Inertia::render('Customers/Show', [
@@ -99,10 +105,14 @@ class CustomerController extends Controller
                 'first_contacted_at' => $customer->first_contacted_at,
                 'last_interaction_at' => $customer->last_interaction_at,
                 'orders' => $customer->orders,
+                'appointments' => $customer->appointments,
                 'conversations' => $customer->conversations,
                 'lifetime_spend' => $customer->lifetimeSpend(),
                 'open_orders_count' => $customer->openOrdersCount(),
                 'completed_orders_count' => $customer->completedOrdersCount(),
+                'appointments_lifetime_spend' => $customer->appointmentsLifetimeSpend(),
+                'previous_appointments_count' => $customer->previousAppointmentsCount(),
+                'no_show_appointments_count' => $customer->noShowAppointmentsCount(),
             ],
             'followUps' => $customer->followUps()->orderBy('due_at')->get(),
             'activity' => $activity,
@@ -120,7 +130,7 @@ class CustomerController extends Controller
 
         $customer->update($data);
 
-        return back()->with('success', 'Customer updated.');
+        return back()->with('success', 'Stranka posodobljena.');
     }
 
     public function destroy(Customer $customer): RedirectResponse

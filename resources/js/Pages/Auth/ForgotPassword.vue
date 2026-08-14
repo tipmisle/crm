@@ -21,12 +21,12 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Forgot Password" />
+        <Head title="Pozabljeno geslo" />
 
         <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+            Ste pozabili geslo? Brez skrbi. Samo vpišite svoj e-poštni naslov
+            in poslali vam bomo povezavo za ponastavitev gesla, s katero boste
+            lahko izbrali novega.
         </div>
 
         <div
@@ -38,7 +38,7 @@ const submit = () => {
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="email" value="E-pošta" />
 
                 <TextInput
                     id="email"
@@ -58,7 +58,7 @@ const submit = () => {
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
-                    Email Password Reset Link
+                    Pošlji povezavo za ponastavitev
                 </PrimaryButton>
             </div>
         </form>

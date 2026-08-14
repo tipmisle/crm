@@ -18,7 +18,17 @@ class Workspace extends Model
         'logo_path',
         'timezone',
         'currency',
+        'orders_enabled',
+        'appointments_enabled',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'orders_enabled' => 'boolean',
+            'appointments_enabled' => 'boolean',
+        ];
+    }
 
     public function members(): HasMany
     {
@@ -50,6 +60,16 @@ class Workspace extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
     }
 
     public function followUps(): HasMany

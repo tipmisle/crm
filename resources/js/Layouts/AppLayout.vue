@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { useEcho } from '@laravel/echo-vue';
 import {
     LayoutDashboard,
     Inbox,
     Package,
+    CalendarDays,
     Users,
     Settings,
     Search,
     LogOut,
     ChevronsUpDown,
+    X,
 } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
 import Avatar from '@/Components/Avatar.vue';
@@ -17,16 +20,47 @@ import CommandPalette from '@/Components/CommandPalette.vue';
 
 const page = usePage<PageProps>();
 
-const nav = [
-    { name: 'Today', href: () => route('dashboard'), icon: LayoutDashboard, current: () => route().current('dashboard') },
-    { name: 'Inbox', href: () => route('inbox.index'), icon: Inbox, current: () => route().current('inbox.*') },
-    { name: 'Orders', href: () => route('orders.index'), icon: Package, current: () => route().current('orders.*') },
-    { name: 'Customers', href: () => route('customers.index'), icon: Users, current: () => route().current('customers.*') },
-    { name: 'Settings', href: () => route('settings.edit'), icon: Settings, current: () => route().current('settings.*') },
-];
+const toast = ref<{ type: 'success' | 'error'; message: string } | null>(null);
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+    () => [page.props.flash?.success, page.props.flash?.error],
+    ([success, error]) => {
+        if (!success && !error) return;
+
+        toast.value = success ? { type: 'success', message: success } : { type: 'error', message: error as string };
+
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => (toast.value = null), 6000);
+    },
+    { immediate: true },
+);
+
+const nav = computed(() => [
+    { name: 'Danes', href: () => route('dashboard'), icon: LayoutDashboard, current: () => route().current('dashboard') },
+    { name: 'Prejeta pošta', href: () => route('inbox.index'), icon: Inbox, current: () => route().current('inbox.*') },
+    ...(page.props.workspace?.orders_enabled ?? true
+        ? [{ name: 'Naročila', href: () => route('orders.index'), icon: Package, current: () => route().current('orders.*') }]
+        : []),
+    ...(page.props.workspace?.appointments_enabled ?? false
+        ? [{ name: 'Termini', href: () => route('appointments.index'), icon: CalendarDays, current: () => route().current('appointments.*') }]
+        : []),
+    { name: 'Stranke', href: () => route('customers.index'), icon: Users, current: () => route().current('customers.*') },
+    { name: 'Nastavitve', href: () => route('settings.edit'), icon: Settings, current: () => route().current('settings.*') },
+]);
 
 const searchOpen = ref(false);
 const userMenuOpen = ref(false);
+
+const unreadInboxCount = computed(() => page.props.unreadInboxCount ?? 0);
+
+// Keeps the sidebar badge live across the whole app (not just the Inbox
+// page itself) — same private, workspace-scoped channel used there.
+const workspaceId = computed(() => page.props.workspace?.id);
+
+useEcho(`workspace.${workspaceId.value}.inbox`, 'message.received', () => {
+    router.reload({ only: ['unreadInboxCount'] });
+});
 </script>
 
 <template>
@@ -39,7 +73,7 @@ const userMenuOpen = ref(false);
                     B
                 </div>
                 <div class="truncate text-sm font-semibold text-white">
-                    {{ page.props.workspace?.name ?? 'Workspace' }}
+                    {{ page.props.workspace?.name ?? 'Delovni prostor' }}
                 </div>
             </div>
 
@@ -56,7 +90,13 @@ const userMenuOpen = ref(false);
                     "
                 >
                     <component :is="item.icon" :size="17" />
-                    {{ item.name }}
+                    <span class="flex-1">{{ item.name }}</span>
+                    <span
+                        v-if="item.name === 'Prejeta pošta' && unreadInboxCount > 0"
+                        class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[var(--color-accent-500)] px-1 text-[10px] font-semibold text-white"
+                    >
+                        {{ unreadInboxCount > 99 ? '99+' : unreadInboxCount }}
+                    </span>
                 </Link>
             </nav>
 
@@ -76,7 +116,7 @@ const userMenuOpen = ref(false);
                         :href="route('profile.edit')"
                         class="block rounded-md px-2.5 py-1.5 text-sm text-neutral-300 hover:bg-white/10"
                     >
-                        Profile
+                        Profil
                     </Link>
                     <Link
                         :href="route('logout')"
@@ -85,7 +125,7 @@ const userMenuOpen = ref(false);
                         class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-neutral-300 hover:bg-white/10"
                     >
                         <LogOut :size="14" />
-                        Log out
+                        Odjava
                     </Link>
                 </div>
             </div>
@@ -105,7 +145,7 @@ const userMenuOpen = ref(false);
                     @click="searchOpen = true"
                 >
                     <Search :size="14" />
-                    <span>Search</span>
+                    <span>Iskanje</span>
                     <kbd class="ml-2 rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-400">⌘K</kbd>
                 </button>
             </header>
@@ -116,5 +156,27 @@ const userMenuOpen = ref(false);
         </div>
 
         <CommandPalette v-model:open="searchOpen" />
+
+        <Transition
+            enter-active-class="transition duration-150 ease-out"
+            enter-from-class="opacity-0 translate-y-1"
+            leave-active-class="transition duration-150 ease-in"
+            leave-to-class="opacity-0"
+        >
+            <div
+                v-if="toast"
+                class="fixed right-4 top-4 z-50 flex max-w-sm items-start gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg"
+                :class="
+                    toast.type === 'success'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-rose-200 bg-rose-50 text-rose-800'
+                "
+            >
+                <span class="flex-1">{{ toast.message }}</span>
+                <button type="button" class="text-current/70 hover:text-current" @click="toast = null">
+                    <X :size="14" />
+                </button>
+            </div>
+        </Transition>
     </div>
 </template>

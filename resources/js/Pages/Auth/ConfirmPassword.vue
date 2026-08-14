@@ -21,16 +21,16 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Confirm Password" />
+        <Head title="Potrdi geslo" />
 
         <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            This is a secure area of the application. Please confirm your
-            password before continuing.
+            To je varno območje aplikacije. Pred nadaljevanjem prosimo potrdite
+            svoje geslo.
         </div>
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="password" value="Password" />
+                <InputLabel for="password" value="Geslo" />
                 <TextInput
                     id="password"
                     type="password"
@@ -49,7 +49,7 @@ const submit = () => {
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
-                    Confirm
+                    Potrdi
                 </PrimaryButton>
             </div>
         </form>

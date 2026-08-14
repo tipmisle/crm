@@ -4,20 +4,32 @@ namespace App\Http\Controllers\Inbox;
 
 use App\Enums\ConversationStatus;
 use App\Enums\MessageSenderType;
+use App\Enums\MessageStatus;
 use App\Enums\MessageType;
+use App\Events\InboxMessageReceived;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
+use App\Models\Message;
+use App\Services\Messaging\DTOs\OutboundAttachment;
+use App\Services\Messaging\MessagingProviderInterface;
+use App\Services\Messaging\MessagingProviderManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ConversationController extends Controller
 {
+    public function __construct(private readonly MessagingProviderManager $providers) {}
+
     public function index(): Response
     {
         return Inertia::render('Inbox/Index', [
@@ -28,7 +40,7 @@ class ConversationController extends Controller
 
     public function show(Conversation $conversation): Response
     {
-        $conversation->load(['channel', 'customer.orders', 'customer.identities', 'messages.senderUser']);
+        $conversation->load(['channel', 'customer.orders', 'customer.appointments', 'customer.identities', 'messages.senderUser']);
 
         if ($conversation->unread_count > 0) {
             $conversation->update(['unread_count' => 0]);
@@ -43,22 +55,98 @@ class ConversationController extends Controller
     public function sendMessage(Request $request, Conversation $conversation): RedirectResponse
     {
         $data = $request->validate([
-            'body' => 'required|string|max:5000',
+            'body' => 'nullable|string|max:5000',
+            'attachment' => 'nullable|file|max:15360|mimes:jpg,jpeg,png,gif,webp,mp4,mov,pdf,doc,docx',
         ]);
 
+        if (empty($data['body']) && ! $request->hasFile('attachment')) {
+            return back()->with('error', 'Napiši sporočilo ali priloži datoteko.');
+        }
+
+        $conversation->loadMissing('channel');
+        $channel = $conversation->channel;
+
+        if (! $channel || ! $channel->isConnected()) {
+            return back()->with('error', 'Ta pogovor nima povezanega kanala. Poveži Meta v nastavitvah.');
+        }
+
+        $provider = $this->providers->forChannel($channel);
+        $message = null;
+
+        if ($request->hasFile('attachment')) {
+            $attachment = $this->storeOutboundAttachment($request->file('attachment'));
+            $message = $this->sendSingle($provider, $channel, $conversation, null, $attachment);
+
+            if ($message->status !== MessageStatus::Sent) {
+                return back()->with('error', $message->failure_reason ?? 'Priloge ni bilo mogoče poslati.');
+            }
+        }
+
+        if (! empty($data['body'])) {
+            $message = $this->sendSingle($provider, $channel, $conversation, $data['body']);
+        }
+
+        if ($message?->status === MessageStatus::Sent) {
+            return back();
+        }
+
+        return back()->with('error', $message?->failure_reason ?? 'Sporočila ni bilo mogoče poslati.');
+    }
+
+    private function sendSingle(
+        MessagingProviderInterface $provider,
+        Channel $channel,
+        Conversation $conversation,
+        ?string $text,
+        ?OutboundAttachment $attachment = null,
+    ): Message {
         $message = $conversation->messages()->create([
             'sender_type' => MessageSenderType::Business,
-            'body' => $data['body'],
-            'message_type' => MessageType::Text,
+            'body' => $text,
+            'message_type' => $attachment ? MessageType::Image : MessageType::Text,
+            'status' => MessageStatus::Pending,
+            'metadata' => $attachment ? ['attachments' => [$attachment->toArray()]] : null,
             'sent_at' => Carbon::now(),
         ]);
 
-        $conversation->update([
-            'last_message_preview' => str($data['body'])->limit(120),
-            'last_message_at' => $message->sent_at,
+        $result = $provider->sendMessage($channel, $conversation, $text, $attachment);
+
+        if ($result->success) {
+            $message->update([
+                'status' => MessageStatus::Sent,
+                'external_message_id' => $result->externalMessageId,
+            ]);
+
+            $conversation->update([
+                'last_message_preview' => $text ? Str::limit($text, 120) : '📎 Priloga',
+                'last_message_at' => $message->sent_at,
+            ]);
+
+            broadcast(new InboxMessageReceived($conversation->workspace_id, $conversation->id))->toOthers();
+
+            return $message;
+        }
+
+        $message->update([
+            'status' => MessageStatus::Failed,
+            'failed_at' => Carbon::now(),
+            'failure_reason' => $result->errorMessage,
         ]);
 
-        return back();
+        return $message;
+    }
+
+    private function storeOutboundAttachment(UploadedFile $file): OutboundAttachment
+    {
+        $path = $file->store('inbox-attachments', 'public');
+
+        $type = match (true) {
+            str_starts_with((string) $file->getMimeType(), 'image/') => 'image',
+            str_starts_with((string) $file->getMimeType(), 'video/') => 'video',
+            default => 'file',
+        };
+
+        return new OutboundAttachment($type, Storage::disk('public')->url($path), Storage::disk('public')->path($path));
     }
 
     public function update(Request $request, Conversation $conversation): RedirectResponse
@@ -79,23 +167,43 @@ class ConversationController extends Controller
         }
 
         $customer = Customer::create([
-            'full_name' => $conversation->customer_display_name ?? 'Unknown customer',
+            'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
             'primary_channel_id' => $conversation->channel_id,
             'first_contacted_at' => $conversation->created_at,
             'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
         ]);
 
-        CustomerIdentity::create([
-            'customer_id' => $customer->id,
-            'workspace_id' => $customer->workspace_id,
-            'channel_type' => $conversation->channel->type,
-            'username' => $conversation->customer_username,
-            'display_name' => $conversation->customer_display_name,
-        ]);
+        // If this conversation came in through a real Meta webhook, an
+        // identity already exists (keyed on the stable external PSID/IGSID)
+        // — attach the new Customer to it instead of creating a duplicate,
+        // so future messages from this same external identity resolve here.
+        $identity = $conversation->external_conversation_id
+            ? CustomerIdentity::where('workspace_id', $customer->workspace_id)
+                ->where('channel_type', $conversation->channel->type->value)
+                ->where('external_id', $conversation->external_conversation_id)
+                ->first()
+            : null;
+
+        if ($identity) {
+            $identity->update([
+                'customer_id' => $customer->id,
+                'username' => $identity->username ?? $conversation->customer_username,
+                'display_name' => $identity->display_name ?? $conversation->customer_display_name,
+            ]);
+        } else {
+            CustomerIdentity::create([
+                'customer_id' => $customer->id,
+                'workspace_id' => $customer->workspace_id,
+                'channel_type' => $conversation->channel->type,
+                'external_id' => $conversation->external_conversation_id,
+                'username' => $conversation->customer_username,
+                'display_name' => $conversation->customer_display_name,
+            ]);
+        }
 
         $conversation->update(['customer_id' => $customer->id]);
 
-        ActivityLog::record('customer_created', "{$customer->full_name} added as a customer from a conversation", $customer);
+        ActivityLog::record('customer_created', "Stranka {$customer->full_name} je bila dodana iz pogovora", $customer);
 
         return back();
     }
@@ -116,6 +224,8 @@ class ConversationController extends Controller
 
     private function conversationList()
     {
+        $avatars = $this->avatarMap();
+
         return Conversation::query()
             ->with(['channel', 'customer'])
             ->orderByDesc('last_message_at')
@@ -124,6 +234,7 @@ class ConversationController extends Controller
                 'id' => $c->id,
                 'customer_id' => $c->customer_id,
                 'display_name' => $c->displayName(),
+                'avatar_url' => $this->avatarUrlFor($c, $avatars),
                 'channel' => $c->channel,
                 'status' => $c->status,
                 'last_message_preview' => $c->last_message_preview,
@@ -132,17 +243,50 @@ class ConversationController extends Controller
             ]);
     }
 
+    /**
+     * All known avatar URLs for the current workspace, keyed by
+     * "{channel_type}|{external_id}" — cheap enough to load in one query
+     * for a small business's identity list, avoids N+1 per conversation.
+     */
+    private function avatarMap(): array
+    {
+        return CustomerIdentity::withoutGlobalScopes()
+            ->where('workspace_id', auth()->user()->current_workspace_id)
+            ->get(['channel_type', 'external_id', 'metadata'])
+            ->filter(fn ($i) => ! empty($i->metadata['avatar_url'] ?? null))
+            ->mapWithKeys(fn ($i) => ["{$i->channel_type->value}|{$i->external_id}" => $i->metadata['avatar_url']])
+            ->all();
+    }
+
+    private function avatarUrlFor(Conversation $conversation, array $avatars): ?string
+    {
+        if (! $conversation->channel || ! $conversation->external_conversation_id) {
+            return null;
+        }
+
+        return $avatars["{$conversation->channel->type->value}|{$conversation->external_conversation_id}"] ?? null;
+    }
+
     private function presentConversation(Conversation $conversation): array
     {
         $customer = $conversation->customer;
+        $channel = $conversation->channel;
+
+        [$canReply, $replyUnavailableReason] = $this->replyAvailability($conversation, $channel);
 
         return [
             'id' => $conversation->id,
             'status' => $conversation->status,
-            'channel' => $conversation->channel,
+            'channel' => $channel,
             'customer_display_name' => $conversation->customer_display_name,
             'customer_username' => $conversation->customer_username,
+            'avatar_url' => $this->avatarUrlFor($conversation, $this->avatarMap()),
             'messages' => $conversation->messages,
+            'can_reply' => $canReply,
+            'reply_unavailable_reason' => $replyUnavailableReason,
+            'open_in_platform_url' => $channel && $channel->isConnected() && $conversation->external_conversation_id
+                ? $this->providers->forChannel($channel)->conversationDeepLink($channel, $conversation)
+                : null,
             'customer' => $customer ? [
                 'id' => $customer->id,
                 'full_name' => $customer->full_name,
@@ -158,7 +302,44 @@ class ConversationController extends Controller
                     ->sortByDesc('created_at')
                     ->first(),
                 'last_order_date' => $customer->orders->max('created_at'),
+                'previous_appointments_count' => $customer->previousAppointmentsCount(),
+                'appointments_lifetime_spend' => $customer->appointmentsLifetimeSpend(),
+                'no_show_appointments_count' => $customer->noShowAppointmentsCount(),
+                'upcoming_appointment' => $customer->upcomingAppointment(),
+                'last_appointment' => $customer->lastAppointment(),
             ] : null,
         ];
+    }
+
+    /**
+     * @return array{0: bool, 1: ?string}
+     */
+    private function replyAvailability(Conversation $conversation, $channel): array
+    {
+        if (! $channel) {
+            return [false, 'Ta pogovor nima povezanega kanala.'];
+        }
+
+        if (! $channel->isConnected()) {
+            return [false, 'Kanal ni povezan. Poveži ga v nastavitvah.'];
+        }
+
+        $lastCustomerMessageAt = $conversation->messages
+            ->where('sender_type', MessageSenderType::Customer)
+            ->max('sent_at');
+
+        if (! $lastCustomerMessageAt) {
+            return [true, null];
+        }
+
+        $windowHours = config('meta.messaging_window_hours', 24);
+
+        if (Carbon::parse($lastCustomerMessageAt)->addHours($windowHours)->isPast()) {
+            $platform = $channel->type?->label() ?? 'platformo';
+
+            return [false, "Odgovor prek {$platform} trenutno ni na voljo — okno za odgovor je poteklo."];
+        }
+
+        return [true, null];
     }
 }

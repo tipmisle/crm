@@ -17,15 +17,15 @@ enum OrderStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::New => 'New',
-            self::QuoteNeeded => 'Quote needed',
-            self::QuoteSent => 'Quote sent',
-            self::WaitingForCustomer => 'Waiting for customer',
-            self::Confirmed => 'Confirmed',
-            self::InProgress => 'In progress',
-            self::Ready => 'Ready',
-            self::Completed => 'Completed',
-            self::Cancelled => 'Cancelled',
+            self::New => 'Novo',
+            self::QuoteNeeded => 'Potrebna ponudba',
+            self::QuoteSent => 'Ponudba poslana',
+            self::WaitingForCustomer => 'Čaka na stranko',
+            self::Confirmed => 'Potrjeno',
+            self::InProgress => 'V izdelavi',
+            self::Ready => 'Pripravljeno',
+            self::Completed => 'Zaključeno',
+            self::Cancelled => 'Preklicano',
         };
     }
 

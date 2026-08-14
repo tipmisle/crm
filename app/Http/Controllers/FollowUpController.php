@@ -12,7 +12,7 @@ class FollowUpController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'followable_type' => 'required|string|in:App\\Models\\Customer,App\\Models\\Order,App\\Models\\Conversation',
+            'followable_type' => 'required|string|in:App\\Models\\Customer,App\\Models\\Order,App\\Models\\Conversation,App\\Models\\Appointment',
             'followable_id' => 'required|integer',
             'note' => 'required|string|max:255',
             'due_at' => 'required|date',
@@ -26,7 +26,7 @@ class FollowUpController extends Controller
             'due_at' => Carbon::parse($data['due_at']),
         ]);
 
-        return back()->with('success', 'Follow-up scheduled.');
+        return back()->with('success', 'Opomnik dodan.');
     }
 
     public function complete(FollowUp $followUp): RedirectResponse

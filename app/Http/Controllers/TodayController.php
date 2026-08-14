@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\FollowUp;
 use App\Models\Order;
@@ -15,81 +17,161 @@ class TodayController extends Controller
 {
     public function __invoke(): Response
     {
-        $openStatuses = array_map(
-            fn (OrderStatus $s) => $s->value,
-            array_filter(
-                OrderStatus::board(),
-                fn (OrderStatus $s) => ! in_array($s, [OrderStatus::Completed, OrderStatus::Cancelled], true)
-            )
-        );
+        $workspace = auth()->user()->currentWorkspace;
 
         $waitingReplyCount = Conversation::query()
             ->where('unread_count', '>', 0)
             ->count();
 
-        $dueTodayOrders = Order::query()
-            ->with(['customer', 'channel'])
-            ->whereDate('due_date', Carbon::today())
-            ->whereIn('status', $openStatuses)
-            ->orderBy('due_time')
-            ->get();
-
-        $quotesWaitingCount = Order::query()->where('status', OrderStatus::QuoteSent->value)->count();
-
-        $depositsUnpaidCount = Order::query()
-            ->whereIn('status', $openStatuses)
-            ->whereIn('payment_status', [PaymentStatus::Unpaid->value, PaymentStatus::DepositDue->value])
-            ->where('deposit_amount', '>', 0)
-            ->count();
-
-        $overdueOrders = Order::query()
-            ->with(['customer'])
-            ->whereIn('status', $openStatuses)
-            ->whereDate('due_date', '<', Carbon::today())
-            ->get();
-
         $attention = collect([
             [
                 'key' => 'waiting_reply',
                 'label' => $waitingReplyCount === 1
-                    ? '1 conversation waiting for a reply'
-                    : "{$waitingReplyCount} conversations waiting for a reply",
+                    ? '1 pogovor čaka na odgovor'
+                    : "{$waitingReplyCount} pogovorov čaka na odgovor",
                 'count' => $waitingReplyCount,
                 'href' => route('inbox.index'),
             ],
-            [
-                'key' => 'due_today',
-                'label' => $dueTodayOrders->count() === 1
-                    ? '1 order due today'
-                    : "{$dueTodayOrders->count()} orders due today",
-                'count' => $dueTodayOrders->count(),
-                'href' => route('orders.index', ['due' => 'today']),
-            ],
-            [
-                'key' => 'quotes_waiting',
-                'label' => $quotesWaitingCount === 1
-                    ? '1 quote waiting for confirmation'
-                    : "{$quotesWaitingCount} quotes waiting for confirmation",
-                'count' => $quotesWaitingCount,
-                'href' => route('orders.index', ['status' => 'quote_sent']),
-            ],
-            [
-                'key' => 'deposits_unpaid',
-                'label' => $depositsUnpaidCount === 1
-                    ? '1 deposit still unpaid'
-                    : "{$depositsUnpaidCount} deposits still unpaid",
-                'count' => $depositsUnpaidCount,
-                'href' => route('orders.index', ['payment' => 'deposit_due']),
-            ],
-            [
-                'key' => 'overdue',
-                'label' => $overdueOrders->count() === 1
-                    ? '1 overdue order'
-                    : "{$overdueOrders->count()} overdue orders",
-                'count' => $overdueOrders->count(),
-                'href' => route('orders.index', ['due' => 'overdue']),
-            ],
-        ])->filter(fn ($item) => $item['count'] > 0)->values();
+        ]);
+
+        $todaysOrders = collect();
+        $upcomingOrders = collect();
+
+        if ($workspace->orders_enabled) {
+            $openStatuses = array_map(
+                fn (OrderStatus $s) => $s->value,
+                array_filter(
+                    OrderStatus::board(),
+                    fn (OrderStatus $s) => ! in_array($s, [OrderStatus::Completed, OrderStatus::Cancelled], true)
+                )
+            );
+
+            $todaysOrders = Order::query()
+                ->with(['customer', 'channel'])
+                ->whereDate('due_date', Carbon::today())
+                ->whereIn('status', $openStatuses)
+                ->orderBy('due_time')
+                ->get();
+
+            $quotesWaitingCount = Order::query()->where('status', OrderStatus::QuoteSent->value)->count();
+
+            $depositsUnpaidCount = Order::query()
+                ->whereIn('status', $openStatuses)
+                ->whereIn('payment_status', [PaymentStatus::Unpaid->value, PaymentStatus::DepositDue->value])
+                ->where('deposit_amount', '>', 0)
+                ->count();
+
+            $overdueOrders = Order::query()
+                ->with(['customer'])
+                ->whereIn('status', $openStatuses)
+                ->whereDate('due_date', '<', Carbon::today())
+                ->get();
+
+            $attention->push(
+                [
+                    'key' => 'due_today',
+                    'label' => $todaysOrders->count() === 1
+                        ? '1 naročilo zapade danes'
+                        : "{$todaysOrders->count()} naročil zapade danes",
+                    'count' => $todaysOrders->count(),
+                    'href' => route('orders.index', ['due' => 'today']),
+                ],
+                [
+                    'key' => 'quotes_waiting',
+                    'label' => $quotesWaitingCount === 1
+                        ? '1 ponudba čaka na potrditev'
+                        : "{$quotesWaitingCount} ponudb čaka na potrditev",
+                    'count' => $quotesWaitingCount,
+                    'href' => route('orders.index', ['status' => 'quote_sent']),
+                ],
+                [
+                    'key' => 'deposits_unpaid',
+                    'label' => $depositsUnpaidCount === 1
+                        ? '1 ara še ni plačana'
+                        : "{$depositsUnpaidCount} ar še ni plačanih",
+                    'count' => $depositsUnpaidCount,
+                    'href' => route('orders.index', ['payment' => 'deposit_due']),
+                ],
+                [
+                    'key' => 'overdue',
+                    'label' => $overdueOrders->count() === 1
+                        ? '1 zamujeno naročilo'
+                        : "{$overdueOrders->count()} zamujenih naročil",
+                    'count' => $overdueOrders->count(),
+                    'href' => route('orders.index', ['due' => 'overdue']),
+                ],
+            );
+
+            $upcomingOrders = Order::query()
+                ->with(['customer', 'channel'])
+                ->whereIn('status', $openStatuses)
+                ->whereDate('due_date', '>', Carbon::today())
+                ->whereDate('due_date', '<=', Carbon::today()->addDays(7))
+                ->orderBy('due_date')
+                ->limit(8)
+                ->get();
+        }
+
+        $todaysAppointments = collect();
+        $upcomingAppointments = collect();
+
+        if ($workspace->appointments_enabled) {
+            $activeStatuses = [AppointmentStatus::Requested->value, AppointmentStatus::Confirmed->value];
+
+            $todaysAppointments = Appointment::query()
+                ->with(['customer', 'channel'])
+                ->whereDate('appointment_date', Carbon::today())
+                ->whereIn('status', $activeStatuses)
+                ->orderBy('start_time')
+                ->get();
+
+            $awaitingConfirmationCount = Appointment::query()->where('status', AppointmentStatus::Requested->value)->count();
+
+            $appointmentDepositsUnpaidCount = Appointment::query()
+                ->whereIn('status', $activeStatuses)
+                ->whereIn('payment_status', [PaymentStatus::Unpaid->value, PaymentStatus::DepositDue->value])
+                ->where('deposit_amount', '>', 0)
+                ->count();
+
+            $attention->push(
+                [
+                    'key' => 'appointments_today',
+                    'label' => $todaysAppointments->count() === 1
+                        ? '1 termin danes'
+                        : "{$todaysAppointments->count()} terminov danes",
+                    'count' => $todaysAppointments->count(),
+                    'href' => route('appointments.index', ['view' => 'list', 'filter' => 'today']),
+                ],
+                [
+                    'key' => 'awaiting_confirmation',
+                    'label' => $awaitingConfirmationCount === 1
+                        ? '1 termin čaka na potrditev'
+                        : "{$awaitingConfirmationCount} terminov čaka na potrditev",
+                    'count' => $awaitingConfirmationCount,
+                    'href' => route('appointments.index', ['view' => 'list']),
+                ],
+                [
+                    'key' => 'appointment_deposits_unpaid',
+                    'label' => $appointmentDepositsUnpaidCount === 1
+                        ? '1 ara za termin še ni plačana'
+                        : "{$appointmentDepositsUnpaidCount} ar za termine še ni plačanih",
+                    'count' => $appointmentDepositsUnpaidCount,
+                    'href' => route('appointments.index', ['view' => 'list']),
+                ],
+            );
+
+            $upcomingAppointments = Appointment::query()
+                ->with(['customer', 'channel'])
+                ->whereIn('status', $activeStatuses)
+                ->whereDate('appointment_date', '>', Carbon::today())
+                ->whereDate('appointment_date', '<=', Carbon::today()->addDays(7))
+                ->orderBy('appointment_date')
+                ->orderBy('start_time')
+                ->limit(8)
+                ->get();
+        }
+
+        $attention = $attention->filter(fn ($item) => $item['count'] > 0)->values();
 
         $followUps = FollowUp::query()
             ->with('followable')
@@ -100,20 +182,13 @@ class TodayController extends Controller
             ->get()
             ->map(fn (FollowUp $followUp) => $this->presentFollowUp($followUp));
 
-        $upcoming = Order::query()
-            ->with(['customer', 'channel'])
-            ->whereIn('status', $openStatuses)
-            ->whereDate('due_date', '>', Carbon::today())
-            ->whereDate('due_date', '<=', Carbon::today()->addDays(7))
-            ->orderBy('due_date')
-            ->limit(8)
-            ->get();
-
         return Inertia::render('Today', [
             'attention' => $attention,
-            'todaysOrders' => $dueTodayOrders,
+            'todaysOrders' => $todaysOrders,
+            'todaysAppointments' => $todaysAppointments,
             'followUps' => $followUps,
-            'upcoming' => $upcoming,
+            'upcoming' => $upcomingOrders,
+            'upcomingAppointments' => $upcomingAppointments,
         ]);
     }
 
@@ -123,6 +198,7 @@ class TodayController extends Controller
         $href = match (true) {
             $followable instanceof \App\Models\Customer => route('customers.show', $followable),
             $followable instanceof \App\Models\Order => route('orders.show', $followable),
+            $followable instanceof \App\Models\Appointment => route('appointments.show', $followable),
             $followable instanceof \App\Models\Conversation => route('inbox.show', $followable),
             default => '#',
         };

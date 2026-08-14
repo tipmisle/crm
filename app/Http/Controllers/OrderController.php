@@ -53,6 +53,24 @@ class OrderController extends Controller
 
         $view = $request->get('view', 'list');
 
+        if ($view === 'calendar') {
+            $month = Carbon::createFromFormat('Y-m', $request->get('month', Carbon::today()->format('Y-m')))
+                ->startOfMonth();
+
+            $orders = (clone $query)
+                ->whereBetween('due_date', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
+                ->orderBy('due_time')
+                ->get();
+
+            $ordersByDate = $orders->groupBy(fn (Order $o) => $o->due_date->format('Y-m-d'));
+
+            return Inertia::render('Orders/Calendar', [
+                'ordersByDate' => $ordersByDate,
+                'month' => $month->format('Y-m'),
+                'filters' => $request->only(['search', 'status', 'payment']),
+            ]);
+        }
+
         if ($view === 'kanban') {
             $orders = $query->orderBy('due_date')->get()->groupBy(fn (Order $o) => $o->status->value);
 
@@ -105,7 +123,7 @@ class OrderController extends Controller
 
         if (! $customer && $conversation) {
             $customer = Customer::create([
-                'full_name' => $conversation->customer_display_name ?? 'Unknown customer',
+                'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
                 'primary_channel_id' => $conversation->channel_id,
                 'first_contacted_at' => $conversation->created_at,
                 'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
@@ -122,7 +140,7 @@ class OrderController extends Controller
             $conversation->update(['customer_id' => $customer->id]);
         }
 
-        abort_unless($customer, 422, 'An order needs a customer.');
+        abort_unless($customer, 422, 'Naročilo potrebuje stranko.');
 
         $deposit = (float) ($data['deposit_amount'] ?? 0);
         $paymentStatus = $deposit > 0 ? PaymentStatus::DepositDue : PaymentStatus::Unpaid;
@@ -148,9 +166,9 @@ class OrderController extends Controller
             $conversation->update(['status' => 'order_confirmed']);
         }
 
-        ActivityLog::record('order_created', "Order {$order->order_number} created for {$customer->full_name}", $order);
+        ActivityLog::record('order_created', "Naročilo {$order->order_number} ustvarjeno za {$customer->full_name}", $order);
 
-        return redirect()->route('orders.show', $order)->with('success', 'Order created.');
+        return redirect()->route('orders.show', $order)->with('success', 'Naročilo ustvarjeno.');
     }
 
     public function show(Order $order): Response
@@ -190,18 +208,18 @@ class OrderController extends Controller
         if (isset($data['status']) && $data['status'] !== $previousStatus->value) {
             ActivityLog::record(
                 'status_changed',
-                "Order {$order->order_number} marked as {$order->status->label()}",
+                "Naročilo {$order->order_number} označeno kot {$order->status->label()}",
                 $order
             );
         }
 
-        return back()->with('success', 'Order updated.');
+        return back()->with('success', 'Naročilo posodobljeno.');
     }
 
     public function destroy(Order $order): RedirectResponse
     {
         $order->delete();
 
-        return redirect()->route('orders.index')->with('success', 'Order deleted.');
+        return redirect()->route('orders.index')->with('success', 'Naročilo izbrisano.');
     }
 }

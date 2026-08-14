@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
     name: string;
+    src?: string | null;
     size?: 'xs' | 'sm' | 'md' | 'lg';
 }>();
+
+const imageFailed = ref(false);
+watch(() => props.src, () => (imageFailed.value = false));
 
 const PALETTE = [
     { bg: '#EEECFC', fg: '#5A4FD1' },
@@ -44,7 +48,17 @@ const sizeClasses = computed(() => {
 </script>
 
 <template>
+    <img
+        v-if="src && !imageFailed"
+        :src="src"
+        :alt="name"
+        class="shrink-0 rounded-full object-cover"
+        :class="sizeClasses"
+        referrerpolicy="no-referrer"
+        @error="imageFailed = true"
+    />
     <div
+        v-else
         class="flex shrink-0 items-center justify-center rounded-full font-semibold"
         :class="sizeClasses"
         :style="{ backgroundColor: colors.bg, color: colors.fg }"

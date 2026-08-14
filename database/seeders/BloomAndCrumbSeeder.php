@@ -32,63 +32,63 @@ class BloomAndCrumbSeeder extends Seeder
 
     /** @var array<int, array{first: string, last: string}> */
     private array $names = [
-        ['first' => 'Anna', 'last' => 'Novak'],
+        ['first' => 'Ana', 'last' => 'Novak'],
         ['first' => 'Marko', 'last' => 'Kovač'],
-        ['first' => 'Sarah', 'last' => 'Bennett'],
-        ['first' => 'Emma', 'last' => 'Clarke'],
-        ['first' => 'Liam', 'last' => "O'Connor"],
+        ['first' => 'Sara', 'last' => 'Kos'],
+        ['first' => 'Eva', 'last' => 'Kralj'],
+        ['first' => 'Luka', 'last' => 'Potočnik'],
         ['first' => 'Nina', 'last' => 'Horvat'],
-        ['first' => 'James', 'last' => 'Wilson'],
+        ['first' => 'Jaka', 'last' => 'Vogrin'],
         ['first' => 'Petra', 'last' => 'Zupan'],
-        ['first' => 'Tom', 'last' => 'Fischer'],
-        ['first' => 'Laura', 'last' => 'Meyer'],
-        ['first' => 'Sophie', 'last' => 'Turner'],
-        ['first' => 'David', 'last' => 'Brown'],
-        ['first' => 'Mia', 'last' => 'Schmidt'],
+        ['first' => 'Tomaž', 'last' => 'Fistrič'],
+        ['first' => 'Lara', 'last' => 'Mlakar'],
+        ['first' => 'Sofija', 'last' => 'Turk'],
+        ['first' => 'David', 'last' => 'Bregar'],
+        ['first' => 'Maja', 'last' => 'Šuštar'],
         ['first' => 'Jan', 'last' => 'Novak'],
         ['first' => 'Katarina', 'last' => 'Kranjc'],
-        ['first' => 'Oliver', 'last' => 'Smith'],
+        ['first' => 'Oskar', 'last' => 'Kotnik'],
         ['first' => 'Ivana', 'last' => 'Perić'],
-        ['first' => 'Ben', 'last' => 'Harris'],
-        ['first' => 'Ella', 'last' => 'Roberts'],
+        ['first' => 'Benjamin', 'last' => 'Hren'],
+        ['first' => 'Ela', 'last' => 'Rozman'],
         ['first' => 'Luka', 'last' => 'Zorko'],
-        ['first' => 'Chloe', 'last' => 'Walker'],
+        ['first' => 'Klara', 'last' => 'Vovk'],
         ['first' => 'Matej', 'last' => 'Krajnc'],
-        ['first' => 'Grace', 'last' => 'Evans'],
+        ['first' => 'Gaja', 'last' => 'Erjavec'],
         ['first' => 'Filip', 'last' => 'Vidmar'],
         ['first' => 'Ana', 'last' => 'Marković'],
-        ['first' => 'Noah', 'last' => 'Baker'],
-        ['first' => 'Julia', 'last' => 'Weber'],
+        ['first' => 'Nejc', 'last' => 'Bevk'],
+        ['first' => 'Julija', 'last' => 'Weber'],
         ['first' => 'Rok', 'last' => 'Golob'],
-        ['first' => 'Isabelle', 'last' => 'Moore'],
+        ['first' => 'Neža', 'last' => 'Miklavčič'],
         ['first' => 'Simon', 'last' => 'Pavlič'],
     ];
 
     /** @var array<int, string> */
     private array $products = [
-        'Birthday Cake – Unicorn Theme',
-        '3-Tier Wedding Cake',
-        'Gender Reveal Cake',
-        'Engagement Cake – Floral Design',
-        'Dessert Box – Mini Tarts (12 pc)',
-        'Cupcake Tower – 40 Cupcakes',
-        "Custom Number Cake",
-        'Baby Shower Cake – Pastel Clouds',
-        'Corporate Order – 20 Mini Cakes',
-        'Anniversary Cake – Red Velvet',
-        'Graduation Cake',
-        'Retirement Cake',
-        'Bridal Shower Dessert Table',
-        "Valentine's Dessert Box",
-        'Christmas Cookie Box',
-        'Halloween Themed Cupcakes',
-        'Birthday Cake – Football Theme',
-        'Chocolate Drip Cake',
-        'Macaron Tower',
-        'Mini Cake Bundle (6 pc)',
+        'Rojstnodnevna torta – Tema Samorog',
+        '3-nadstropna poročna torta',
+        'Torta za razkritje spola',
+        'Torta za zaroko – Cvetlični dizajn',
+        'Škatla sladic – Mini tartice (12 kos)',
+        'Stolp iz muffinov – 40 kosov',
+        'Torta s številko po meri',
+        'Torta za baby shower – Pastelni oblaki',
+        'Naročilo za podjetje – 20 mini tort',
+        'Obletniška torta – Red Velvet',
+        'Torta za maturantski ples',
+        'Torta za upokojitev',
+        'Miza sladic za dekliščino',
+        'Škatla sladic za valentinovo',
+        'Škatla božičnih piškotov',
+        'Muffini za noč čarovnic',
+        'Rojstnodnevna torta – Nogometna tema',
+        'Čokoladna torta s prelivom',
+        'Stolp iz makronov',
+        'Paket mini tort (6 kos)',
     ];
 
-    private array $areas = ['downtown', 'the north side', 'Riverside', 'the city center', 'Oak Park'];
+    private array $areas = ['center mesta', 'severni del mesta', 'Ob Savi', 'mestno središče', 'Hrastov Park'];
 
     public function run(): void
     {
@@ -213,12 +213,12 @@ class BloomAndCrumbSeeder extends Seeder
     private function maybeNote(string $fullName): ?string
     {
         $notes = [
-            'Prefers vanilla sponge over chocolate.',
-            'Allergic to nuts — always double check recipe.',
-            'Loves pastel color palettes.',
-            'Referred by a previous customer.',
-            'Always books early, very organized.',
-            'Prefers pickup over delivery.',
+            'Raje ima vaniljev biskvit kot čokoladnega.',
+            'Alergična na oreščke — vedno preveri recept.',
+            'Obožuje pastelne barvne palete.',
+            'Priporočila jo je prejšnja stranka.',
+            'Vedno rezervira zgodaj, zelo organizirana.',
+            'Raje pride po naročilo osebno kot dostava.',
             null,
             null,
         ];
@@ -228,7 +228,7 @@ class BloomAndCrumbSeeder extends Seeder
 
     private function maybeTags(): ?array
     {
-        $pool = ['VIP', 'wedding', 'repeat customer', 'corporate', 'referral', 'local delivery'];
+        $pool = ['VIP', 'poroka', 'stalna stranka', 'podjetje', 'priporočilo', 'lokalna dostava'];
 
         if (rand(0, 2) === 0) {
             return null;
@@ -301,38 +301,38 @@ class BloomAndCrumbSeeder extends Seeder
         $area = $this->areas[array_rand($this->areas)];
 
         $enquiries = [
-            "Hi! Are you available for a {$product} on {$date}?",
-            "Hello! Do you make {$product}? We need something for about {$guests} guests.",
-            "Hi, I saw your {$product} on Instagram — do you deliver to {$area}?",
-            'Could you make something similar to this but in pink? [photo attached]',
-            "How much would a {$product} be for {$guests} people?",
-            "Hey! Loved your cakes, do you have availability around {$date}?",
-            'Hi! We need a cake for our daughter\'s 1st birthday, something with a bunny theme?',
-            "Hello, what's your price for a {$product} serving {$guests}?",
+            "Živjo! Ali ste na voljo za {$product} dne {$date}?",
+            "Pozdravljeni! Ali izdelujete {$product}? Potrebujemo nekaj za približno {$guests} gostov.",
+            "Živjo, videla sem vašo {$product} na Instagramu — dostavljate tudi v {$area}?",
+            'Bi lahko naredili nekaj podobnega temu, ampak v roza barvi? [priložena fotografija]',
+            "Koliko bi stala {$product} za {$guests} ljudi?",
+            "Pozdravljeni! Všeč so mi vaše torte, imate prosti termin okoli {$date}?",
+            'Živjo! Potrebujemo torto za prvi rojstni dan naše hčerke, nekaj s temo zajčka?',
+            "Pozdravljeni, kakšna je cena za {$product} za {$guests} oseb?",
         ];
 
         $businessReplies = [
-            "Hi {$firstName}! Thanks for reaching out 😊 Yes I have availability that week. What flavor were you thinking?",
-            "Hi! Congratulations 🎉 For {$guests} guests I'd recommend a {$product}, pricing would be around €{$price}.",
-            "Sure thing, I can definitely do a pink version! Let me put together a quote for you.",
-            "For {$guests} people that would be around €{$price}, that includes standard delivery.",
-            "Yes we deliver to {$area} for a small fee. When do you need it by?",
-            'That sounds lovely! I\'ll send over a couple of design options shortly.',
-            "Hi {$firstName}! We'd love to make that for you — the {$product} works out to about €{$price}.",
+            "Živjo {$firstName}! Hvala za povpraševanje 😊 Da, ta teden imam prosti termin. Kateri okus ste imeli v mislih?",
+            "Pozdravljeni! Čestitke 🎉 Za {$guests} gostov bi priporočila {$product}, cena bi bila okoli {$price} €.",
+            'Seveda, roza različico lahko brez težav naredim! Pripravila vam bom ponudbo.',
+            "Za {$guests} oseb bi to bilo okoli {$price} €, vključno s standardno dostavo.",
+            "Da, dostavljamo tudi v {$area} za majhen doplačilo. Do kdaj jo potrebujete?",
+            'To zveni čudovito! Kmalu vam pošljem nekaj predlogov dizajna.',
+            "Živjo {$firstName}! To bomo z veseljem pripravili — {$product} znese okoli {$price} €.",
         ];
 
         $confirmations = [
-            "Perfect, I'll take it!",
-            "That sounds great, let's go ahead!",
-            'Yes please, that works for us!',
-            "Amazing, thank you! Where can I send the deposit?",
-            'Sounds good, when do you need the deposit by?',
+            'Odlično, vzamem!',
+            'To zveni super, gremo naprej!',
+            'Da prosim, to nam ustreza!',
+            'Super, hvala! Kam lahko nakažem aro?',
+            'Zveni dobro, do kdaj potrebujete aro?',
         ];
 
         $depositInfo = [
-            "Great! You can send the €{$deposit} deposit via bank transfer, I'll send the details now.",
-            "You can pay via the link I'll send shortly — just the €{$deposit} deposit to confirm the date.",
-            "Perfect — €{$deposit} deposit secures the date, I'll send payment details over now.",
+            "Odlično! Aro v vrednosti {$deposit} € lahko nakažete na TRR, podatke pošljem takoj.",
+            "Plačate lahko preko povezave, ki jo pošljem v kratkem — samo {$deposit} € are za potrditev termina.",
+            "Odlično — {$deposit} € are zagotovi termin, podatke za plačilo pošljem takoj.",
         ];
 
         $thread = [];
@@ -453,8 +453,8 @@ class BloomAndCrumbSeeder extends Seeder
                     'amount_paid' => $amountPaid,
                     'payment_status' => $paymentStatus,
                     'status' => $status,
-                    'internal_notes' => rand(0, 3) === 0 ? 'Double-check allergy notes before baking.' : null,
-                    'customer_notes' => rand(0, 3) === 0 ? 'Please keep it dairy-free if possible.' : null,
+                    'internal_notes' => rand(0, 3) === 0 ? 'Pred peko še enkrat preveri opombe o alergijah.' : null,
+                    'customer_notes' => rand(0, 3) === 0 ? 'Prosimo, naj bo brez mlečnih izdelkov, če je mogoče.' : null,
                     'tags' => rand(0, 2) === 0 ? ['priority'] : null,
                 ]);
 
@@ -514,11 +514,11 @@ class BloomAndCrumbSeeder extends Seeder
     private function orderDescription(string $product): string
     {
         $descriptions = [
-            "Custom order — {$product}, flavor and design to be finalized with customer.",
-            "{$product} — vanilla sponge, buttercream finish unless noted otherwise.",
-            "{$product} — chocolate base, customer requested minimal decoration.",
-            "{$product} — includes delivery and setup at venue.",
-            "{$product} — pickup order, packaging included.",
+            "Naročilo po meri — {$product}, okus in dizajn se dokončno uskladita s stranko.",
+            "{$product} — vaniljev biskvit, prevleka iz maslene kreme, razen če ni drugače navedeno.",
+            "{$product} — čokoladna osnova, stranka je želela minimalne dekoracije.",
+            "{$product} — vključuje dostavo in postavitev na lokaciji.",
+            "{$product} — prevzem osebno, embalaža vključena.",
         ];
 
         return $descriptions[array_rand($descriptions)];
@@ -527,18 +527,18 @@ class BloomAndCrumbSeeder extends Seeder
     private function orderNoteBody(OrderStatus $status): string
     {
         $notes = [
-            OrderStatus::New->value => 'Waiting to confirm flavor preferences before quoting.',
-            OrderStatus::QuoteNeeded->value => 'Need to measure ingredient costs before sending a price.',
-            OrderStatus::QuoteSent->value => 'Quote sent, following up in a couple of days if no reply.',
-            OrderStatus::WaitingForCustomer->value => 'Customer said they need to check with their partner.',
-            OrderStatus::Confirmed->value => 'Deposit received, date locked in the calendar.',
-            OrderStatus::InProgress->value => 'Baking scheduled, decoration to follow the day before pickup.',
-            OrderStatus::Ready->value => 'Ready for pickup/delivery, customer notified.',
-            OrderStatus::Completed->value => 'Delivered without issues, customer was thrilled.',
-            OrderStatus::Cancelled->value => 'Customer cancelled due to change of plans.',
+            OrderStatus::New->value => 'Čakamo na potrditev želenega okusa pred pripravo ponudbe.',
+            OrderStatus::QuoteNeeded->value => 'Treba je preračunati stroške sestavin pred pošiljanjem cene.',
+            OrderStatus::QuoteSent->value => 'Ponudba poslana, sledi opomnik čez nekaj dni, če ni odgovora.',
+            OrderStatus::WaitingForCustomer->value => 'Stranka je povedala, da se mora dogovoriti s partnerjem.',
+            OrderStatus::Confirmed->value => 'Ara prejeta, datum zaklenjen v koledarju.',
+            OrderStatus::InProgress->value => 'Peka načrtovana, dekoracija sledi dan pred prevzemom.',
+            OrderStatus::Ready->value => 'Pripravljeno za prevzem/dostavo, stranka obveščena.',
+            OrderStatus::Completed->value => 'Dostavljeno brez težav, stranka je bila navdušena.',
+            OrderStatus::Cancelled->value => 'Stranka je odpovedala zaradi spremembe načrtov.',
         ];
 
-        return $notes[$status->value] ?? 'No additional notes.';
+        return $notes[$status->value] ?? 'Ni dodatnih opomb.';
     }
 
     private function createFollowUps($customers, $orders, $conversations): void
@@ -558,17 +558,17 @@ class BloomAndCrumbSeeder extends Seeder
 
             if ($type === 1) {
                 $customer = $customers->random();
-                $note = "Follow up with {$customer->full_name} about their quote";
+                $note = "Preveri ponudbo pri stranki {$customer->full_name}";
                 $followable = $customer;
             } elseif ($type === 2 && $orders->isNotEmpty()) {
                 $order = $orders->random();
-                $note = "Deposit reminder for {$order->customer->full_name} — {$order->title}";
+                $note = "Opomnik za aro — {$order->customer->full_name} — {$order->title}";
                 $followable = $order;
             } else {
                 $conversation = $conversations->random();
                 $name = $conversation->displayName();
                 $days = rand(2, 5);
-                $note = "{$name} hasn't replied for {$days} days";
+                $note = "{$name} se ni oglasil(a) že {$days} dni";
                 $followable = $conversation;
             }
 
@@ -591,7 +591,7 @@ class BloomAndCrumbSeeder extends Seeder
                 'subject_type' => Order::class,
                 'subject_id' => $order->id,
                 'type' => 'order_created',
-                'description' => "Order {$order->order_number} created for {$order->customer->full_name}",
+                'description' => "Naročilo {$order->order_number} ustvarjeno za stranko {$order->customer->full_name}",
             ], $order->created_at);
 
             if (in_array($order->status, [OrderStatus::Completed, OrderStatus::Confirmed, OrderStatus::Cancelled], true)) {
@@ -600,7 +600,7 @@ class BloomAndCrumbSeeder extends Seeder
                     'subject_type' => Order::class,
                     'subject_id' => $order->id,
                     'type' => 'status_changed',
-                    'description' => "Order {$order->order_number} marked as {$order->status->label()}",
+                    'description' => "Naročilo {$order->order_number} označeno kot {$order->status->label()}",
                 ], $order->created_at->copy()->addHours(rand(1, 48)));
             }
         }
@@ -611,7 +611,7 @@ class BloomAndCrumbSeeder extends Seeder
                 'subject_type' => Customer::class,
                 'subject_id' => $customer->id,
                 'type' => 'customer_created',
-                'description' => "{$customer->full_name} added as a customer",
+                'description' => "{$customer->full_name} dodan(a) kot stranka",
             ], $customer->first_contacted_at);
         }
     }

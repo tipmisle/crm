@@ -14,4 +14,9 @@ export type PageProps<
         user: User;
     };
     workspace: Workspace | null;
+    unreadInboxCount: number;
+    flash: {
+        success?: string | null;
+        error?: string | null;
+    };
 };

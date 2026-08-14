@@ -31,6 +31,8 @@ export type PaymentStatus =
     | 'partially_paid'
     | 'paid';
 
+export type AppointmentStatus = 'requested' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
+
 export type MessageSenderType = 'customer' | 'business' | 'system';
 export type MessageType = 'text' | 'image' | 'note' | 'system';
 
@@ -42,16 +44,21 @@ export interface Workspace {
     logo_path: string | null;
     timezone: string;
     currency: string;
+    orders_enabled: boolean;
+    appointments_enabled: boolean;
 }
 
 export interface Channel {
     id: number;
     workspace_id: number;
+    integration_id: number | null;
     type: ChannelType;
+    external_account_id: string | null;
     display_name: string | null;
     handle: string | null;
-    status: 'connected' | 'not_connected';
+    status: 'connected' | 'disconnected' | 'not_connected';
     connected_at: string | null;
+    last_synced_at: string | null;
 }
 
 export interface CustomerIdentity {
@@ -76,11 +83,22 @@ export interface Customer {
     last_interaction_at: string | null;
     identities?: CustomerIdentity[];
     orders?: Order[];
+    appointments?: Appointment[];
     conversations?: Conversation[];
     lifetime_spend?: number;
     open_orders_count?: number;
     completed_orders_count?: number;
     total_orders_count?: number;
+    appointments_lifetime_spend?: number;
+    previous_appointments_count?: number;
+    no_show_appointments_count?: number;
+}
+
+export type MessageStatus = 'pending' | 'sent' | 'failed' | 'delivered' | 'read';
+
+export interface MessageAttachment {
+    type: 'image' | 'video' | 'audio' | 'file';
+    url: string | null;
 }
 
 export interface Message {
@@ -88,8 +106,12 @@ export interface Message {
     conversation_id: number;
     sender_type: MessageSenderType;
     sender_user_id: number | null;
-    body: string;
+    external_message_id: string | null;
+    body: string | null;
     message_type: MessageType;
+    status: MessageStatus;
+    failure_reason: string | null;
+    metadata: { attachments?: MessageAttachment[] } | null;
     sent_at: string;
 }
 
@@ -166,4 +188,42 @@ export interface AuthUser {
     id: number;
     name: string;
     email: string;
+}
+
+export interface Service {
+    id: number;
+    workspace_id: number;
+    name: string;
+    description: string | null;
+    default_duration_minutes: number;
+    default_price: string | number | null;
+    default_deposit_amount: string | number | null;
+    active: boolean;
+}
+
+export interface Appointment {
+    id: number;
+    appointment_number: string;
+    customer_id: number;
+    customer?: Customer;
+    conversation_id: number | null;
+    conversation?: Conversation;
+    channel_id: number | null;
+    channel?: Channel;
+    service_id: number | null;
+    service?: Service;
+    service_name: string;
+    description: string | null;
+    appointment_date: string;
+    start_time: string;
+    duration_minutes: number;
+    price: string | number | null;
+    deposit_amount: string | number;
+    amount_paid: string | number;
+    payment_status: PaymentStatus;
+    status: AppointmentStatus;
+    internal_notes: string | null;
+    customer_notes: string | null;
+    tags: string[] | null;
+    created_at: string;
 }

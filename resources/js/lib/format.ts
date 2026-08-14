@@ -1,7 +1,7 @@
 export function formatMoney(amount: string | number, currency = 'EUR'): string {
     const value = typeof amount === 'string' ? parseFloat(amount) : amount;
 
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('sl-SI', {
         style: 'currency',
         currency,
         minimumFractionDigits: 2,
@@ -12,7 +12,7 @@ export function formatMoney(amount: string | number, currency = 'EUR'): string {
 export function formatDate(value: string | null | undefined, opts: Intl.DateTimeFormatOptions = {}): string {
     if (!value) return '—';
 
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('sl-SI', {
         month: 'short',
         day: 'numeric',
         ...opts,
@@ -22,7 +22,7 @@ export function formatDate(value: string | null | undefined, opts: Intl.DateTime
 export function formatDateTime(value: string | null | undefined): string {
     if (!value) return '—';
 
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('sl-SI', {
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
@@ -33,7 +33,7 @@ export function formatDateTime(value: string | null | undefined): string {
 export function formatTime(value: string | null | undefined): string {
     if (!value) return '—';
 
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('sl-SI', {
         hour: 'numeric',
         minute: '2-digit',
     }).format(new Date(value));
@@ -49,7 +49,7 @@ export function relativeTime(value: string | null | undefined): string {
     const diffHours = Math.round(diffMs / 3600000);
     const diffDays = Math.round(diffMs / 86400000);
 
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat('sl', { numeric: 'auto' });
 
     if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, 'minute');
     if (Math.abs(diffHours) < 24) return rtf.format(diffHours, 'hour');

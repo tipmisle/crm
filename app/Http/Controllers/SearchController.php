@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Order;
@@ -18,6 +19,7 @@ class SearchController extends Controller
             return response()->json(['results' => []]);
         }
 
+        $workspace = $request->user()->currentWorkspace;
         $results = collect();
 
         Customer::query()
@@ -30,26 +32,47 @@ class SearchController extends Controller
                     'type' => 'customer',
                     'id' => $customer->id,
                     'title' => $customer->full_name,
-                    'subtitle' => $customer->email ?? 'Customer',
+                    'subtitle' => $customer->email ?? 'Stranka',
                     'href' => route('customers.show', $customer),
                 ]);
             });
 
-        Order::query()
-            ->with('customer')
-            ->where('order_number', 'like', "%{$query}%")
-            ->orWhere('title', 'like', "%{$query}%")
-            ->limit(5)
-            ->get()
-            ->each(function (Order $order) use ($results) {
-                $results->push([
-                    'type' => 'order',
-                    'id' => $order->id,
-                    'title' => "{$order->order_number} · {$order->title}",
-                    'subtitle' => $order->customer->full_name,
-                    'href' => route('orders.show', $order),
-                ]);
-            });
+        if ($workspace->orders_enabled) {
+            Order::query()
+                ->with('customer')
+                ->where('order_number', 'like', "%{$query}%")
+                ->orWhere('title', 'like', "%{$query}%")
+                ->limit(5)
+                ->get()
+                ->each(function (Order $order) use ($results) {
+                    $results->push([
+                        'type' => 'order',
+                        'id' => $order->id,
+                        'title' => "{$order->order_number} · {$order->title}",
+                        'subtitle' => $order->customer->full_name,
+                        'href' => route('orders.show', $order),
+                    ]);
+                });
+        }
+
+        if ($workspace->appointments_enabled) {
+            Appointment::query()
+                ->with('customer')
+                ->where('appointment_number', 'like', "%{$query}%")
+                ->orWhere('service_name', 'like', "%{$query}%")
+                ->orWhereHas('customer', fn ($q) => $q->where('full_name', 'like', "%{$query}%"))
+                ->limit(5)
+                ->get()
+                ->each(function (Appointment $appointment) use ($results) {
+                    $results->push([
+                        'type' => 'appointment',
+                        'id' => $appointment->id,
+                        'title' => "{$appointment->appointment_number} · {$appointment->service_name}",
+                        'subtitle' => $appointment->customer->full_name,
+                        'href' => route('appointments.show', $appointment),
+                    ]);
+                });
+        }
 
         Conversation::query()
             ->with('customer')
@@ -63,7 +86,7 @@ class SearchController extends Controller
                     'type' => 'conversation',
                     'id' => $conversation->id,
                     'title' => $conversation->displayName(),
-                    'subtitle' => $conversation->last_message_preview ?? 'Conversation',
+                    'subtitle' => $conversation->last_message_preview ?? 'Pogovor',
                     'href' => route('inbox.show', $conversation),
                 ]);
             });

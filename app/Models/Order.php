@@ -97,6 +97,13 @@ class Order extends Model
             && ! in_array($this->status, [OrderStatus::Completed, OrderStatus::Cancelled], true);
     }
 
+    // Carbon's default JSON output ("2026-08-20T00:00:00.000000Z") doesn't
+    // match what an <input type="date"> can bind to — it needs plain Y-m-d.
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d');
+    }
+
     public function balanceDue(): float
     {
         return max(0, (float) $this->price - (float) $this->amount_paid);

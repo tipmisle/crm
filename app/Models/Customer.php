@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -55,6 +56,11 @@ class Customer extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
     public function followUps(): MorphMany
     {
         return $this->morphMany(FollowUp::class, 'followable');
@@ -86,6 +92,39 @@ class Customer extends Model
     public function completedOrdersCount(): int
     {
         return $this->orders()->where('status', OrderStatus::Completed->value)->count();
+    }
+
+    public function appointmentsLifetimeSpend(): float
+    {
+        return (float) $this->appointments()->sum('amount_paid');
+    }
+
+    public function previousAppointmentsCount(): int
+    {
+        return $this->appointments()->where('status', AppointmentStatus::Completed->value)->count();
+    }
+
+    public function noShowAppointmentsCount(): int
+    {
+        return $this->appointments()->where('status', AppointmentStatus::NoShow->value)->count();
+    }
+
+    public function upcomingAppointment(): ?Appointment
+    {
+        return $this->appointments()
+            ->whereIn('status', [AppointmentStatus::Requested->value, AppointmentStatus::Confirmed->value])
+            ->where('appointment_date', '>=', now()->toDateString())
+            ->orderBy('appointment_date')
+            ->orderBy('start_time')
+            ->first();
+    }
+
+    public function lastAppointment(): ?Appointment
+    {
+        return $this->appointments()
+            ->where('status', AppointmentStatus::Completed->value)
+            ->orderByDesc('appointment_date')
+            ->first();
     }
 
     public function initials(): string

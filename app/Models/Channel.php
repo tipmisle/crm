@@ -6,6 +6,7 @@ use App\Enums\ChannelType;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Channel extends Model
@@ -14,12 +15,20 @@ class Channel extends Model
 
     protected $fillable = [
         'workspace_id',
+        'integration_id',
         'type',
+        'external_account_id',
         'display_name',
         'handle',
         'status',
         'connected_at',
+        'last_synced_at',
         'metadata',
+        'access_token',
+    ];
+
+    protected $hidden = [
+        'access_token',
     ];
 
     protected function casts(): array
@@ -27,8 +36,15 @@ class Channel extends Model
         return [
             'type' => ChannelType::class,
             'connected_at' => 'datetime',
+            'last_synced_at' => 'datetime',
             'metadata' => 'array',
+            'access_token' => 'encrypted',
         ];
+    }
+
+    public function integration(): BelongsTo
+    {
+        return $this->belongsTo(Integration::class);
     }
 
     public function conversations(): HasMany

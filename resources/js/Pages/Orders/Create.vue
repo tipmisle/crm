@@ -34,38 +34,38 @@ function submit() {
 </script>
 
 <template>
-    <Head title="New order" />
+    <Head title="Novo naročilo" />
 
     <AppLayout>
         <template #header>
-            <h1 class="text-sm font-semibold text-neutral-900">New order</h1>
+            <h1 class="text-sm font-semibold text-neutral-900">Novo naročilo</h1>
         </template>
 
         <div class="mx-auto max-w-2xl px-6 py-8">
-            <h1 class="text-2xl font-semibold text-neutral-900">New order</h1>
+            <h1 class="text-2xl font-semibold text-neutral-900">Novo naročilo</h1>
 
             <div v-if="contactName" class="mt-3 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
                 <Avatar :name="contactName" size="sm" />
                 <div class="text-sm">
                     <span class="font-medium text-neutral-900">{{ contactName }}</span>
-                    <span v-if="!customer" class="ml-1 text-neutral-500">— will be added as a new customer</span>
+                    <span v-if="!customer" class="ml-1 text-neutral-500">— dodan bo kot nova stranka</span>
                 </div>
             </div>
 
             <form class="mt-6 space-y-5" @submit.prevent="submit">
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Order title</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Naslov naročila</label>
                     <input
                         v-model="form.title"
                         type="text"
-                        placeholder="e.g. Birthday Cake – Unicorn Theme"
+                        placeholder="npr. Torta za rojstni dan – tema samorog"
                         class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                     />
                     <p v-if="form.errors.title" class="mt-1 text-xs text-red-500">{{ form.errors.title }}</p>
                 </div>
 
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Description</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Opis</label>
                     <textarea
                         v-model="form.description"
                         rows="3"
@@ -75,7 +75,7 @@ function submit() {
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Due date</label>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Rok</label>
                         <input
                             v-model="form.due_date"
                             type="date"
@@ -83,7 +83,7 @@ function submit() {
                         />
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Due time (optional)</label>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Ura (neobvezno)</label>
                         <input
                             v-model="form.due_time"
                             type="time"
@@ -94,7 +94,7 @@ function submit() {
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Price</label>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Cena</label>
                         <input
                             v-model="form.price"
                             type="number"
@@ -106,7 +106,7 @@ function submit() {
                         <p v-if="form.errors.price" class="mt-1 text-xs text-red-500">{{ form.errors.price }}</p>
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Deposit (optional)</label>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Ara (neobvezno)</label>
                         <input
                             v-model="form.deposit_amount"
                             type="number"
@@ -119,21 +119,21 @@ function submit() {
                 </div>
 
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Customer notes</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Opombe stranke</label>
                     <textarea
                         v-model="form.customer_notes"
                         rows="2"
-                        placeholder="Anything the customer told you — allergies, preferences…"
+                        placeholder="Karkoli ti je stranka povedala — alergije, želje…"
                         class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                     />
                 </div>
 
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Internal notes</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Interne opombe</label>
                     <textarea
                         v-model="form.internal_notes"
                         rows="2"
-                        placeholder="Notes just for you"
+                        placeholder="Opombe samo zate"
                         class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                     />
                 </div>
@@ -144,7 +144,7 @@ function submit() {
                         :disabled="form.processing"
                         class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
                     >
-                        Create order
+                        Ustvari naročilo
                     </button>
                 </div>
             </form>

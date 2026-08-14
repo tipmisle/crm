@@ -39,21 +39,21 @@ watch(search, () => {
 </script>
 
 <template>
-    <Head title="Customers" />
+    <Head title="Stranke" />
 
     <AppLayout>
         <template #header>
-            <h1 class="text-sm font-semibold text-neutral-900">Customers</h1>
+            <h1 class="text-sm font-semibold text-neutral-900">Stranke</h1>
         </template>
 
         <div class="mx-auto max-w-5xl space-y-5 px-6 py-8">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-semibold text-neutral-900">Customers</h1>
+                <h1 class="text-2xl font-semibold text-neutral-900">Stranke</h1>
                 <Link
                     :href="route('customers.create')"
                     class="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
                 >
-                    <Plus :size="14" /> New customer
+                    <Plus :size="14" /> Nova stranka
                 </Link>
             </div>
 
@@ -62,7 +62,7 @@ watch(search, () => {
                 <input
                     v-model="search"
                     type="text"
-                    placeholder="Search customers…"
+                    placeholder="Iskanje po strankah…"
                     class="w-full max-w-sm rounded-md border border-neutral-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-neutral-400"
                 />
             </div>
@@ -71,12 +71,12 @@ watch(search, () => {
                 <table class="w-full text-sm">
                     <thead class="border-b border-neutral-100 bg-neutral-50 text-left text-xs font-medium text-neutral-500">
                         <tr>
-                            <th class="px-4 py-2.5">Customer</th>
-                            <th class="px-4 py-2.5">Contact</th>
-                            <th class="px-4 py-2.5">Last interaction</th>
-                            <th class="px-4 py-2.5">Orders</th>
-                            <th class="px-4 py-2.5">Lifetime value</th>
-                            <th class="px-4 py-2.5">Open orders</th>
+                            <th class="px-4 py-2.5">Stranka</th>
+                            <th class="px-4 py-2.5">Kontakt</th>
+                            <th class="px-4 py-2.5">Zadnji stik</th>
+                            <th class="px-4 py-2.5">Naročila</th>
+                            <th class="px-4 py-2.5">Skupna vrednost</th>
+                            <th class="px-4 py-2.5">Odprta naročila</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,7 +98,7 @@ watch(search, () => {
                             <td class="px-4 py-3 font-medium text-neutral-900">{{ formatMoney(customer.lifetime_spend) }}</td>
                             <td class="px-4 py-3">
                                 <Badge v-if="customer.open_orders_count" color="#0E7490" bg="#E0F7FA">
-                                    {{ customer.open_orders_count }} open
+                                    {{ customer.open_orders_count }} odprtih
                                 </Badge>
                                 <span v-else class="text-neutral-400">—</span>
                             </td>
@@ -107,7 +107,7 @@ watch(search, () => {
                 </table>
             </div>
 
-            <EmptyState v-else title="No customers found">
+            <EmptyState v-else title="Ni najdenih strank">
                 <template #icon><Users :size="28" /></template>
             </EmptyState>
 

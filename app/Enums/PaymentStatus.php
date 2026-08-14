@@ -13,11 +13,11 @@ enum PaymentStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Unpaid => 'Unpaid',
-            self::DepositDue => 'Deposit due',
-            self::DepositPaid => 'Deposit paid',
-            self::PartiallyPaid => 'Partially paid',
-            self::Paid => 'Paid',
+            self::Unpaid => 'Neplačano',
+            self::DepositDue => 'Čaka se ara',
+            self::DepositPaid => 'Ara plačana',
+            self::PartiallyPaid => 'Delno plačano',
+            self::Paid => 'Plačano',
         };
     }
 }

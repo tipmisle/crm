@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage, usePoll } from '@inertiajs/vue3';
+import { useEcho } from '@laravel/echo-vue';
+import type { PageProps } from '@/types';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
@@ -9,15 +11,16 @@ import MessageBubble from '@/Components/MessageBubble.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
 import Modal from '@/Components/Modal.vue';
-import { relativeTime, formatMoney, formatDate } from '@/lib/format';
+import { relativeTime, formatMoney, formatDate, formatTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
-import { Send, Plus, Bell, StickyNote, UserRound, Inbox as InboxIcon } from 'lucide-vue-next';
-import type { Channel, ConversationStatus } from '@/types/models';
+import { Send, Plus, Bell, StickyNote, UserRound, Inbox as InboxIcon, ExternalLink, Paperclip, Loader2, X, CalendarPlus } from 'lucide-vue-next';
+import type { Channel, ConversationStatus, Message } from '@/types/models';
 
 interface ConversationListItem {
     id: number;
     customer_id: number | null;
     display_name: string;
+    avatar_url: string | null;
     channel: Channel;
     status: ConversationStatus;
     last_message_preview: string | null;
@@ -37,6 +40,11 @@ interface CustomerContext {
     open_orders_count: number;
     current_open_order: { id: number; order_number: string; title: string } | null;
     last_order_date: string | null;
+    previous_appointments_count: number;
+    appointments_lifetime_spend: number;
+    no_show_appointments_count: number;
+    upcoming_appointment: { id: number; service_name: string; appointment_date: string; start_time: string } | null;
+    last_appointment: { id: number; service_name: string; appointment_date: string } | null;
 }
 
 interface ConversationDetail {
@@ -45,8 +53,12 @@ interface ConversationDetail {
     channel: Channel;
     customer_display_name: string | null;
     customer_username: string | null;
-    messages: { id: number; sender_type: string; body: string; sent_at: string }[];
+    avatar_url: string | null;
+    messages: Message[];
     customer: CustomerContext | null;
+    can_reply: boolean;
+    reply_unavailable_reason: string | null;
+    open_in_platform_url: string | null;
 }
 
 const props = defineProps<{
@@ -65,16 +77,105 @@ function scrollToBottom() {
 
 watch(() => props.conversation?.id, scrollToBottom, { immediate: true });
 
-function sendMessage() {
-    if (!props.conversation || !messageForm.body.trim()) return;
+// New messages arrive via a webhook in the background. A Reverb broadcast
+// (see App\Events\InboxMessageReceived) tells any open Inbox tab in this
+// workspace to refresh — no payload is trusted from the socket itself, it
+// only triggers a normal authorized Inertia reload of the same data.
+let previousMessageCount = props.conversation?.messages.length ?? 0;
 
-    messageForm.post(route('inbox.messages.store', props.conversation.id), {
+function refreshInbox() {
+    router.reload({
+        only: ['conversations', 'conversation'],
+        onFinish: () => {
+            const currentCount = props.conversation?.messages.length ?? 0;
+
+            if (currentCount > previousMessageCount) {
+                scrollToBottom();
+            }
+
+            previousMessageCount = currentCount;
+        },
+    });
+}
+
+const page = usePage<PageProps>();
+const workspaceId = computed(() => page.props.workspace?.id);
+const ordersEnabled = computed(() => page.props.workspace?.orders_enabled ?? true);
+const appointmentsEnabled = computed(() => page.props.workspace?.appointments_enabled ?? false);
+
+useEcho(`workspace.${workspaceId.value}.inbox`, 'message.received', refreshInbox);
+
+// Slow fallback in case the websocket connection drops silently (e.g. sleep/
+// network change) — Echo reconnects automatically, but this is a cheap safety
+// net so the Inbox never goes stale for long even if it doesn't.
+usePoll(30000, { only: ['conversations', 'conversation'] });
+
+// A picked attachment is only *staged* (previewed next to the input) until
+// the user clicks "Pošlji" — sending itself uses a separate form/processing
+// state from the text reply, so it never blocks typing/sending text.
+const attachmentInput = ref<HTMLInputElement | null>(null);
+const attachmentForm = useForm<{ attachment: File | null }>({ attachment: null });
+const stagedAttachmentPreviewUrl = ref<string | null>(null);
+const stagedAttachmentIsImage = ref(false);
+const pendingAttachmentPreviewUrl = ref<string | null>(null);
+const pendingAttachmentIsImage = ref(false);
+
+function pickAttachment() {
+    attachmentInput.value?.click();
+}
+
+function onAttachmentSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    if (!file) return;
+
+    attachmentForm.attachment = file;
+    stagedAttachmentIsImage.value = file.type.startsWith('image/');
+    if (stagedAttachmentPreviewUrl.value) URL.revokeObjectURL(stagedAttachmentPreviewUrl.value);
+    stagedAttachmentPreviewUrl.value = stagedAttachmentIsImage.value ? URL.createObjectURL(file) : null;
+}
+
+function clearStagedAttachment() {
+    attachmentForm.attachment = null;
+    if (attachmentInput.value) attachmentInput.value.value = '';
+    if (stagedAttachmentPreviewUrl.value) URL.revokeObjectURL(stagedAttachmentPreviewUrl.value);
+    stagedAttachmentPreviewUrl.value = null;
+}
+
+function sendAttachment() {
+    if (!props.conversation || !attachmentForm.attachment) return;
+
+    pendingAttachmentIsImage.value = stagedAttachmentIsImage.value;
+    pendingAttachmentPreviewUrl.value = stagedAttachmentPreviewUrl.value;
+    stagedAttachmentPreviewUrl.value = null; // ownership moves to the pending (in-thread) preview
+    scrollToBottom();
+
+    attachmentForm.post(route('inbox.messages.store', props.conversation.id), {
         preserveScroll: true,
-        onSuccess: () => {
-            messageForm.reset();
+        forceFormData: true,
+        onFinish: () => {
+            attachmentForm.reset();
+            if (attachmentInput.value) attachmentInput.value.value = '';
+            if (pendingAttachmentPreviewUrl.value) URL.revokeObjectURL(pendingAttachmentPreviewUrl.value);
+            pendingAttachmentPreviewUrl.value = null;
             scrollToBottom();
         },
     });
+}
+
+function sendMessage() {
+    if (!props.conversation || (!messageForm.body.trim() && !attachmentForm.attachment)) return;
+
+    if (attachmentForm.attachment) sendAttachment();
+
+    if (messageForm.body.trim()) {
+        messageForm.post(route('inbox.messages.store', props.conversation.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                messageForm.reset();
+                scrollToBottom();
+            },
+        });
+    }
 }
 
 function updateStatus(status: string) {
@@ -108,11 +209,11 @@ const followableType = computed(() =>
 </script>
 
 <template>
-    <Head title="Inbox" />
+    <Head title="Prejeta pošta" />
 
     <AppLayout>
         <template #header>
-            <h1 class="text-sm font-semibold text-neutral-900">Inbox</h1>
+            <h1 class="text-sm font-semibold text-neutral-900">Prejeta pošta</h1>
         </template>
 
         <div class="flex h-[calc(100vh-3.5rem)]">
@@ -125,7 +226,7 @@ const followableType = computed(() =>
                     :class="conversation?.id === c.id ? 'bg-[var(--color-accent-50)]' : ''"
                 >
                     <div class="relative shrink-0">
-                        <Avatar :name="c.display_name" size="md" />
+                        <Avatar :name="c.display_name" :src="c.avatar_url" size="md" />
                         <span class="absolute -bottom-0.5 -right-0.5">
                             <ChannelIcon :type="c.channel.type" />
                         </span>
@@ -147,7 +248,7 @@ const followableType = computed(() =>
                     </div>
                 </Link>
 
-                <EmptyState v-if="!conversations.length" title="No conversations yet" />
+                <EmptyState v-if="!conversations.length" title="Ni še pogovorov" />
             </div>
 
             <div class="flex flex-1 flex-col">
@@ -159,6 +260,16 @@ const followableType = computed(() =>
                                 {{ conversation.customer?.full_name ?? conversation.customer_display_name }}
                             </span>
                             <span class="text-xs text-neutral-400">{{ conversation.customer_username }}</span>
+                            <a
+                                v-if="conversation.open_in_platform_url"
+                                :href="conversation.open_in_platform_url"
+                                target="_blank"
+                                rel="noopener"
+                                title="Odpri v izvorni platformi"
+                                class="text-neutral-300 hover:text-neutral-500"
+                            >
+                                <ExternalLink :size="13" />
+                            </a>
                         </div>
 
                         <select
@@ -171,27 +282,89 @@ const followableType = computed(() =>
                     </div>
 
                     <div ref="threadEl" class="flex-1 space-y-3 overflow-y-auto px-5 py-5">
-                        <MessageBubble v-for="m in conversation.messages" :key="m.id" :message="(m as any)" />
+                        <MessageBubble v-for="m in conversation.messages" :key="m.id" :message="m" />
+
+                        <div v-if="attachmentForm.processing" class="flex justify-end">
+                            <div class="max-w-md space-y-2 rounded-2xl bg-[var(--color-accent-500)]/90 px-4 py-2.5">
+                                <img
+                                    v-if="pendingAttachmentIsImage && pendingAttachmentPreviewUrl"
+                                    :src="pendingAttachmentPreviewUrl"
+                                    class="max-h-64 rounded-lg opacity-70"
+                                />
+                                <p v-else class="text-sm text-white/90">📎 {{ attachmentForm.attachment?.name }}</p>
+                                <p class="flex items-center gap-1.5 text-[11px] text-white/80">
+                                    <Loader2 :size="11" class="animate-spin" /> Pošiljam …
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    <form class="flex items-center gap-2 border-t border-neutral-200 bg-white p-4" @submit.prevent="sendMessage">
+                    <form
+                        v-if="conversation.can_reply"
+                        class="border-t border-neutral-200 bg-white p-4"
+                        @submit.prevent="sendMessage"
+                    >
+                        <div
+                            v-if="attachmentForm.attachment && !attachmentForm.processing"
+                            class="mb-2 flex items-center gap-2 rounded-md bg-neutral-50 px-2.5 py-1.5 text-xs text-neutral-600"
+                        >
+                            <img v-if="stagedAttachmentPreviewUrl" :src="stagedAttachmentPreviewUrl" class="h-8 w-8 rounded object-cover" />
+                            <span class="flex-1 truncate">{{ attachmentForm.attachment.name }}</span>
+                            <button type="button" class="text-neutral-400 hover:text-neutral-700" @click="clearStagedAttachment">
+                                <X :size="14" />
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                        <input
+                            ref="attachmentInput"
+                            type="file"
+                            accept="image/*,video/*,.pdf,.doc,.docx"
+                            class="hidden"
+                            @change="onAttachmentSelected"
+                        />
+                        <button
+                            type="button"
+                            title="Priloži datoteko"
+                            class="flex shrink-0 items-center justify-center rounded-md border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                            @click="pickAttachment"
+                        >
+                            <Paperclip :size="16" />
+                        </button>
                         <input
                             v-model="messageForm.body"
                             type="text"
-                            placeholder="Type a reply…"
+                            placeholder="Napiši odgovor …"
                             class="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                         />
                         <button
                             type="submit"
-                            :disabled="messageForm.processing || !messageForm.body.trim()"
-                            class="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                            :disabled="messageForm.processing || (!messageForm.body.trim() && !attachmentForm.attachment)"
+                            class="flex min-w-24 items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
                         >
-                            <Send :size="14" /> Send
+                            <Loader2 v-if="messageForm.processing" :size="14" class="animate-spin" />
+                            <Send v-else :size="14" />
+                            {{ messageForm.processing ? 'Pošiljam …' : 'Pošlji' }}
                         </button>
+                        </div>
                     </form>
+                    <div v-else class="flex items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 p-4">
+                        <p class="text-sm text-neutral-500">
+                            {{ conversation.reply_unavailable_reason ?? 'Odgovor trenutno ni na voljo.' }}
+                        </p>
+                        <a
+                            v-if="conversation.open_in_platform_url"
+                            :href="conversation.open_in_platform_url"
+                            target="_blank"
+                            rel="noopener"
+                            class="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
+                        >
+                            <ExternalLink :size="12" /> Odpri v izvorni platformi
+                        </a>
+                    </div>
                 </template>
 
-                <EmptyState v-else title="Select a conversation" description="Choose a conversation from the list to see the thread.">
+                <EmptyState v-else title="Izberi pogovor" description="Izberi pogovor s seznama, da vidiš potek sporočil.">
                     <template #icon><InboxIcon :size="28" /></template>
                 </EmptyState>
             </div>
@@ -199,7 +372,7 @@ const followableType = computed(() =>
             <div v-if="conversation" class="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-5">
                 <template v-if="conversation.customer">
                     <div class="flex items-center gap-3">
-                        <Avatar :name="conversation.customer.full_name" size="lg" />
+                        <Avatar :name="conversation.customer.full_name" :src="conversation.avatar_url" size="lg" />
                         <div class="min-w-0">
                             <p class="truncate text-sm font-semibold text-neutral-900">{{ conversation.customer.full_name }}</p>
                             <p class="truncate text-xs text-neutral-500">{{ conversation.customer_username }}</p>
@@ -207,72 +380,101 @@ const followableType = computed(() =>
                     </div>
 
                     <div class="mt-4 space-y-1.5 text-sm">
-                        <p class="text-neutral-700"><span class="text-neutral-400">Email: </span>{{ conversation.customer.email ?? '—' }}</p>
-                        <p class="text-neutral-700"><span class="text-neutral-400">Phone: </span>{{ conversation.customer.phone ?? '—' }}</p>
+                        <p class="text-neutral-700"><span class="text-neutral-400">E-pošta: </span>{{ conversation.customer.email ?? '—' }}</p>
+                        <p class="text-neutral-700"><span class="text-neutral-400">Telefon: </span>{{ conversation.customer.phone ?? '—' }}</p>
                     </div>
 
                     <div v-if="conversation.customer.notes" class="mt-3 rounded-md bg-neutral-50 p-2.5 text-xs text-neutral-600">
                         {{ conversation.customer.notes }}
                     </div>
 
-                    <div class="mt-5 rounded-lg border border-neutral-200 p-3">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Business info</h3>
+                    <div v-if="ordersEnabled" class="mt-5 rounded-lg border border-neutral-200 p-3">
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Poslovni podatki</h3>
                         <div class="mt-2 space-y-1.5 text-sm text-neutral-700">
-                            <p>{{ conversation.customer.total_orders_count }} previous orders</p>
-                            <p>{{ formatMoney(conversation.customer.lifetime_spend) }} lifetime spend</p>
+                            <p>Prejšnjih naročil: {{ conversation.customer.total_orders_count }}</p>
+                            <p>Skupno porabljeno: {{ formatMoney(conversation.customer.lifetime_spend) }}</p>
                             <p v-if="conversation.customer.current_open_order">
-                                Open order:
+                                Odprto naročilo:
                                 <Link :href="route('orders.show', conversation.customer.current_open_order.id)" class="text-[var(--color-accent-600)] hover:underline">
                                     {{ conversation.customer.current_open_order.title }}
                                 </Link>
                             </p>
-                            <p v-if="conversation.customer.last_order_date">Last order {{ formatDate(conversation.customer.last_order_date) }}</p>
+                            <p v-if="conversation.customer.last_order_date">Zadnje naročilo {{ formatDate(conversation.customer.last_order_date) }}</p>
+                        </div>
+                    </div>
+
+                    <div v-if="appointmentsEnabled" class="mt-5 rounded-lg border border-neutral-200 p-3">
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Termini</h3>
+                        <div class="mt-2 space-y-1.5 text-sm text-neutral-700">
+                            <p>Prejšnjih terminov: {{ conversation.customer.previous_appointments_count }}</p>
+                            <p>Skupno porabljeno: {{ formatMoney(conversation.customer.appointments_lifetime_spend) }}</p>
+                            <p v-if="conversation.customer.no_show_appointments_count">Ni se zglasil/a: {{ conversation.customer.no_show_appointments_count }}×</p>
+                            <p v-if="conversation.customer.upcoming_appointment">
+                                Naslednji termin:
+                                <Link :href="route('appointments.show', conversation.customer.upcoming_appointment.id)" class="text-[var(--color-accent-600)] hover:underline">
+                                    {{ conversation.customer.upcoming_appointment.service_name }}
+                                </Link>
+                                — {{ formatDate(conversation.customer.upcoming_appointment.appointment_date) }} ·
+                                {{ formatTime(`2000-01-01T${conversation.customer.upcoming_appointment.start_time}`) }}
+                            </p>
+                            <p v-if="conversation.customer.last_appointment">
+                                Zadnji obisk: {{ formatDate(conversation.customer.last_appointment.appointment_date) }}
+                            </p>
                         </div>
                     </div>
 
                     <div class="mt-4 space-y-2">
                         <Link
+                            v-if="ordersEnabled"
                             :href="route('orders.create', { customer_id: conversation.customer.id, conversation_id: conversation.id })"
                             class="flex items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
                         >
-                            <Plus :size="14" /> Create order
+                            <Plus :size="14" /> Ustvari naročilo
+                        </Link>
+                        <Link
+                            v-if="appointmentsEnabled"
+                            :href="route('appointments.create', { customer_id: conversation.customer.id, conversation_id: conversation.id })"
+                            class="flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                            :class="ordersEnabled ? 'bg-neutral-700' : 'bg-neutral-900 hover:bg-neutral-800'"
+                        >
+                            <CalendarPlus :size="14" /> Rezerviraj termin
                         </Link>
                         <button
                             type="button"
                             class="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                             @click="noteModalOpen = true"
                         >
-                            <StickyNote :size="14" /> Add note
+                            <StickyNote :size="14" /> Dodaj opombo
                         </button>
                         <button
                             type="button"
                             class="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                             @click="followUpOpen = true"
                         >
-                            <Bell :size="14" /> Set follow-up
+                            <Bell :size="14" /> Nastavi opomnik
                         </button>
                         <Link
                             :href="route('customers.show', conversation.customer.id)"
                             class="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                         >
-                            <UserRound :size="14" /> View customer
+                            <UserRound :size="14" /> Ogled stranke
                         </Link>
                     </div>
                 </template>
 
                 <template v-else>
                     <div class="flex items-center gap-3">
-                        <Avatar :name="conversation.customer_display_name ?? 'Unknown'" size="lg" />
+                        <Avatar :name="conversation.customer_display_name ?? 'Neznano'" :src="conversation.avatar_url" size="lg" />
                         <div class="min-w-0">
                             <p class="truncate text-sm font-semibold text-neutral-900">{{ conversation.customer_display_name }}</p>
                             <p class="truncate text-xs text-neutral-500">{{ conversation.customer_username }}</p>
                         </div>
                     </div>
 
-                    <Badge class="mt-3" color="#B45309" bg="#FEF3C7">Potential customer</Badge>
+                    <Badge class="mt-3" color="#B45309" bg="#FEF3C7">Morebitna stranka</Badge>
 
                     <p class="mt-3 text-sm text-neutral-500">
-                        This person isn't a customer yet. Create a customer record to start tracking their orders and history.
+                        Ta oseba še ni stranka. Ustvari zapis stranke, da začneš slediti njenim naročilom in zgodovini.
                     </p>
 
                     <button
@@ -280,14 +482,22 @@ const followableType = computed(() =>
                         class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
                         @click="createCustomer"
                     >
-                        <Plus :size="14" /> Create customer
+                        <Plus :size="14" /> Ustvari stranko
                     </button>
 
                     <Link
+                        v-if="ordersEnabled"
                         :href="route('orders.create', { conversation_id: conversation.id })"
                         class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
-                        <Plus :size="14" /> Create order
+                        <Plus :size="14" /> Ustvari naročilo
+                    </Link>
+                    <Link
+                        v-if="appointmentsEnabled"
+                        :href="route('appointments.create', { conversation_id: conversation.id })"
+                        class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <CalendarPlus :size="14" /> Rezerviraj termin
                     </Link>
                 </template>
             </div>
@@ -298,29 +508,29 @@ const followableType = computed(() =>
             :show="followUpOpen"
             :followable-type="followableType"
             :followable-id="followableId"
-            :default-note="`Follow up with ${conversation.customer?.full_name ?? conversation.customer_display_name}`"
+            :default-note="`Opomnik za ${conversation.customer?.full_name ?? conversation.customer_display_name}`"
             @close="followUpOpen = false"
         />
 
         <Modal :show="noteModalOpen" max-width="sm" @close="noteModalOpen = false">
             <form class="p-6" @submit.prevent="submitNote">
-                <h2 class="text-base font-semibold text-neutral-900">Add a note</h2>
+                <h2 class="text-base font-semibold text-neutral-900">Dodaj opombo</h2>
                 <textarea
                     v-model="noteForm.note"
                     rows="4"
-                    placeholder="Add a note about this customer…"
+                    placeholder="Dodaj opombo o tej stranki …"
                     class="mt-3 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                 />
                 <div class="mt-4 flex justify-end gap-2">
                     <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100" @click="noteModalOpen = false">
-                        Cancel
+                        Prekliči
                     </button>
                     <button
                         type="submit"
                         :disabled="noteForm.processing"
                         class="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
                     >
-                        Save note
+                        Shrani opombo
                     </button>
                 </div>
             </form>

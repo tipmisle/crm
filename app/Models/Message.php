@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MessageSenderType;
+use App\Enums\MessageStatus;
 use App\Enums\MessageType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,9 @@ class Message extends Model
         'external_message_id',
         'body',
         'message_type',
+        'status',
+        'failed_at',
+        'failure_reason',
         'metadata',
         'sent_at',
     ];
@@ -28,6 +32,8 @@ class Message extends Model
         return [
             'sender_type' => MessageSenderType::class,
             'message_type' => MessageType::class,
+            'status' => MessageStatus::class,
+            'failed_at' => 'datetime',
             'metadata' => 'array',
             'sent_at' => 'datetime',
         ];

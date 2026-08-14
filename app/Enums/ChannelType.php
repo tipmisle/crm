@@ -18,8 +18,8 @@ enum ChannelType: string
             self::FacebookMessenger => 'Facebook Messenger',
             self::TikTok => 'TikTok',
             self::WhatsApp => 'WhatsApp',
-            self::Email => 'Email',
-            self::Website => 'Website',
+            self::Email => 'E-pošta',
+            self::Website => 'Spletna stran',
         };
     }
 

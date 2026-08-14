@@ -4,7 +4,7 @@ import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
-import { List, Plus } from 'lucide-vue-next';
+import { List, Plus, CalendarDays } from 'lucide-vue-next';
 import { formatMoney, formatDate } from '@/lib/format';
 import { ORDER_STATUS_ORDER, ORDER_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
 import type { Order, OrderStatus } from '@/types/models';
@@ -22,28 +22,34 @@ function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
 </script>
 
 <template>
-    <Head title="Orders" />
+    <Head title="Naročila" />
 
     <AppLayout>
         <template #header>
-            <h1 class="text-sm font-semibold text-neutral-900">Orders</h1>
+            <h1 class="text-sm font-semibold text-neutral-900">Naročila</h1>
         </template>
 
         <div class="flex h-[calc(100vh-3.5rem)] flex-col px-6 py-6">
             <div class="mb-4 flex items-center justify-between">
-                <h1 class="text-2xl font-semibold text-neutral-900">Orders</h1>
+                <h1 class="text-2xl font-semibold text-neutral-900">Naročila</h1>
                 <div class="flex items-center gap-2">
                     <Link
                         :href="route('orders.index')"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
-                        <List :size="14" /> List
+                        <List :size="14" /> Seznam
+                    </Link>
+                    <Link
+                        :href="route('orders.index', { view: 'calendar' })"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <CalendarDays :size="14" /> Koledar
                     </Link>
                     <Link
                         :href="route('orders.create')"
                         class="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
                     >
-                        <Plus :size="14" /> New order
+                        <Plus :size="14" /> Novo naročilo
                     </Link>
                 </div>
             </div>
@@ -76,7 +82,7 @@ function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
                                 class="block cursor-grab rounded-md border border-neutral-200 bg-white p-3 shadow-sm hover:border-neutral-300"
                             >
                                 <div class="flex items-center gap-2">
-                                    <Avatar :name="order.customer?.full_name ?? 'Customer'" size="xs" />
+                                    <Avatar :name="order.customer?.full_name ?? 'Stranka'" size="xs" />
                                     <span class="truncate text-sm font-medium text-neutral-900">{{ order.customer?.full_name }}</span>
                                 </div>
                                 <p class="mt-1.5 truncate text-sm text-neutral-700">{{ order.title }}</p>

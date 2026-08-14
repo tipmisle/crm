@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { Search, User, Package, MessageSquare } from 'lucide-vue-next';
+import { Search, User, Package, MessageSquare, CalendarDays } from 'lucide-vue-next';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ 'update:open': [boolean] }>();
 
 interface SearchResult {
-    type: 'customer' | 'order' | 'conversation';
+    type: 'customer' | 'order' | 'conversation' | 'appointment';
     id: number;
     title: string;
     subtitle: string;
@@ -77,7 +77,7 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => document.addEventListener('keydown', onKeydown));
 onUnmounted(() => document.removeEventListener('keydown', onKeydown));
 
-const iconFor = { customer: User, order: Package, conversation: MessageSquare };
+const iconFor = { customer: User, order: Package, conversation: MessageSquare, appointment: CalendarDays };
 </script>
 
 <template>
@@ -93,17 +93,17 @@ const iconFor = { customer: User, order: Package, conversation: MessageSquare };
                     ref="inputRef"
                     v-model="query"
                     type="text"
-                    placeholder="Search customers, orders, conversations…"
+                    placeholder="Iskanje strank, naročil, pogovorov …"
                     class="flex-1 border-0 text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
                 />
                 <kbd class="rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-400">Esc</kbd>
             </div>
 
             <div class="max-h-80 overflow-y-auto">
-                <div v-if="loading" class="px-4 py-6 text-center text-sm text-neutral-400">Searching…</div>
+                <div v-if="loading" class="px-4 py-6 text-center text-sm text-neutral-400">Iskanje …</div>
 
                 <div v-else-if="query && results.length === 0" class="px-4 py-6 text-center text-sm text-neutral-400">
-                    No results for "{{ query }}"
+                    Ni rezultatov za "{{ query }}"
                 </div>
 
                 <button
@@ -123,7 +123,7 @@ const iconFor = { customer: User, order: Package, conversation: MessageSquare };
                 </button>
 
                 <div v-if="!query" class="px-4 py-6 text-center text-sm text-neutral-400">
-                    Try searching for a customer name, order number, or conversation.
+                    Poskusite z imenom stranke, številko naročila ali pogovorom.
                 </div>
             </div>
         </div>

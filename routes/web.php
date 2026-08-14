@@ -1,14 +1,18 @@
 <?php
 
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\ConversationController;
+use App\Http\Controllers\Integrations\MetaIntegrationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderNoteController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TodayController;
+use App\Http\Controllers\Webhooks\MetaWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,16 +35,33 @@ Route::middleware('auth')->group(function () {
     Route::resource('orders', OrderController::class)->except(['edit']);
     Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
 
+    Route::middleware('appointments.enabled')->group(function () {
+        Route::resource('appointments', AppointmentController::class)->except(['edit']);
+        Route::resource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
+    });
+
     Route::post('/follow-ups', [FollowUpController::class, 'store'])->name('follow-ups.store');
     Route::patch('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
     Route::delete('/follow-ups/{followUp}', [FollowUpController::class, 'destroy'])->name('follow-ups.destroy');
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings/business', [SettingsController::class, 'update'])->name('settings.update');
+    Route::patch('/settings/capabilities', [SettingsController::class, 'updateCapabilities'])->name('settings.capabilities.update');
+
+    Route::get('/settings/integrations/meta/connect', [MetaIntegrationController::class, 'connect'])->name('integrations.meta.connect');
+    Route::get('/settings/integrations/meta/callback', [MetaIntegrationController::class, 'callback'])->name('integrations.meta.callback');
+    Route::post('/settings/integrations/meta/channels', [MetaIntegrationController::class, 'store'])->name('integrations.meta.store');
+    Route::delete('/settings/integrations/meta/pending', [MetaIntegrationController::class, 'cancel'])->name('integrations.meta.cancel');
+    Route::delete('/settings/integrations/meta/channels/{channel}', [MetaIntegrationController::class, 'destroy'])->name('integrations.meta.disconnect');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+// Meta calls these directly — no session, no auth, no CSRF (verified via
+// hub.verify_token on GET and X-Hub-Signature-256 on POST instead).
+Route::get('/webhooks/meta', [MetaWebhookController::class, 'verify'])->name('webhooks.meta.verify');
+Route::post('/webhooks/meta', [MetaWebhookController::class, 'handle'])->name('webhooks.meta.handle');
 
 require __DIR__.'/auth.php';

@@ -24,6 +24,11 @@ function updateStatus(status: string) {
     router.patch(route('orders.update', props.order.id), { status }, { preserveScroll: true });
 }
 
+function cancelOrder() {
+    if (!confirm(`Prekličeš naročilo ${props.order.order_number}?`)) return;
+    updateStatus('cancelled');
+}
+
 function updatePayment(payment_status: string) {
     router.patch(route('orders.update', props.order.id), { payment_status }, { preserveScroll: true });
 }
@@ -65,7 +70,7 @@ const followUpOpen = ref(false);
     <AppLayout>
         <template #header>
             <div class="flex items-center gap-2">
-                <Link :href="route('orders.index')" class="text-sm text-neutral-400 hover:text-neutral-600">Orders</Link>
+                <Link :href="route('orders.index')" class="text-sm text-neutral-400 hover:text-neutral-600">Naročila</Link>
                 <span class="text-neutral-300">/</span>
                 <span class="text-sm font-semibold text-neutral-900">{{ order.order_number }}</span>
             </div>
@@ -75,43 +80,43 @@ const followUpOpen = ref(false);
             <div class="mb-6 flex items-start justify-between">
                 <div>
                     <h1 class="text-2xl font-semibold text-neutral-900">{{ order.title }}</h1>
-                    <p class="mt-1 text-sm text-neutral-500">{{ order.order_number }} · Created {{ formatDate(order.created_at) }}</p>
+                    <p class="mt-1 text-sm text-neutral-500">{{ order.order_number }} · Ustvarjeno {{ formatDate(order.created_at) }}</p>
                 </div>
                 <button
                     type="button"
                     class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     @click="followUpOpen = true"
                 >
-                    <Bell :size="14" /> Set follow-up
+                    <Bell :size="14" /> Nastavi opomnik
                 </button>
             </div>
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Order details</h2>
-                        <p class="mt-2 text-sm text-neutral-700">{{ order.description || 'No description added.' }}</p>
+                        <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti naročila</h2>
+                        <p class="mt-2 text-sm text-neutral-700">{{ order.description || 'Opis ni dodan.' }}</p>
 
                         <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <h3 class="text-xs font-medium text-neutral-500">Customer notes</h3>
+                                <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
                                 <p class="mt-1 text-sm text-neutral-700">{{ order.customer_notes || '—' }}</p>
                             </div>
                             <div>
-                                <h3 class="text-xs font-medium text-neutral-500">Internal notes</h3>
+                                <h3 class="text-xs font-medium text-neutral-500">Interne opombe</h3>
                                 <p class="mt-1 text-sm text-neutral-700">{{ order.internal_notes || '—' }}</p>
                             </div>
                         </div>
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Notes</h2>
+                        <h2 class="text-sm font-semibold text-neutral-900">Opombe</h2>
 
                         <form class="mt-3 flex gap-2" @submit.prevent="submitNote">
                             <input
                                 v-model="noteForm.body"
                                 type="text"
-                                placeholder="Add a note about this order…"
+                                placeholder="Dodaj opombo o tem naročilu…"
                                 class="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                             />
                             <button
@@ -119,7 +124,7 @@ const followUpOpen = ref(false);
                                 :disabled="noteForm.processing"
                                 class="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
                             >
-                                Add
+                                Dodaj
                             </button>
                         </form>
 
@@ -127,15 +132,15 @@ const followUpOpen = ref(false);
                             <div v-for="note in order.notes" :key="note.id" class="rounded-lg bg-neutral-50 px-3 py-2.5">
                                 <p class="text-sm text-neutral-800">{{ note.body }}</p>
                                 <p class="mt-1 text-xs text-neutral-400">
-                                    {{ note.user?.name ?? 'You' }} · {{ formatDateTime(note.created_at) }}
+                                    {{ note.user?.name ?? 'Ti' }} · {{ formatDateTime(note.created_at) }}
                                 </p>
                             </div>
-                            <p v-if="!order.notes?.length" class="text-sm text-neutral-400">No notes yet.</p>
+                            <p v-if="!order.notes?.length" class="text-sm text-neutral-400">Še ni opomb.</p>
                         </div>
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Timeline</h2>
+                        <h2 class="text-sm font-semibold text-neutral-900">Časovnica</h2>
                         <div class="mt-3 space-y-3">
                             <div v-for="entry in activity" :key="entry.id" class="flex gap-2.5 text-sm">
                                 <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" />
@@ -150,23 +155,23 @@ const followUpOpen = ref(false);
                                 <div>
                                     <p class="text-neutral-700">{{ followUp.note }}</p>
                                     <p class="text-xs text-neutral-400">
-                                        Follow-up {{ followUp.completed_at ? 'completed' : 'due' }} {{ formatDateTime(followUp.due_at) }}
+                                        Opomnik {{ followUp.completed_at ? 'zaključen' : 'zapade' }} {{ formatDateTime(followUp.due_at) }}
                                     </p>
                                 </div>
                             </div>
 
-                            <p v-if="!activity.length && !followUps.length" class="text-sm text-neutral-400">No activity yet.</p>
+                            <p v-if="!activity.length && !followUps.length" class="text-sm text-neutral-400">Še ni aktivnosti.</p>
                         </div>
                     </section>
 
                     <section v-if="order.conversation" class="rounded-xl border border-neutral-200 bg-white p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Source conversation</h2>
+                            <h2 class="text-sm font-semibold text-neutral-900">Izvorni pogovor</h2>
                             <Link
                                 :href="route('inbox.show', order.conversation.id)"
                                 class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-600)] hover:underline"
                             >
-                                <MessageSquare :size="14" /> Open conversation
+                                <MessageSquare :size="14" /> Odpri pogovor
                             </Link>
                         </div>
                     </section>
@@ -174,7 +179,7 @@ const followUpOpen = ref(false);
 
                 <div class="space-y-5">
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Customer</h3>
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Stranka</h3>
                         <Link
                             :href="route('customers.show', order.customer!.id)"
                             class="mt-3 flex items-center gap-3 rounded-lg hover:bg-neutral-50 -mx-2 px-2 py-1.5"
@@ -188,7 +193,7 @@ const followUpOpen = ref(false);
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Status</h3>
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Status naročila</h3>
                         <select
                             :value="order.status"
                             class="mt-2 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
@@ -196,10 +201,18 @@ const followUpOpen = ref(false);
                         >
                             <option v-for="s in ORDER_STATUS_ORDER" :key="s" :value="s">{{ ORDER_STATUS_META[s as OrderStatus].label }}</option>
                         </select>
+                        <button
+                            v-if="order.status !== 'cancelled'"
+                            type="button"
+                            class="mt-2 w-full rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                            @click="cancelOrder"
+                        >
+                            Prekliči naročilo
+                        </button>
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Deadline</h3>
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Rok</h3>
                         <div class="mt-2 space-y-2">
                             <input
                                 v-model="deadlineForm.due_date"
@@ -216,29 +229,29 @@ const followUpOpen = ref(false);
                                 class="w-full rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
                                 @click="saveDeadline"
                             >
-                                Save deadline
+                                Shrani rok
                             </button>
                         </div>
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Payment</h3>
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Plačilo</h3>
                         <div class="mt-2 space-y-2">
-                            <label class="block text-xs text-neutral-500">Price</label>
+                            <label class="block text-xs text-neutral-500">Cena</label>
                             <input
                                 v-model="paymentForm.price"
                                 type="number"
                                 step="0.01"
                                 class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
                             />
-                            <label class="block text-xs text-neutral-500">Deposit</label>
+                            <label class="block text-xs text-neutral-500">Ara</label>
                             <input
                                 v-model="paymentForm.deposit_amount"
                                 type="number"
                                 step="0.01"
                                 class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
                             />
-                            <label class="block text-xs text-neutral-500">Amount paid</label>
+                            <label class="block text-xs text-neutral-500">Plačan znesek</label>
                             <input
                                 v-model="paymentForm.amount_paid"
                                 type="number"
@@ -250,7 +263,7 @@ const followUpOpen = ref(false);
                                 class="w-full rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
                                 @click="savePayment"
                             >
-                                Save payment
+                                Shrani plačilo
                             </button>
 
                             <select
@@ -264,7 +277,7 @@ const followUpOpen = ref(false);
                     </section>
 
                     <section v-if="order.channel" class="rounded-xl border border-neutral-200 bg-white p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Source</h3>
+                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Vir</h3>
                         <div class="mt-2 flex items-center gap-2">
                             <ChannelIcon :type="order.channel.type" size="md" />
                             <span class="text-sm text-neutral-700">{{ order.channel.display_name }}</span>
@@ -278,7 +291,7 @@ const followUpOpen = ref(false);
             :show="followUpOpen"
             followable-type="App\Models\Order"
             :followable-id="order.id"
-            :default-note="`Follow up on ${order.title}`"
+            :default-note="`Opomnik za naročilo: ${order.title}`"
             @close="followUpOpen = false"
         />
     </AppLayout>

@@ -48,3 +48,60 @@ function something()
 {
     // ..
 }
+
+/*
+|--------------------------------------------------------------------------
+| Messaging integration test helpers
+|--------------------------------------------------------------------------
+*/
+
+function createWorkspaceWithUser(array $userAttributes = []): array
+{
+    $workspace = \App\Models\Workspace::create([
+        'name' => 'Test Workspace',
+        'slug' => \Illuminate\Support\Str::random(10),
+        'timezone' => 'Europe/Ljubljana',
+        'currency' => 'EUR',
+    ]);
+
+    $user = \App\Models\User::factory()->create(array_merge([
+        'current_workspace_id' => $workspace->id,
+    ], $userAttributes));
+
+    \App\Models\WorkspaceMember::create([
+        'workspace_id' => $workspace->id,
+        'user_id' => $user->id,
+        'role' => 'owner',
+    ]);
+
+    return [$workspace, $user];
+}
+
+function createMetaChannel(
+    \App\Models\Workspace $workspace,
+    string $type = 'instagram',
+    string $externalAccountId = 'ig_123',
+    string $accessToken = 'test-page-token',
+    string $status = 'connected'
+): \App\Models\Channel {
+    $integration = \App\Models\Integration::create([
+        'workspace_id' => $workspace->id,
+        'provider' => 'meta',
+        'external_account_id' => 'meta_user_'.$workspace->id,
+        'status' => 'connected',
+        'access_token' => 'test-user-token',
+        'connected_at' => now(),
+    ]);
+
+    return \App\Models\Channel::create([
+        'workspace_id' => $workspace->id,
+        'integration_id' => $integration->id,
+        'type' => $type,
+        'external_account_id' => $externalAccountId,
+        'display_name' => 'Test Account',
+        'handle' => '@test',
+        'status' => $status,
+        'connected_at' => now(),
+        'access_token' => $accessToken,
+    ]);
+}

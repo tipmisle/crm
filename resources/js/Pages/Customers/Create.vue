@@ -15,19 +15,19 @@ function submit() {
 </script>
 
 <template>
-    <Head title="New customer" />
+    <Head title="Nova stranka" />
 
     <AppLayout>
         <template #header>
-            <h1 class="text-sm font-semibold text-neutral-900">New customer</h1>
+            <h1 class="text-sm font-semibold text-neutral-900">Nova stranka</h1>
         </template>
 
         <div class="mx-auto max-w-xl px-6 py-8">
-            <h1 class="text-2xl font-semibold text-neutral-900">New customer</h1>
+            <h1 class="text-2xl font-semibold text-neutral-900">Nova stranka</h1>
 
             <form class="mt-6 space-y-5" @submit.prevent="submit">
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Full name</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Polno ime</label>
                     <input
                         v-model="form.full_name"
                         type="text"
@@ -37,7 +37,7 @@ function submit() {
                 </div>
 
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Email</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">E-pošta</label>
                     <input
                         v-model="form.email"
                         type="email"
@@ -46,7 +46,7 @@ function submit() {
                 </div>
 
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Phone</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Telefon</label>
                     <input
                         v-model="form.phone"
                         type="text"
@@ -55,7 +55,7 @@ function submit() {
                 </div>
 
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Notes</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Opombe</label>
                     <textarea
                         v-model="form.notes"
                         rows="3"
@@ -68,7 +68,7 @@ function submit() {
                     :disabled="form.processing"
                     class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
                 >
-                    Create customer
+                    Ustvari stranko
                 </button>
             </form>
         </div>
