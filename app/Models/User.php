@@ -15,7 +15,7 @@ use NotificationChannels\WebPush\HasPushSubscriptions;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasPushSubscriptions;
+    use HasFactory, HasPushSubscriptions, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -29,7 +29,14 @@ class User extends Authenticatable
         'current_workspace_id',
         'avatar_path',
         'is_demo',
+        'is_active',
+        'deactivated_at',
     ];
+
+    // is_platform_admin is intentionally NOT mass-assignable — the only
+    // code path allowed to change it is the `admin:grant` console command
+    // (App\Console\Commands\GrantPlatformAdmin), which uses forceFill().
+    // There is no web UI and no controller that can set this attribute.
 
     /**
      * The attributes that should be hidden for serialization.
@@ -66,7 +73,20 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_demo' => 'boolean',
+            'is_platform_admin' => 'boolean',
+            'is_active' => 'boolean',
+            'deactivated_at' => 'datetime',
         ];
+    }
+
+    public function isPlatformAdmin(): bool
+    {
+        return (bool) $this->is_platform_admin;
+    }
+
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
     }
 
     public function currentWorkspace(): BelongsTo

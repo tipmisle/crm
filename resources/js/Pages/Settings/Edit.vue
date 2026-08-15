@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
@@ -248,6 +248,12 @@ function cancelPending() {
                         </p>
                     </div>
                 </div>
+            </SectionCard>
+
+            <SectionCard title="Podpora" subtitle="Dostop za podporo">
+                <Link :href="route('settings.support.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
+                    Upravljaj dostop za podporo →
+                </Link>
             </SectionCard>
         </div>
     </AppLayout>

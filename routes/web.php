@@ -16,6 +16,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\Settings\SupportAccessController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TodayController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
@@ -62,6 +63,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings/business', [SettingsController::class, 'update'])->name('settings.update');
     Route::patch('/settings/capabilities', [SettingsController::class, 'updateCapabilities'])->name('settings.capabilities.update');
+
+    Route::get('/settings/support', [SupportAccessController::class, 'edit'])->name('settings.support.edit');
+    Route::post('/settings/support', [SupportAccessController::class, 'store'])->name('settings.support.store');
+    Route::delete('/settings/support', [SupportAccessController::class, 'destroy'])->name('settings.support.destroy');
 
     Route::get('/settings/integrations/meta/connect', [MetaIntegrationController::class, 'connect'])->name('integrations.meta.connect');
     Route::get('/settings/integrations/meta/callback', [MetaIntegrationController::class, 'callback'])->name('integrations.meta.callback');

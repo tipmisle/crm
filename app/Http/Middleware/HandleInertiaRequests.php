@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Conversation;
+use App\Support\SupportSessionManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -32,6 +33,10 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        $activeSupportSession = $user?->isPlatformAdmin()
+            ? app(SupportSessionManager::class)->current($request)?->load(['workspace:id,name'])
+            : null;
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -41,6 +46,11 @@ class HandleInertiaRequests extends Middleware
             'unreadInboxCount' => $user?->current_workspace_id
                 ? (int) Conversation::where('unread_count', '>', 0)->sum('unread_count')
                 : 0,
+            'activeSupportSession' => $activeSupportSession ? [
+                'workspace' => $activeSupportSession->workspace,
+                'scope' => $activeSupportSession->scope->value,
+                'expires_at' => $activeSupportSession->expires_at,
+            ] : null,
             'vapidPublicKey' => config('webpush.vapid.public_key'),
             'flash' => [
                 'success' => $request->session()->get('success'),

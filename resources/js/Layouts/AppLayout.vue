@@ -16,6 +16,7 @@ import {
     Sparkles,
     Menu,
     BarChart3,
+    ShieldCheck,
 } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
 import Avatar from '@/Components/Avatar.vue';
@@ -142,6 +143,14 @@ onUnmounted(stopNavigateListener);
                 </button>
 
                 <div v-if="userMenuOpen" class="mt-1 space-y-0.5 rounded-md bg-white/5 p-1">
+                    <Link
+                        v-if="page.props.auth.user.is_platform_admin"
+                        :href="route('admin.dashboard')"
+                        class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-neutral-300 hover:bg-white/10"
+                    >
+                        <ShieldCheck :size="14" />
+                        Admin
+                    </Link>
                     <Link
                         :href="route('profile.edit')"
                         class="block rounded-md px-2.5 py-1.5 text-sm text-neutral-300 hover:bg-white/10"

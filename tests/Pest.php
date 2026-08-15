@@ -1,6 +1,13 @@
 <?php
 
+use App\Models\Channel;
+use App\Models\Integration;
+use App\Models\SupportAccessGrant;
+use App\Models\User;
+use App\Models\Workspace;
+use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -57,18 +64,18 @@ function something()
 
 function createWorkspaceWithUser(array $userAttributes = []): array
 {
-    $workspace = \App\Models\Workspace::create([
+    $workspace = Workspace::create([
         'name' => 'Test Workspace',
-        'slug' => \Illuminate\Support\Str::random(10),
+        'slug' => Str::random(10),
         'timezone' => 'Europe/Ljubljana',
         'currency' => 'EUR',
     ]);
 
-    $user = \App\Models\User::factory()->create(array_merge([
+    $user = User::factory()->create(array_merge([
         'current_workspace_id' => $workspace->id,
     ], $userAttributes));
 
-    \App\Models\WorkspaceMember::create([
+    WorkspaceMember::create([
         'workspace_id' => $workspace->id,
         'user_id' => $user->id,
         'role' => 'owner',
@@ -78,13 +85,13 @@ function createWorkspaceWithUser(array $userAttributes = []): array
 }
 
 function createMetaChannel(
-    \App\Models\Workspace $workspace,
+    Workspace $workspace,
     string $type = 'instagram',
     string $externalAccountId = 'ig_123',
     string $accessToken = 'test-page-token',
     string $status = 'connected'
-): \App\Models\Channel {
-    $integration = \App\Models\Integration::create([
+): Channel {
+    $integration = Integration::create([
         'workspace_id' => $workspace->id,
         'provider' => 'meta',
         'external_account_id' => 'meta_user_'.$workspace->id,
@@ -93,7 +100,7 @@ function createMetaChannel(
         'connected_at' => now(),
     ]);
 
-    return \App\Models\Channel::create([
+    return Channel::create([
         'workspace_id' => $workspace->id,
         'integration_id' => $integration->id,
         'type' => $type,
@@ -103,5 +110,31 @@ function createMetaChannel(
         'status' => $status,
         'connected_at' => now(),
         'access_token' => $accessToken,
+    ]);
+}
+
+function createPlatformAdmin(array $attributes = []): User
+{
+    $user = User::factory()->create(array_merge([
+        'current_workspace_id' => null,
+    ], $attributes));
+
+    $user->forceFill(['is_platform_admin' => true])->save();
+
+    return $user->fresh();
+}
+
+function createSupportGrant(
+    Workspace $workspace,
+    User $grantedBy,
+    string $scope = 'workspace_content',
+    int $minutes = 60
+): SupportAccessGrant {
+    return SupportAccessGrant::create([
+        'workspace_id' => $workspace->id,
+        'granted_by_user_id' => $grantedBy->id,
+        'granted_at' => now(),
+        'expires_at' => now()->addMinutes($minutes),
+        'scope' => $scope,
     ]);
 }

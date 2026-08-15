@@ -91,4 +91,19 @@ class Workspace extends Model
     {
         return $this->hasMany(ActivityLog::class);
     }
+
+    public function integrations(): HasMany
+    {
+        return $this->hasMany(Integration::class);
+    }
+
+    public function supportAccessGrants(): HasMany
+    {
+        return $this->hasMany(SupportAccessGrant::class);
+    }
+
+    public function currentSupportAccessGrant(): ?SupportAccessGrant
+    {
+        return $this->supportAccessGrants()->active()->orderByDesc('expires_at')->first();
+    }
 }
