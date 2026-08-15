@@ -23,22 +23,31 @@ import {
     Phone,
     CalendarDays,
     StickyNote,
+    Paperclip,
+    SendHorizontal,
 } from 'lucide-vue-next';
 
 // Hero mockup animation: a small state machine that loops through the
-// "DM -> reply -> reference photo -> order created -> remembers customer"
-// story. Each phase's duration is deliberately uneven so it reads as a
-// live product rather than a metronome. Message bubbles live inside a
-// fixed-height, bottom-anchored thread so the mockup's overall height
-// never changes and nothing below it on the page jumps as it loops.
+// "DM -> reply -> reference photo -> order popup -> order created ->
+// remembers customer" story. Each phase's duration is deliberately uneven
+// so it reads as a live product rather than a metronome. Message bubbles
+// live inside a fixed-height, bottom-anchored thread so the mockup's
+// overall height never changes and nothing below it on the page jumps as
+// it loops.
 const HERO_PHASES = [
     { name: 'idle', duration: 1000 },
     { name: 'incoming', duration: 1600 },
     { name: 'typing', duration: 900 },
     { name: 'reply', duration: 1700 },
     { name: 'photo', duration: 1900 },
-    { name: 'create', duration: 1100 },
-    { name: 'created', duration: 1900 },
+    { name: 'popup-open', duration: 700 },
+    { name: 'popup-fill', duration: 1500 },
+    { name: 'popup-confirm', duration: 700 },
+    { name: 'created', duration: 1500 },
+    { name: 'followup-typing', duration: 900 },
+    { name: 'followup', duration: 2000 },
+    { name: 'thanks', duration: 1400 },
+    { name: 'react', duration: 1800 },
     { name: 'remember', duration: 1600 },
 ] as const;
 
@@ -57,7 +66,7 @@ function scheduleHeroPhase() {
 onMounted(() => {
     prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion.value) {
-        heroPhase.value = 6; // polished static end-state: conversation, photo and order all resolved
+        heroPhase.value = 12; // polished static end-state: conversation, order, thanks and reaction all resolved
     } else {
         scheduleHeroPhase();
     }
@@ -68,14 +77,46 @@ onUnmounted(() => {
 });
 
 const showUnreadFlash = computed(() => heroPhase.value === 1);
-const showMsg1 = computed(() => heroPhase.value >= 1);
-const showTyping = computed(() => heroPhase.value === 2);
-const showReply = computed(() => heroPhase.value >= 3);
-const showMsg3 = computed(() => heroPhase.value >= 4);
+const showTyping = computed(() => heroPhase.value === 2 || heroPhase.value === 9);
 const highlightCreateBtn = computed(() => heroPhase.value === 5);
-const showOrderCard = computed(() => heroPhase.value >= 6);
-const showCreatedBadge = computed(() => heroPhase.value === 6);
-const highlightStats = computed(() => heroPhase.value === 7);
+const showPopup = computed(() => heroPhase.value >= 5 && heroPhase.value <= 7);
+const popupFilled = computed(() => heroPhase.value >= 6);
+const popupConfirming = computed(() => heroPhase.value === 7);
+const showOrderCard = computed(() => heroPhase.value >= 8);
+const showCreatedBadge = computed(() => heroPhase.value === 8);
+const showThanksReaction = computed(() => heroPhase.value >= 12);
+const heroDepositBadge = computed(() =>
+    heroPhase.value >= 11
+        ? PAYMENT_STATUS_META.paid
+        : { label: 'Neplačana ara', color: PAYMENT_STATUS_META.deposit_due.color, bg: PAYMENT_STATUS_META.deposit_due.bg },
+);
+
+type HeroMessage = { id: string; from: 'them' | 'me'; type: 'text' | 'photo'; text: string };
+
+const heroMessages = computed<HeroMessage[]>(() => {
+    const list: HeroMessage[] = [];
+    if (heroPhase.value >= 1) {
+        list.push({ id: 'm1', from: 'them', type: 'text', text: 'Živjo! Bi bilo možno naročiti torto za 30. avgust? Nekaj za približno 20 ljudi 😊' });
+    }
+    if (heroPhase.value >= 3) {
+        list.push({ id: 'm2', from: 'me', type: 'text', text: 'Seveda 😊 Kakšen stil ste imela pa v mislih in kdo praznuje? 😊' });
+    }
+    if (heroPhase.value >= 4) {
+        list.push({ id: 'm3', from: 'them', type: 'photo', text: 'Za hčerkin 10. rojstni dan. Tole bi mi bilo všeč:' });
+    }
+    if (heroPhase.value >= 10) {
+        list.push({
+            id: 'm4',
+            from: 'me',
+            type: 'text',
+            text: 'Ni problema! 😊 Ara je 20 €, prevzamete pa lahko 30. avgusta ob 8:00, vam tako odgovarja? :)',
+        });
+    }
+    if (heroPhase.value >= 11) {
+        list.push({ id: 'm5', from: 'them', type: 'text', text: 'Odlično! Nakazano, se že veselim 🥰' });
+    }
+    return list;
+});
 
 // Placeholder — swap when pricing is finalized. Referenced only here.
 const MONTHLY_PRICE = '19 €';
@@ -171,7 +212,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
             <!-- Hero visual: full-bleed real product composition -->
             <Reveal :delay="150">
                 <div class="relative mx-auto mt-12 max-w-6xl px-2 sm:mt-16 sm:px-6">
-                    <div class="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-2xl shadow-black/40 ring-1 ring-white/10 sm:rounded-3xl">
+                    <div class="relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-2xl shadow-black/40 ring-1 ring-white/10 sm:rounded-3xl">
                         <div class="flex h-12 shrink-0 items-center border-b border-neutral-200 bg-white px-5">
                             <span class="text-sm font-semibold text-neutral-900">Prejeta pošta</span>
                         </div>
@@ -219,61 +260,70 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                     </div>
                                 </div>
 
-                                <div class="flex h-72 flex-col justify-end gap-3 overflow-hidden px-5 py-6">
-                                    <Transition
-                                        enter-active-class="transition duration-300 ease-out"
-                                        enter-from-class="translate-y-2 opacity-0"
-                                    >
-                                        <div v-if="showMsg1" class="flex justify-start">
-                                            <div class="max-w-[85%] rounded-2xl rounded-bl-sm bg-neutral-100 px-4 py-2.5 text-sm text-neutral-800">
-                                                Živjo! Bi bilo možno naročiti torto za 30. avgust? Nekaj za približno
-                                                20 ljudi 😊
-                                            </div>
+                                <TransitionGroup
+                                    tag="div"
+                                    class="relative flex h-72 flex-col justify-end gap-3 overflow-hidden px-5 py-6"
+                                    enter-active-class="transition duration-400 ease-out"
+                                    enter-from-class="translate-y-3 opacity-0"
+                                    leave-active-class="absolute inset-x-5 transition duration-300 ease-in"
+                                    leave-to-class="opacity-0"
+                                    move-class="transition-transform duration-400 ease-out"
+                                >
+                                    <div v-for="msg in heroMessages" :key="msg.id" class="flex" :class="msg.from === 'them' ? 'justify-start' : 'justify-end'">
+                                        <div
+                                            v-if="msg.type === 'text'"
+                                            class="relative max-w-[85%] rounded-2xl px-4 py-2.5 text-sm"
+                                            :class="
+                                                msg.from === 'them'
+                                                    ? 'rounded-bl-sm bg-neutral-100 text-neutral-800'
+                                                    : 'rounded-br-sm bg-[var(--color-accent-500)] text-white'
+                                            "
+                                        >
+                                            {{ msg.text }}
+                                            <Transition
+                                                enter-active-class="transition duration-200 ease-out"
+                                                enter-from-class="scale-0 opacity-0"
+                                            >
+                                                <span
+                                                    v-if="msg.id === 'm5' && showThanksReaction"
+                                                    class="absolute -right-1.5 -bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] shadow ring-1 ring-black/5"
+                                                >
+                                                    ❤️
+                                                </span>
+                                            </Transition>
                                         </div>
-                                    </Transition>
+                                        <div v-else class="max-w-[85%] space-y-2 rounded-2xl rounded-bl-sm bg-neutral-100 px-4 py-2.5 text-sm text-neutral-800">
+                                            <p>{{ msg.text }}</p>
+                                            <CakeThumbnail :size="76" />
+                                        </div>
+                                    </div>
 
-                                    <Transition
-                                        enter-active-class="transition duration-200 ease-out"
-                                        enter-from-class="translate-y-1 opacity-0"
-                                        leave-active-class="transition duration-150 ease-in"
-                                        leave-to-class="opacity-0"
-                                    >
-                                        <div v-if="showTyping" class="flex justify-end">
-                                            <div class="flex items-center gap-1 rounded-2xl rounded-br-sm bg-[var(--color-accent-500)]/15 px-4 py-3">
-                                                <span class="typing-dot h-1.5 w-1.5 rounded-full bg-[var(--color-accent-500)]" style="animation-delay: 0ms" />
-                                                <span class="typing-dot h-1.5 w-1.5 rounded-full bg-[var(--color-accent-500)]" style="animation-delay: 150ms" />
-                                                <span class="typing-dot h-1.5 w-1.5 rounded-full bg-[var(--color-accent-500)]" style="animation-delay: 300ms" />
-                                            </div>
+                                    <div v-if="showTyping" key="typing" class="flex justify-end">
+                                        <div class="flex items-center gap-1 rounded-2xl rounded-br-sm bg-[var(--color-accent-500)]/15 px-4 py-3">
+                                            <span class="typing-dot h-1.5 w-1.5 rounded-full bg-[var(--color-accent-500)]" style="animation-delay: 0ms" />
+                                            <span class="typing-dot h-1.5 w-1.5 rounded-full bg-[var(--color-accent-500)]" style="animation-delay: 150ms" />
+                                            <span class="typing-dot h-1.5 w-1.5 rounded-full bg-[var(--color-accent-500)]" style="animation-delay: 300ms" />
                                         </div>
-                                    </Transition>
-
-                                    <Transition
-                                        enter-active-class="transition duration-300 ease-out"
-                                        enter-from-class="translate-y-2 opacity-0"
-                                    >
-                                        <div v-if="showReply" class="flex justify-end">
-                                            <div class="max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--color-accent-500)] px-4 py-2.5 text-sm text-white">
-                                                Seveda — za 20 ljudi bi bila cena 85 €, ara pa 20 €. Za koga praznujete? 🎂
-                                            </div>
-                                        </div>
-                                    </Transition>
-
-                                    <Transition
-                                        enter-active-class="transition duration-300 ease-out"
-                                        enter-from-class="translate-y-2 opacity-0"
-                                    >
-                                        <div v-if="showMsg3" class="flex justify-start">
-                                            <div class="max-w-[85%] space-y-2 rounded-2xl rounded-bl-sm bg-neutral-100 px-4 py-2.5 text-sm text-neutral-800">
-                                                <p>Za hčerkin 10. rojstni dan. Poslala bi vam še sliko, kakšen stil imam v mislih.</p>
-                                                <CakeThumbnail :size="76" />
-                                            </div>
-                                        </div>
-                                    </Transition>
-                                </div>
+                                    </div>
+                                </TransitionGroup>
 
                                 <div class="border-t border-neutral-100 px-5 py-3.5">
-                                    <div class="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2.5">
-                                        <span class="text-sm text-neutral-400">Napiši sporočilo …</span>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 transition hover:text-neutral-600"
+                                        >
+                                            <Paperclip :size="15" />
+                                        </button>
+                                        <div class="flex flex-1 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3.5 py-2.5">
+                                            <span class="text-sm text-neutral-400">Napiši sporočilo …</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--color-accent-500)] px-3.5 py-2.5 text-xs font-semibold text-white"
+                                        >
+                                            <SendHorizontal :size="14" /> Pošlji
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -299,51 +349,37 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                 <div class="mt-4 border-t border-neutral-200 pt-3">
                                     <p class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase">Poslovni podatki</p>
                                     <dl class="mt-2 space-y-1.5 text-xs">
-                                        <div
-                                            class="flex items-center justify-between rounded transition-colors duration-500"
-                                            :class="highlightStats && '-mx-1 bg-[var(--color-accent-50)] px-1'"
-                                        >
+                                        <div class="flex items-center justify-between rounded">
                                             <dt class="text-neutral-500">Prejšnja naročila</dt>
                                             <dd class="font-medium text-neutral-800">3</dd>
                                         </div>
-                                        <div
-                                            class="flex items-center justify-between rounded transition-colors duration-500"
-                                            :class="highlightStats && '-mx-1 bg-[var(--color-accent-50)] px-1'"
-                                        >
+                                        <div class="flex items-center justify-between rounded">
                                             <dt class="text-neutral-500">Skupaj porabljeno</dt>
                                             <dd class="font-medium text-neutral-800">248 €</dd>
                                         </div>
-                                        <div
-                                            class="flex items-center justify-between rounded transition-colors duration-500"
-                                            :class="highlightStats && '-mx-1 bg-[var(--color-accent-50)] px-1'"
-                                        >
+                                        <div class="flex items-center justify-between rounded">
                                             <dt class="text-neutral-500">Zadnje naročilo</dt>
-                                            <dd class="font-medium text-neutral-800">9. jul.</dd>
+                                            <dd class="font-medium text-neutral-800">{{ showOrderCard ? '30. avgust' : '9. jul.' }}</dd>
                                         </div>
                                     </dl>
                                 </div>
 
-                                <div class="relative mt-4 min-h-[104px]">
-                                    <Transition
-                                        enter-active-class="transition duration-300 ease-out"
-                                        enter-from-class="opacity-0"
-                                        leave-active-class="transition duration-200 ease-in"
-                                        leave-to-class="opacity-0"
-                                    >
-                                        <div
-                                            v-if="!showOrderCard"
-                                            class="absolute inset-0 flex items-center justify-center rounded-lg border border-dashed border-neutral-300 px-3 text-center text-[11px] text-neutral-400"
-                                        >
-                                            Naročilo še ni ustvarjeno
-                                        </div>
-                                    </Transition>
+                                <div class="mt-4">
                                     <Transition
                                         enter-active-class="transition duration-300 ease-out"
                                         enter-from-class="translate-y-1 opacity-0"
                                         leave-active-class="transition duration-200 ease-in"
                                         leave-to-class="opacity-0"
+                                        mode="out-in"
                                     >
-                                        <div v-if="showOrderCard" class="absolute inset-0 rounded-lg border border-neutral-200 bg-white p-3.5">
+                                        <div
+                                            v-if="!showOrderCard"
+                                            key="empty"
+                                            class="flex min-h-[104px] items-center justify-center rounded-lg border border-dashed border-neutral-300 px-3 text-center text-[11px] text-neutral-400"
+                                        >
+                                            Naročilo še ni ustvarjeno
+                                        </div>
+                                        <div v-else key="order" class="min-h-[104px] rounded-lg border border-neutral-200 bg-white p-3.5">
                                             <div class="flex items-center justify-between">
                                                 <p class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase">
                                                     Aktivno naročilo
@@ -363,7 +399,15 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                             <p class="mt-0.5 text-xs text-neutral-500">30. avgust</p>
                                             <div class="mt-2.5 flex items-center justify-between text-xs">
                                                 <span class="font-semibold text-neutral-900">85 €</span>
-                                                <Badge :color="depositPaid.color" :bg="depositPaid.bg">Ara 20 €</Badge>
+                                                <Transition
+                                                    enter-active-class="transition duration-200 ease-out"
+                                                    enter-from-class="scale-90 opacity-0"
+                                                    mode="out-in"
+                                                >
+                                                    <Badge :key="heroDepositBadge.label" :color="heroDepositBadge.color" :bg="heroDepositBadge.bg">
+                                                        {{ heroDepositBadge.label }}
+                                                    </Badge>
+                                                </Transition>
                                             </div>
                                         </div>
                                     </Transition>
@@ -393,6 +437,66 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                 <Bell :size="13" /> Nastavi opomnik
                             </button>
                         </div>
+
+                        <Transition
+                            enter-active-class="transition duration-200 ease-out"
+                            enter-from-class="opacity-0"
+                            leave-active-class="transition duration-200 ease-in"
+                            leave-to-class="opacity-0"
+                        >
+                            <div v-if="showPopup" class="absolute inset-0 z-10 flex items-center justify-center bg-neutral-900/30 backdrop-blur-[1px]">
+                                <Transition
+                                    appear
+                                    enter-active-class="transition duration-250 ease-out"
+                                    enter-from-class="translate-y-2 scale-95 opacity-0"
+                                >
+                                    <div class="w-72 rounded-xl bg-white p-5 shadow-2xl ring-1 ring-black/5">
+                                        <p class="text-sm font-semibold text-neutral-900">Novo naročilo</p>
+
+                                        <div class="mt-3 space-y-2">
+                                            <div class="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-xs">
+                                                <span class="text-neutral-400">Izdelek</span>
+                                                <span class="font-medium text-neutral-900">Rojstnodnevna torta</span>
+                                            </div>
+                                            <div class="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-xs">
+                                                <span class="text-neutral-400">Rok</span>
+                                                <span class="font-medium text-neutral-900">30. avgust</span>
+                                            </div>
+                                            <div class="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-xs">
+                                                <span class="text-neutral-400">Cena</span>
+                                                <Transition
+                                                    enter-active-class="transition duration-200 ease-out"
+                                                    enter-from-class="translate-y-1 opacity-0"
+                                                    mode="out-in"
+                                                >
+                                                    <span v-if="popupFilled" key="filled" class="font-medium text-neutral-900">85 €</span>
+                                                    <span v-else key="empty" class="text-neutral-300">—</span>
+                                                </Transition>
+                                            </div>
+                                            <div class="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-xs">
+                                                <span class="text-neutral-400">Ara</span>
+                                                <Transition
+                                                    enter-active-class="transition duration-200 ease-out"
+                                                    enter-from-class="translate-y-1 opacity-0"
+                                                    mode="out-in"
+                                                >
+                                                    <span v-if="popupFilled" key="filled" class="font-medium text-neutral-900">20 €</span>
+                                                    <span v-else key="empty" class="text-neutral-300">—</span>
+                                                </Transition>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            class="mt-4 w-full rounded-lg bg-[var(--color-accent-500)] py-2 text-xs font-semibold text-white transition-transform duration-150"
+                                            :class="popupConfirming && 'scale-95'"
+                                        >
+                                            Ustvari naročilo
+                                        </button>
+                                    </div>
+                                </Transition>
+                            </div>
+                        </Transition>
                     </div>
                 </div>
             </Reveal>
