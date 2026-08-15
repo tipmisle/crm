@@ -28,6 +28,7 @@ class User extends Authenticatable
         'password',
         'current_workspace_id',
         'avatar_path',
+        'is_demo',
     ];
 
     /**
@@ -64,6 +65,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_demo' => 'boolean',
         ];
     }
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DemoController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
@@ -21,6 +22,9 @@ use App\Http\Controllers\Webhooks\MetaWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [MarketingController::class, 'home'])->name('home');
+
+Route::get('/demo', [DemoController::class, 'show'])->name('demo');
+Route::post('/demo/{variant}', [DemoController::class, 'create'])->name('demo.create');
 
 Route::middleware('auth')->group(function () {
     Route::get('/today', TodayController::class)->name('dashboard');

@@ -29,13 +29,13 @@ class StudioNolaSeeder extends Seeder
 {
     use SpreadsTimestamps;
 
-    private Workspace $workspace;
-
     /** @var array<string, Channel> */
     private array $channels = [];
 
     /** @var array<string, Service> */
     private array $services = [];
+
+    public function __construct(private ?Workspace $workspace = null, private ?User $user = null) {}
 
     /** @var array<int, array{first: string, last: string}> */
     private array $names = [
@@ -71,6 +71,13 @@ class StudioNolaSeeder extends Seeder
 
     private function createWorkspaceAndUser(): void
     {
+        // When a Workspace (and User) is injected via the constructor — the
+        // ephemeral-demo path — data generation reuses that identity instead
+        // of creating the fixed dev/demo-seed one below.
+        if ($this->workspace) {
+            return;
+        }
+
         $this->workspace = Workspace::create([
             'name' => 'Studio Nola',
             'slug' => 'studio-nola',
@@ -81,7 +88,7 @@ class StudioNolaSeeder extends Seeder
             'appointments_enabled' => true,
         ]);
 
-        $user = User::updateOrCreate(
+        $this->user = User::updateOrCreate(
             ['email' => 'nola@studionola.com'],
             [
                 'name' => 'Nola Vidmar',
@@ -93,7 +100,7 @@ class StudioNolaSeeder extends Seeder
 
         WorkspaceMember::create([
             'workspace_id' => $this->workspace->id,
-            'user_id' => $user->id,
+            'user_id' => $this->user->id,
             'role' => 'owner',
         ]);
     }

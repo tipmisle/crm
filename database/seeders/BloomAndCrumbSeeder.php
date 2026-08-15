@@ -29,7 +29,7 @@ class BloomAndCrumbSeeder extends Seeder
 {
     use SpreadsTimestamps;
 
-    private Workspace $workspace;
+    public function __construct(private ?Workspace $workspace = null, private ?User $user = null) {}
 
     /** @var array<string, Channel> */
     private array $channels = [];
@@ -108,6 +108,13 @@ class BloomAndCrumbSeeder extends Seeder
 
     private function createWorkspaceAndUser(): void
     {
+        // When a Workspace (and User) is injected via the constructor — the
+        // ephemeral-demo path — data generation reuses that identity instead
+        // of creating the fixed dev/demo-seed one below.
+        if ($this->workspace) {
+            return;
+        }
+
         $this->workspace = Workspace::create([
             'name' => 'Beležka',
             'slug' => 'belezka',
@@ -116,7 +123,7 @@ class BloomAndCrumbSeeder extends Seeder
             'currency' => 'EUR',
         ]);
 
-        $user = User::updateOrCreate(
+        $this->user = User::updateOrCreate(
             ['email' => 'tjasa@flowout.com'],
             [
                 'name' => 'Tjaša Jereb',
@@ -128,24 +135,26 @@ class BloomAndCrumbSeeder extends Seeder
 
         WorkspaceMember::create([
             'workspace_id' => $this->workspace->id,
-            'user_id' => $user->id,
+            'user_id' => $this->user->id,
             'role' => 'owner',
         ]);
     }
 
     private function createChannels(): void
     {
+        $handle = '@'.Str::slug($this->workspace->name, '');
+
         foreach (ChannelType::cases() as $type) {
             $this->channels[$type->value] = Channel::create([
                 'workspace_id' => $this->workspace->id,
                 'type' => $type,
                 'display_name' => match ($type) {
-                    ChannelType::Instagram => '@belezka',
-                    ChannelType::FacebookMessenger => 'Beležka',
-                    ChannelType::TikTok => '@belezka',
-                    ChannelType::WhatsApp => 'Beležka WhatsApp',
-                    ChannelType::Email => 'hello@belezka.app',
-                    ChannelType::Website => 'belezka.app',
+                    ChannelType::Instagram => $handle,
+                    ChannelType::FacebookMessenger => $this->workspace->name,
+                    ChannelType::TikTok => $handle,
+                    ChannelType::WhatsApp => $this->workspace->name.' WhatsApp',
+                    ChannelType::Email => $this->workspace->email,
+                    ChannelType::Website => $this->workspace->slug.'.app',
                 },
                 'status' => 'not_connected',
             ]);

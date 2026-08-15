@@ -20,6 +20,9 @@ class Workspace extends Model
         'currency',
         'orders_enabled',
         'appointments_enabled',
+        'is_demo',
+        'demo_expires_at',
+        'demo_variant',
     ];
 
     protected function casts(): array
@@ -27,6 +30,8 @@ class Workspace extends Model
         return [
             'orders_enabled' => 'boolean',
             'appointments_enabled' => 'boolean',
+            'is_demo' => 'boolean',
+            'demo_expires_at' => 'datetime',
         ];
     }
 

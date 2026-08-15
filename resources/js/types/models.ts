@@ -46,6 +46,9 @@ export interface Workspace {
     currency: string;
     orders_enabled: boolean;
     appointments_enabled: boolean;
+    is_demo: boolean;
+    demo_expires_at: string | null;
+    demo_variant: 'services' | 'orders' | 'both' | null;
 }
 
 export interface Channel {

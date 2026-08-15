@@ -16,6 +16,7 @@ class MessagingProviderManager
     /** @var array<string, class-string<MessagingProviderInterface>> */
     private array $providers = [
         'meta' => MetaMessagingProvider::class,
+        'mock' => MockMessagingProvider::class,
     ];
 
     /** @var array<string, string> channel type value => provider key */
@@ -35,6 +36,13 @@ class MessagingProviderManager
 
     public function forChannel(Channel $channel): MessagingProviderInterface
     {
+        // Demo (ephemeral) workspaces must never reach a real external
+        // provider — every channel in a demo workspace routes to the mock
+        // provider regardless of its type.
+        if ($channel->workspace?->is_demo) {
+            return $this->driver('mock');
+        }
+
         $type = $channel->type instanceof ChannelType ? $channel->type->value : $channel->type;
 
         $provider = $this->channelTypeToProvider[$type] ?? null;
