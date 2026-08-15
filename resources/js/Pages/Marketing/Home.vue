@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useIntersectionObserver } from '@vueuse/core';
 import { Head, Link } from '@inertiajs/vue3';
 import MarketingLayout from '@/Layouts/MarketingLayout.vue';
 import Reveal from '@/Components/Marketing/Reveal.vue';
@@ -14,6 +15,7 @@ import {
     Music2,
     MessageCircle,
     ArrowRight,
+    ArrowDown,
     Check,
     Plus,
     Minus,
@@ -117,6 +119,56 @@ const heroMessages = computed<HeroMessage[]>(() => {
     }
     return list;
 });
+
+// Payoff animation ("Se ti sliši znano?" section): four mini product cards
+// around the static central Beležka card, each previewing a real piece of
+// the app that one organized record already gives the owner. Plays through
+// ONCE, only after scrolling into view, then stays fully visible — no loop.
+const PAYOFF_STEP_DURATIONS = [400, 500, 500, 350, 350, 500, 350, 350] as const; // 0->1 .. 7->8
+const PAYOFF_FINAL_PHASE = 8;
+
+const payoffEl = ref<HTMLElement | null>(null);
+const payoffPhase = ref(0);
+const payoffReducedMotion = ref(false);
+let payoffTimer: ReturnType<typeof setTimeout> | null = null;
+let payoffStarted = false;
+
+function schedulePayoffPhase() {
+    if (payoffReducedMotion.value || payoffPhase.value >= PAYOFF_FINAL_PHASE) return;
+    payoffTimer = setTimeout(() => {
+        payoffPhase.value += 1;
+        schedulePayoffPhase();
+    }, PAYOFF_STEP_DURATIONS[payoffPhase.value]);
+}
+
+const { stop: stopPayoffObserver } = useIntersectionObserver(
+    payoffEl,
+    ([entry]) => {
+        if (!entry?.isIntersecting || payoffStarted) return;
+        payoffStarted = true;
+        payoffReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (payoffReducedMotion.value) {
+            payoffPhase.value = PAYOFF_FINAL_PHASE; // polished static end-state: everything resolved and visible
+        } else {
+            schedulePayoffPhase();
+        }
+        stopPayoffObserver();
+    },
+    { threshold: 0.4 },
+);
+
+onUnmounted(() => {
+    if (payoffTimer) clearTimeout(payoffTimer);
+});
+
+const showCalloutCustomer = computed(() => payoffPhase.value >= 1);
+const showCalloutConversation = computed(() => payoffPhase.value >= 2);
+const showCalloutStatus = computed(() => payoffPhase.value >= 3);
+// 0 = Potrjeno, 1 = V pripravi, 2 = Pripravljeno
+const calloutStatusStage = computed(() => (payoffPhase.value >= 5 ? 2 : payoffPhase.value >= 4 ? 1 : 0));
+const showCalloutNext = computed(() => payoffPhase.value >= 6);
+// 0 = Naročeno, 1 = Ara plačana, 2 = Plačano
+const calloutPaymentStage = computed(() => (payoffPhase.value >= 8 ? 2 : payoffPhase.value >= 7 ? 1 : 0));
 
 // Placeholder — swap when pricing is finalized. Referenced only here.
 const MONTHLY_PRICE = '19 €';
@@ -330,7 +382,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                     <div class="flex items-center gap-2">
                                         <button
                                             type="button"
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 transition hover:text-neutral-600"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-neutral-200 text-neutral-400 transition hover:text-neutral-600"
                                         >
                                             <Paperclip :size="15" />
                                         </button>
@@ -339,7 +391,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                         </div>
                                         <button
                                             type="button"
-                                            class="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--color-accent-500)] px-3.5 py-2.5 text-xs font-semibold text-white"
+                                            class="flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent-500)] px-3.5 py-2.5 text-xs font-semibold text-white"
                                         >
                                             <SendHorizontal :size="14" /> Pošlji
                                         </button>
@@ -437,14 +489,14 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                         <div class="flex flex-wrap items-center gap-2 border-t border-neutral-100 bg-white px-5 py-3.5">
                             <button
                                 type="button"
-                                class="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent-500)] px-3.5 py-2 text-xs font-semibold text-white transition-all duration-300"
+                                class="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent-500)] px-3.5 py-2 text-xs font-semibold text-white transition-all duration-300"
                                 :class="highlightCreateBtn && 'scale-105 ring-2 ring-[var(--color-accent-300)]'"
                             >
                                 <Plus :size="13" /> Ustvari naročilo
                             </button>
                             <button
                                 type="button"
-                                class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700"
                             >
                                 <CalendarDays :size="13" /> Rezerviraj termin
                             </button>
@@ -507,7 +559,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
 
                                         <button
                                             type="button"
-                                            class="mt-4 w-full rounded-lg bg-[var(--color-accent-500)] py-2 text-xs font-semibold text-white transition-transform duration-150"
+                                            class="mt-4 w-full rounded-md bg-[var(--color-accent-500)] py-2 text-xs font-semibold text-white transition-transform duration-150"
                                             :class="popupConfirming && 'scale-95'"
                                         >
                                             Ustvari naročilo
@@ -576,31 +628,232 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                     </div>
                 </Reveal>
 
-                <!-- Convergence: scattered groups visually flow down into Beležka -->
-                <div class="relative mx-auto mt-4 h-16 max-w-5xl lg:mt-6 lg:h-24" aria-hidden="true">
-                    <div class="mx-auto h-full w-px bg-gradient-to-b from-neutral-200 to-[var(--color-accent-300)] lg:hidden" />
-                    <svg class="pointer-events-none absolute inset-0 hidden h-full w-full lg:block" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
-                        <path
-                            d="M 16.5 0 C 16.5 55, 50 55, 50 100"
-                            stroke="var(--color-accent-200)"
-                            stroke-width="1.25"
-                            stroke-linecap="round"
-                            vector-effect="non-scaling-stroke"
-                        />
-                        <path d="M 50 0 L 50 100" stroke="var(--color-accent-200)" stroke-width="1.25" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-                        <path
-                            d="M 83.5 0 C 83.5 55, 50 55, 50 100"
-                            stroke="var(--color-accent-200)"
-                            stroke-width="1.25"
-                            stroke-linecap="round"
-                            vector-effect="non-scaling-stroke"
-                        />
-                    </svg>
-                </div>
+                <Reveal :delay="200">
+                    <div class="mx-auto mt-10 max-w-2xl text-center">
+                        <ArrowDown :size="28" class="mx-auto mb-4 text-[var(--color-accent-500)]" />
+                        <p class="text-2xl font-semibold text-neutral-900">Vse v eni aplikaciji.</p>
+                        <p class="mx-auto mt-2 max-w-md text-sm text-neutral-500">
+                            Sprejemaj in odgovarjaj na sporočila, ustvari naročila, termine in spremljaj analitiko.
+                        </p>
+                    </div>
+                </Reveal>
 
-                <!-- Central hub: scattered bits become one structured business record -->
-                <Reveal :delay="180">
-                    <div class="mx-auto max-w-sm">
+                <!-- Central hub + callouts: one record instantly explains itself -->
+                <div ref="payoffEl" class="mx-auto mt-10">
+                    <!-- Desktop: clean 3-column grid — callouts left/right, card centered -->
+                    <div class="mx-auto hidden max-w-6xl grid-cols-[300px_1fr_300px] items-stretch gap-6 lg:grid">
+                        <!-- left column -->
+                        <div class="flex h-full flex-col gap-4">
+                            <!-- Stranka — mini customer summary card -->
+                            <Reveal :delay="0">
+                                <div
+                                    class="rounded-xl border border-neutral-200 bg-white p-5 text-left shadow-sm shadow-neutral-900/[0.05] transition-all duration-300 ease-out"
+                                    :class="showCalloutCustomer ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <CustomerAvatar :size="32" />
+                                        <div class="min-w-0">
+                                            <p class="truncate text-sm font-semibold text-neutral-900">Nina Kovač</p>
+                                            <p class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase">Stranka</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 space-y-1 border-t border-neutral-100 pt-2.5 text-xs text-neutral-500">
+                                        <p class="flex items-center gap-1.5"><Mail :size="11" /> nina@example.com</p>
+                                        <p class="flex items-center gap-1.5"><Phone :size="11" /> +386 XX XXX XXX</p>
+                                    </div>
+                                    <div class="mt-3 space-y-1 border-t border-neutral-100 pt-2.5 text-xs">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-400">Naročila</span>
+                                            <span class="font-medium text-neutral-800">3</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-400">Skupaj</span>
+                                            <span class="font-medium text-neutral-800">248 €</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-400">Zadnje</span>
+                                            <span class="font-medium text-neutral-800">9. jul.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Reveal>
+
+                            <!-- Pogovor — miniature real DM preview -->
+                            <Reveal :delay="0" class="flex-1">
+                                <div
+                                    class="flex h-full flex-col justify-center rounded-xl border border-neutral-200 bg-white p-4 text-left shadow-sm shadow-neutral-900/[0.05] transition-all duration-300 ease-out"
+                                    :class="showCalloutConversation ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'"
+                                >
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">
+                                            <ChannelIcon type="instagram" size="sm" /> Instagram
+                                        </div>
+                                        <span class="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+                                            <Check :size="10" /> Sinhronizirano
+                                        </span>
+                                    </div>
+                                    <div class="mt-2.5">
+                                        <div class="flex items-start gap-1.5">
+                                            <CustomerAvatar :size="20" />
+                                            <div class="max-w-[180px] rounded-xl rounded-tl-sm bg-neutral-100 px-2.5 py-1.5 text-xs text-neutral-700">
+                                                Za hčerkin rojstni dan 😊
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Reveal>
+                        </div>
+
+                        <!-- center column: card -->
+                        <div class="mx-auto flex h-full w-full max-w-md">
+                            <div class="flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--color-accent-200)] bg-white shadow-lg shadow-[var(--color-accent-500)]/10 ring-1 ring-[var(--color-accent-500)]/5">
+                                <div class="flex items-center gap-2 border-b border-[var(--color-accent-100)] bg-[var(--color-accent-50)] px-5 py-3">
+                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-500)] text-[11px] font-bold text-white">B</span>
+                                    <p class="text-xs font-semibold tracking-wide text-[var(--color-accent-700)] uppercase">Beležka</p>
+                                </div>
+                                <div class="flex flex-1 flex-col justify-center space-y-2.5 px-5 py-4 text-sm">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Stranka</span>
+                                        <span class="font-medium text-neutral-900">Nina Kovač</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Kanal</span>
+                                        <span class="inline-flex items-center gap-1.5 font-medium text-neutral-900">
+                                            <ChannelIcon type="instagram" size="sm" /> Instagram
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Naročilo</span>
+                                        <span class="font-medium text-neutral-900">Rojstnodnevna torta</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Status</span>
+                                        <Badge color="#6A3CCB" bg="#EBE5FD">V pripravi</Badge>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Rok</span>
+                                        <span class="font-medium text-neutral-900">30. avgust</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Cena</span>
+                                        <span class="font-medium text-neutral-900">85 €</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-neutral-400">Plačilo</span>
+                                        <Badge :color="depositPaid.color" :bg="depositPaid.bg">Ara plačana (20 €)</Badge>
+                                    </div>
+                                    <div class="flex items-start justify-between gap-3 border-t border-neutral-100 pt-2.5">
+                                        <span class="shrink-0 text-neutral-400">Opomba</span>
+                                        <span class="text-right font-medium text-neutral-700">Prevzem ob 8:00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- right column -->
+                        <div class="flex h-full flex-col gap-4">
+                            <!-- Status — operational status card with a one-time transition -->
+                            <Reveal :delay="0">
+                                <div
+                                    class="rounded-xl border border-neutral-200 bg-white p-5 text-left shadow-sm shadow-neutral-900/[0.05] transition-all duration-300 ease-out"
+                                    :class="showCalloutStatus ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'"
+                                >
+                                    <p class="text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">Naročilo</p>
+                                    <p class="mt-1 text-sm font-semibold text-neutral-900">Rojstnodnevna torta</p>
+                                    <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+                                        <Badge
+                                            class="transition-opacity duration-300"
+                                            :class="calloutStatusStage === 0 ? 'opacity-100' : 'opacity-50'"
+                                            color="#0E7490"
+                                            bg="#E0F7FA"
+                                        >
+                                            Potrjeno
+                                        </Badge>
+                                        <Badge
+                                            class="transition-opacity duration-300"
+                                            :class="calloutStatusStage === 1 ? 'opacity-100' : 'opacity-50'"
+                                            color="#6A3CCB"
+                                            bg="#EBE5FD"
+                                        >
+                                            V pripravi
+                                        </Badge>
+                                        <Badge
+                                            class="transition-opacity duration-300"
+                                            :class="calloutStatusStage === 2 ? 'opacity-100' : 'opacity-50'"
+                                            color="#0F766E"
+                                            bg="#DBF6EF"
+                                        >
+                                            Pripravljeno
+                                        </Badge>
+                                    </div>
+                                    <p class="mt-2 border-t border-neutral-100 pt-2 text-xs text-neutral-500">Prevzem: 30. avgust</p>
+                                    <Transition
+                                        enter-active-class="transition-all duration-300 ease-out"
+                                        enter-from-class="mt-0 max-h-0 opacity-0"
+                                        leave-active-class="transition-all duration-150 ease-in"
+                                        leave-to-class="mt-0 max-h-0 opacity-0"
+                                    >
+                                        <button
+                                            v-if="calloutStatusStage === 2"
+                                            type="button"
+                                            class="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
+                                        >
+                                            <Bell :size="12" /> Obvesti stranko
+                                        </button>
+                                    </Transition>
+                                </div>
+                            </Reveal>
+
+                            <!-- Plačilo — payment status card -->
+                            <Reveal :delay="0" class="flex-1">
+                                <div
+                                    class="flex h-full flex-col justify-center rounded-xl border border-neutral-200 bg-white p-5 text-left shadow-sm shadow-neutral-900/[0.05] transition-all duration-300 ease-out"
+                                    :class="showCalloutNext ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'"
+                                >
+                                    <p class="text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">Plačilo</p>
+                                    <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+                                        <Badge
+                                            class="transition-opacity duration-300"
+                                            :class="calloutPaymentStage === 0 ? 'opacity-100' : 'opacity-50'"
+                                            color="#4B5563"
+                                            bg="#F1F2F4"
+                                        >
+                                            Naročeno
+                                        </Badge>
+                                        <Badge
+                                            class="transition-opacity duration-300"
+                                            :class="calloutPaymentStage === 1 ? 'opacity-100' : 'opacity-50'"
+                                            color="#0E7490"
+                                            bg="#E0F7FA"
+                                        >
+                                            Ara plačana
+                                        </Badge>
+                                        <Badge
+                                            class="transition-opacity duration-300"
+                                            :class="calloutPaymentStage === 2 ? 'opacity-100' : 'opacity-50'"
+                                            color="#15803D"
+                                            bg="#DCFCE7"
+                                        >
+                                            Plačano
+                                        </Badge>
+                                    </div>
+                                    <div class="mt-2 space-y-1 border-t border-neutral-100 pt-2 text-xs">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-500">Cena</span>
+                                            <span class="font-semibold text-neutral-900">85 €</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-neutral-500">Ara</span>
+                                            <span class="font-semibold text-neutral-900">20 €</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Reveal>
+                        </div>
+                    </div>
+
+                    <!-- Mobile / tablet: card first, then callouts stacked in a clean 2x2 grid -->
+                    <div class="mx-auto max-w-sm lg:hidden">
                         <div class="overflow-hidden rounded-2xl border border-[var(--color-accent-200)] bg-white shadow-lg shadow-[var(--color-accent-500)]/10 ring-1 ring-[var(--color-accent-500)]/5">
                             <div class="flex items-center gap-2 border-b border-[var(--color-accent-100)] bg-[var(--color-accent-50)] px-5 py-3">
                                 <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-500)] text-[11px] font-bold text-white">B</span>
@@ -639,42 +892,76 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </Reveal>
 
-                <Reveal :delay="220">
-                    <div class="mx-auto mt-12 max-w-2xl text-center">
-                        <p class="text-2xl font-semibold text-neutral-900">Vse vidiš na enem mestu.</p>
-
-                        <p class="mx-auto mt-2 max-w-md text-sm text-neutral-500">
-                            Kdo je stranka, kaj je naročila, za kdaj, koliko je že plačala in kaj moraš urediti
-                            naslednje.
-                        </p>
-
-                        <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-                            <span class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm shadow-neutral-900/[0.04]">
-                                Sporočilo
-                            </span>
-                            <ArrowRight :size="14" class="hidden text-neutral-300 sm:block" />
-                            <span class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm shadow-neutral-900/[0.04]">
-                                Stranka
-                            </span>
-                            <ArrowRight :size="14" class="hidden text-neutral-300 sm:block" />
-                            <span class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm shadow-neutral-900/[0.04]">
-                                Naročilo / Termin
-                            </span>
-                            <ArrowRight :size="14" class="hidden text-neutral-300 sm:block" />
-                            <div
-                                class="flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-[var(--color-accent-200)] bg-[var(--color-accent-50)] px-2.5 py-2"
-                            >
-                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Rok</span>
-                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Plačilo</span>
-                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Status</span>
-                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Opombe</span>
+                        <div class="mt-5 grid grid-cols-2 gap-3">
+                            <div class="rounded-xl border border-neutral-200 bg-white p-3.5 text-left shadow-sm shadow-neutral-900/[0.05]">
+                                <div class="flex items-center gap-2">
+                                    <CustomerAvatar :size="26" />
+                                    <p class="truncate text-xs font-semibold text-neutral-900">Nina Kovač</p>
+                                </div>
+                                <div class="mt-2 space-y-0.5 border-t border-neutral-100 pt-2 text-[11px]">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-neutral-400">Naročila</span>
+                                        <span class="font-medium text-neutral-800">3</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-neutral-400">Skupaj</span>
+                                        <span class="font-medium text-neutral-800">248 €</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-neutral-200 bg-white p-3.5 text-left shadow-sm shadow-neutral-900/[0.05]">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">
+                                        <ChannelIcon type="instagram" size="sm" /> Instagram
+                                    </div>
+                                    <span class="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+                                        <Check :size="10" /> Sinhronizirano
+                                    </span>
+                                </div>
+                                <div class="mt-2 flex items-start gap-1.5">
+                                    <CustomerAvatar :size="18" />
+                                    <div class="max-w-[140px] rounded-xl rounded-tl-sm bg-neutral-100 px-2 py-1 text-[11px] text-neutral-700">
+                                        Za hčerkin rojstni dan 😊
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-neutral-200 bg-white p-3.5 text-left shadow-sm shadow-neutral-900/[0.05]">
+                                <p class="text-xs font-semibold text-neutral-900">Rojstnodnevna torta</p>
+                                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                    <Badge class="opacity-50" color="#0E7490" bg="#E0F7FA">Potrjeno</Badge>
+                                    <Badge class="opacity-50" color="#6A3CCB" bg="#EBE5FD">V pripravi</Badge>
+                                    <Badge color="#0F766E" bg="#DBF6EF">Pripravljeno</Badge>
+                                </div>
+                                <p class="mt-1.5 text-[11px] text-neutral-500">Prevzem: 30. avgust</p>
+                                <button
+                                    type="button"
+                                    class="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700"
+                                >
+                                    <Bell :size="11" /> Obvesti stranko
+                                </button>
+                            </div>
+                            <div class="rounded-xl border border-neutral-200 bg-white p-3.5 text-left shadow-sm shadow-neutral-900/[0.05]">
+                                <p class="text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">Plačilo</p>
+                                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                    <Badge class="opacity-50" color="#4B5563" bg="#F1F2F4">Naročeno</Badge>
+                                    <Badge class="opacity-50" color="#0E7490" bg="#E0F7FA">Ara plačana</Badge>
+                                    <Badge color="#15803D" bg="#DCFCE7">Plačano</Badge>
+                                </div>
+                                <div class="mt-1.5 space-y-0.5 text-[11px]">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-neutral-500">Cena</span>
+                                        <span class="font-semibold text-neutral-900">85 €</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-neutral-500">Ara</span>
+                                        <span class="font-semibold text-neutral-900">20 €</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </Reveal>
+                </div>
             </div>
         </section>
 
@@ -736,7 +1023,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                 <p class="text-sm font-medium text-neutral-400">En klik in pogovor postane naročilo</p>
                                 <button
                                     type="button"
-                                    class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent-500)] px-3.5 py-2 text-xs font-semibold text-white"
+                                    class="mt-2 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent-500)] px-3.5 py-2 text-xs font-semibold text-white"
                                 >
                                     <Plus :size="13" /> Ustvari naročilo
                                 </button>
