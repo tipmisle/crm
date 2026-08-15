@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
-import type { Conversation, Customer, Service } from '@/types/models';
+import CatalogItemModal from '@/Components/CatalogItemModal.vue';
+import CustomerCombobox from '@/Components/CustomerCombobox.vue';
+import DateInput from '@/Components/DateInput.vue';
+import type { Conversation, Customer, Product, Service } from '@/types/models';
 
 const props = defineProps<{
     customer: Customer | null;
     conversation: Conversation | null;
     services: Service[];
+    customers: Customer[];
 }>();
 
 const contactName =
@@ -17,11 +21,14 @@ const contactName =
     props.conversation?.customer_display_name ??
     undefined;
 
+const needsCustomerPicker = !props.customer && !props.conversation;
+
 const form = useForm({
     service_id: null as number | null,
     service_name: '',
     description: '',
     customer_id: props.customer?.id ?? props.conversation?.customer?.id ?? null,
+    customer_name: '',
     conversation_id: props.conversation?.id ?? null,
     appointment_date: '',
     start_time: '',
@@ -30,6 +37,22 @@ const form = useForm({
     deposit_amount: '',
     internal_notes: '',
     customer_notes: '',
+});
+
+const NEW_SERVICE = '__new__';
+const serviceSelect = ref<number | string | null>(form.service_id);
+const quickAddOpen = ref(false);
+
+watch(serviceSelect, (value) => {
+    if (value === NEW_SERVICE) {
+        quickAddOpen.value = true;
+        // Selection reverts once the modal closes without a save — the
+        // <select> shouldn't stay stuck on the "+ Dodaj novo storitev" row.
+        serviceSelect.value = form.service_id;
+        return;
+    }
+
+    form.service_id = value as number | null;
 });
 
 watch(
@@ -44,6 +67,11 @@ watch(
         if (service.default_deposit_amount !== null) form.deposit_amount = String(service.default_deposit_amount);
     },
 );
+
+function onServiceSaved(item: Product | Service) {
+    form.service_id = item.id;
+    serviceSelect.value = item.id;
+}
 
 const durationOptions = [15, 30, 45, 60, 75, 90, 120, 150, 180, 240];
 
@@ -60,7 +88,7 @@ function submit() {
             <h1 class="text-sm font-semibold text-neutral-900">Nov termin</h1>
         </template>
 
-        <div class="mx-auto max-w-2xl px-6 py-8">
+        <div class="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
             <h1 class="text-2xl font-semibold text-neutral-900">Nov termin</h1>
 
             <div v-if="contactName" class="mt-3 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
@@ -71,15 +99,30 @@ function submit() {
                 </div>
             </div>
 
-            <form class="mt-6 space-y-5" @submit.prevent="submit">
+            <form
+                class="mt-6 space-y-5 rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-4 sm:p-6"
+                @submit.prevent="submit"
+            >
+                <div v-if="needsCustomerPicker">
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Stranka</label>
+                    <CustomerCombobox
+                        v-model:customer-id="form.customer_id"
+                        v-model:customer-name="form.customer_name"
+                        :customers="customers"
+                    />
+                    <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-500">{{ form.errors.customer_id }}</p>
+                    <p v-if="form.errors.customer_name" class="mt-1 text-xs text-red-500">{{ form.errors.customer_name }}</p>
+                </div>
+
                 <div>
                     <label class="mb-1.5 block text-sm font-medium text-neutral-700">Storitev</label>
                     <select
-                        v-model="form.service_id"
+                        v-model="serviceSelect"
                         class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                     >
                         <option :value="null">Izberi storitev (neobvezno)</option>
                         <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
+                        <option :value="NEW_SERVICE">+ Dodaj novo storitev</option>
                     </select>
                 </div>
 
@@ -94,14 +137,10 @@ function submit() {
                     <p v-if="form.errors.service_name" class="mt-1 text-xs text-red-500">{{ form.errors.service_name }}</p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-neutral-700">Datum</label>
-                        <input
-                            v-model="form.appointment_date"
-                            type="date"
-                            class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
-                        />
+                        <DateInput v-model="form.appointment_date" />
                         <p v-if="form.errors.appointment_date" class="mt-1 text-xs text-red-500">{{ form.errors.appointment_date }}</p>
                     </div>
                     <div>
@@ -125,7 +164,7 @@ function submit() {
                     </select>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-neutral-700">Cena (neobvezno)</label>
                         <input
@@ -174,12 +213,14 @@ function submit() {
                     <button
                         type="submit"
                         :disabled="form.processing"
-                        class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                        class="w-full rounded-md bg-[var(--color-ink-900)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50 sm:w-auto"
                     >
                         Rezerviraj termin
                     </button>
                 </div>
             </form>
         </div>
+
+        <CatalogItemModal v-model:open="quickAddOpen" kind="service" @saved="onServiceSaved" />
     </AppLayout>
 </template>

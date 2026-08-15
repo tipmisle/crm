@@ -22,6 +22,7 @@ class Order extends Model
         'conversation_id',
         'channel_id',
         'assigned_user_id',
+        'catalog_item_id',
         'title',
         'description',
         'due_date',
@@ -78,6 +79,11 @@ class Order extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'catalog_item_id');
     }
 
     public function notes(): HasMany

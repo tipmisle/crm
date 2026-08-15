@@ -10,7 +10,7 @@ export const CHANNEL_META: Record<
     tiktok: { label: 'TikTok', color: '#111111', bg: '#EEEEEE', icon: Music2 },
     whatsapp: { label: 'WhatsApp', color: '#25D366', bg: '#E4F9EC', icon: MessageCircle },
     email: { label: 'E-pošta', color: '#6B7280', bg: '#F1F2F4', icon: Mail },
-    website: { label: 'Spletna stran', color: '#6C62DF', bg: '#EEECFC', icon: Globe },
+    website: { label: 'Spletna stran', color: '#7C4FE0', bg: '#EBE5FD', icon: Globe },
 };
 
 export function channelMeta(type: ChannelType) {

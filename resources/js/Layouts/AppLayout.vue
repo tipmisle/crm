@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
 import {
@@ -13,6 +13,9 @@ import {
     LogOut,
     ChevronsUpDown,
     X,
+    Sparkles,
+    Menu,
+    BarChart3,
 } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
 import Avatar from '@/Components/Avatar.vue';
@@ -45,12 +48,17 @@ const nav = computed(() => [
     ...(page.props.workspace?.appointments_enabled ?? false
         ? [{ name: 'Termini', href: () => route('appointments.index'), icon: CalendarDays, current: () => route().current('appointments.*') }]
         : []),
+    ...(page.props.workspace?.orders_enabled || page.props.workspace?.appointments_enabled
+        ? [{ name: 'Ponudba', href: () => route('catalog.index'), icon: Sparkles, current: () => route().current('catalog.*') }]
+        : []),
     { name: 'Stranke', href: () => route('customers.index'), icon: Users, current: () => route().current('customers.*') },
+    { name: 'Analitika', href: () => route('analytics.index'), icon: BarChart3, current: () => route().current('analytics.*') },
     { name: 'Nastavitve', href: () => route('settings.edit'), icon: Settings, current: () => route().current('settings.*') },
 ]);
 
 const searchOpen = ref(false);
 const userMenuOpen = ref(false);
+const sidebarOpen = ref(false);
 
 const unreadInboxCount = computed(() => page.props.unreadInboxCount ?? 0);
 
@@ -61,20 +69,41 @@ const workspaceId = computed(() => page.props.workspace?.id);
 useEcho(`workspace.${workspaceId.value}.inbox`, 'message.received', () => {
     router.reload({ only: ['unreadInboxCount'] });
 });
+
+// The sidebar is an off-canvas drawer below the lg breakpoint — close it
+// whenever a navigation completes so it doesn't stay open over the new page.
+// AppLayout remounts per page (it's not a persistent Inertia layout), so the
+// listener must be torn down or it'd accumulate on every navigation.
+const stopNavigateListener = router.on('navigate', () => {
+    sidebarOpen.value = false;
+});
+onUnmounted(stopNavigateListener);
 </script>
 
 <template>
     <div class="flex h-screen overflow-hidden bg-neutral-50">
-        <aside class="flex w-60 shrink-0 flex-col bg-[var(--color-ink-950)] text-neutral-300">
+        <Transition
+            enter-active-class="transition duration-150 ease-out"
+            enter-from-class="opacity-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="sidebarOpen" class="fixed inset-0 z-30 bg-[var(--color-ink-900)]/50 lg:hidden" @click="sidebarOpen = false" />
+        </Transition>
+
+        <aside
+            class="fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 -translate-x-full flex-col bg-[var(--color-ink-950)] text-neutral-300 transition-transform duration-200 ease-out lg:static lg:translate-x-0"
+            :class="sidebarOpen && 'translate-x-0'"
+        >
             <div class="flex items-center gap-2 px-5 py-5">
-                <div
-                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-500)] text-sm font-bold text-white"
+                <img src="/images/logo.png" alt="Beležka" class="h-6 w-auto" />
+                <button
+                    type="button"
+                    class="rounded-md p-1 text-neutral-400 hover:bg-white/10 hover:text-white lg:hidden"
+                    @click="sidebarOpen = false"
                 >
-                    B
-                </div>
-                <div class="truncate text-sm font-semibold text-white">
-                    {{ page.props.workspace?.name ?? 'Delovni prostor' }}
-                </div>
+                    <X :size="16" />
+                </button>
             </div>
 
             <nav class="flex-1 space-y-0.5 px-3">
@@ -93,7 +122,7 @@ useEcho(`workspace.${workspaceId.value}.inbox`, 'message.received', () => {
                     <span class="flex-1">{{ item.name }}</span>
                     <span
                         v-if="item.name === 'Prejeta pošta' && unreadInboxCount > 0"
-                        class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[var(--color-accent-500)] px-1 text-[10px] font-semibold text-white"
+                        class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white"
                     >
                         {{ unreadInboxCount > 99 ? '99+' : unreadInboxCount }}
                     </span>
@@ -106,7 +135,7 @@ useEcho(`workspace.${workspaceId.value}.inbox`, 'message.received', () => {
                     class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-neutral-300 hover:bg-white/5"
                     @click="userMenuOpen = !userMenuOpen"
                 >
-                    <Avatar :name="page.props.auth.user.name" size="sm" />
+                    <Avatar :name="page.props.auth.user.name" :src="page.props.auth.user.avatar_url" size="sm" />
                     <span class="flex-1 truncate">{{ page.props.auth.user.name }}</span>
                     <ChevronsUpDown :size="14" class="text-neutral-500" />
                 </button>
@@ -133,24 +162,35 @@ useEcho(`workspace.${workspaceId.value}.inbox`, 'message.received', () => {
 
         <div class="flex min-w-0 flex-1 flex-col">
             <header
-                class="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-6"
+                class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-4 sm:px-6"
             >
-                <div class="min-w-0">
-                    <slot name="header" />
+                <div class="flex min-w-0 items-center gap-2">
+                    <button
+                        type="button"
+                        class="-ml-1 shrink-0 rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 lg:hidden"
+                        @click="sidebarOpen = true"
+                    >
+                        <Menu :size="18" />
+                    </button>
+                    <div class="min-w-0">
+                        <slot name="header" />
+                    </div>
                 </div>
 
                 <button
                     type="button"
-                    class="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100"
+                    class="flex shrink-0 items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 sm:px-3"
                     @click="searchOpen = true"
                 >
                     <Search :size="14" />
-                    <span>Iskanje</span>
-                    <kbd class="ml-2 rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-400">⌘K</kbd>
+                    <span class="hidden sm:inline">Iskanje</span>
+                    <kbd class="ml-2 hidden rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-400 md:inline">
+                        ⌘K
+                    </kbd>
                 </button>
             </header>
 
-            <main class="flex-1 overflow-y-auto">
+            <main class="flex-1 overflow-y-auto [scrollbar-gutter:stable]">
                 <slot />
             </main>
         </div>

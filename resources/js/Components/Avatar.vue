@@ -11,7 +11,7 @@ const imageFailed = ref(false);
 watch(() => props.src, () => (imageFailed.value = false));
 
 const PALETTE = [
-    { bg: '#EEECFC', fg: '#5A4FD1' },
+    { bg: '#EBE5FD', fg: '#6A3CCB' },
     { bg: '#FCE7F0', fg: '#C13D77' },
     { bg: '#E0F7FA', fg: '#0E7490' },
     { bg: '#DBF6EF', fg: '#0F766E' },

@@ -9,7 +9,7 @@ withDefaults(
 </script>
 
 <template>
-    <section class="rounded-xl border border-neutral-200 bg-white">
+    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
         <header class="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
             <div>
                 <h2 class="text-sm font-semibold text-neutral-900">{{ title }}</h2>

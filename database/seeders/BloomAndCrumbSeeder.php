@@ -16,15 +16,19 @@ use App\Models\CustomerIdentity;
 use App\Models\FollowUp;
 use App\Models\Message;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Carbon\Carbon;
+use Database\Seeders\Concerns\SpreadsTimestamps;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class BloomAndCrumbSeeder extends Seeder
 {
+    use SpreadsTimestamps;
+
     private Workspace $workspace;
 
     /** @var array<string, Channel> */
@@ -94,6 +98,7 @@ class BloomAndCrumbSeeder extends Seeder
     {
         $this->createWorkspaceAndUser();
         $this->createChannels();
+        $this->createProducts();
         $customers = $this->createCustomers();
         $conversations = $this->createConversationsAndMessages($customers);
         $orders = $this->createOrders($customers, $conversations);
@@ -104,9 +109,9 @@ class BloomAndCrumbSeeder extends Seeder
     private function createWorkspaceAndUser(): void
     {
         $this->workspace = Workspace::create([
-            'name' => 'Bloom & Crumb',
-            'slug' => 'bloom-and-crumb',
-            'email' => 'hello@bloomandcrumb.com',
+            'name' => 'Beležka',
+            'slug' => 'belezka',
+            'email' => 'hello@belezka.app',
             'timezone' => 'Europe/Ljubljana',
             'currency' => 'EUR',
         ]);
@@ -135,14 +140,36 @@ class BloomAndCrumbSeeder extends Seeder
                 'workspace_id' => $this->workspace->id,
                 'type' => $type,
                 'display_name' => match ($type) {
-                    ChannelType::Instagram => '@bloomandcrumb',
-                    ChannelType::FacebookMessenger => 'Bloom & Crumb',
-                    ChannelType::TikTok => '@bloomandcrumb',
-                    ChannelType::WhatsApp => 'Bloom & Crumb WhatsApp',
-                    ChannelType::Email => 'hello@bloomandcrumb.com',
-                    ChannelType::Website => 'bloomandcrumb.com',
+                    ChannelType::Instagram => '@belezka',
+                    ChannelType::FacebookMessenger => 'Beležka',
+                    ChannelType::TikTok => '@belezka',
+                    ChannelType::WhatsApp => 'Beležka WhatsApp',
+                    ChannelType::Email => 'hello@belezka.app',
+                    ChannelType::Website => 'belezka.app',
                 },
                 'status' => 'not_connected',
+            ]);
+        }
+    }
+
+    private function createProducts(): void
+    {
+        $definitions = [
+            ['name' => 'Rojstnodnevna torta', 'description' => 'Klasična rojstnodnevna torta, tema in okus po izbiri.', 'price' => 85, 'deposit' => 20],
+            ['name' => 'Poročna torta', 'description' => 'Večnadstropna poročna torta po meri.', 'price' => 250, 'deposit' => 75],
+            ['name' => 'Škatla sladic', 'description' => 'Mešana škatla mini sladic.', 'price' => 35, 'deposit' => null],
+            ['name' => 'Škatla mafinov', 'description' => 'Škatla domačih mafinov, 12 kosov.', 'price' => 28, 'deposit' => null],
+            ['name' => 'Piškoti po meri', 'description' => 'Dekorirani piškoti po temi ali barvni shemi po izbiri.', 'price' => 24, 'deposit' => null],
+        ];
+
+        foreach ($definitions as $def) {
+            Product::create([
+                'workspace_id' => $this->workspace->id,
+                'name' => $def['name'],
+                'description' => $def['description'],
+                'default_price' => $def['price'],
+                'default_deposit_amount' => $def['deposit'],
+                'active' => true,
             ]);
         }
     }
@@ -156,7 +183,7 @@ class BloomAndCrumbSeeder extends Seeder
             $fullName = "{$name['first']} {$name['last']}";
             $username = Str::slug($fullName, '').['_cakes', '', '.eats', ''][($i % 4)];
             $channelType = $this->weightedChannel();
-            $firstContact = Carbon::now()->subDays(rand(10, 240));
+            $firstContact = Carbon::now()->subDays(rand(1, 120));
 
             $customer = Customer::create([
                 'workspace_id' => $this->workspace->id,
@@ -168,6 +195,8 @@ class BloomAndCrumbSeeder extends Seeder
                 'first_contacted_at' => $firstContact,
                 'last_interaction_at' => $firstContact->copy()->addDays(rand(0, 200)),
             ]);
+
+            $this->backdate($customer, $firstContact);
 
             CustomerIdentity::create([
                 'customer_id' => $customer->id,
@@ -243,6 +272,7 @@ class BloomAndCrumbSeeder extends Seeder
         $conversations = collect();
         $total = 42;
         $unlinkedCount = 8;
+        $startDates = $this->spreadDates($total);
 
         for ($i = 0; $i < $total; $i++) {
             $isUnlinked = $i < $unlinkedCount;
@@ -257,7 +287,7 @@ class BloomAndCrumbSeeder extends Seeder
             $username = '@'.Str::slug($displayName, '');
 
             $status = $this->weightedConversationStatus();
-            $startedAt = Carbon::now()->subDays(rand(0, 14))->subHours(rand(0, 20));
+            $startedAt = array_pop($startDates);
 
             $conversation = Conversation::create([
                 'workspace_id' => $this->workspace->id,
@@ -268,6 +298,8 @@ class BloomAndCrumbSeeder extends Seeder
                 'status' => $status,
                 'unread_count' => 0,
             ]);
+
+            $this->backdate($conversation, $startedAt);
 
             $this->seedMessages($conversation, $displayName, $status, $startedAt);
             $conversations->push($conversation);
@@ -411,6 +443,7 @@ class BloomAndCrumbSeeder extends Seeder
 
         $convIndex = 0;
         $dueTodayAssigned = 0;
+        $createdDates = $this->spreadDates(array_sum($statusPlan));
 
         foreach ($statusPlan as $statusValue => $count) {
             $status = OrderStatus::from($statusValue);
@@ -457,6 +490,13 @@ class BloomAndCrumbSeeder extends Seeder
                     'customer_notes' => rand(0, 3) === 0 ? 'Prosimo, naj bo brez mlečnih izdelkov, če je mogoče.' : null,
                     'tags' => rand(0, 2) === 0 ? ['priority'] : null,
                 ]);
+
+                // The order can't have been placed after its own due date.
+                $createdAt = array_pop($createdDates);
+                if ($dueDate?->isPast() && $createdAt->gt($dueDate)) {
+                    $createdAt = $dueDate->copy()->subHours(rand(1, 72));
+                }
+                $this->backdate($order, $createdAt);
 
                 if (rand(0, 2) === 0) {
                     $order->notes()->create([

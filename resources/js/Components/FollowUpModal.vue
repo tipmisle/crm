@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
+import { googleCalendarUrl } from '@/lib/calendar';
 
 const props = defineProps<{
     show: boolean;
@@ -19,10 +20,14 @@ const form = useForm({
 });
 
 function submit() {
+    const note = form.note;
+    const dueAt = form.due_at;
+
     form.post(route('follow-ups.store'), {
         onSuccess: () => {
             form.reset();
             emit('close');
+            window.open(googleCalendarUrl(note, dueAt), '_blank');
         },
     });
 }
@@ -67,9 +72,9 @@ function submit() {
                 <button
                     type="submit"
                     :disabled="form.processing"
-                    class="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                    class="rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                 >
-                    Shrani opomnik
+                    Shrani in dodaj v koledar
                 </button>
             </div>
         </form>

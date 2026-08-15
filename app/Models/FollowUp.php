@@ -20,6 +20,7 @@ class FollowUp extends Model
         'followable_id',
         'note',
         'due_at',
+        'notified_at',
         'completed_at',
     ];
 
@@ -27,6 +28,7 @@ class FollowUp extends Model
     {
         return [
             'due_at' => 'datetime',
+            'notified_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
     }

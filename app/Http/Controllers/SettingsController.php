@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Channel;
-use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,7 +22,6 @@ class SettingsController extends Controller
                 ->whereIn('type', ['instagram', 'facebook_messenger'])
                 ->orderBy('type')
                 ->get(),
-            'services' => Service::where('workspace_id', $workspace->id)->orderBy('name')->get(),
             'metaPendingAccounts' => $pending
                 ? collect($pending['accounts'])->map(fn ($a) => [
                     'channel_type' => $a['channel_type'],

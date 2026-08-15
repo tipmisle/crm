@@ -5,6 +5,7 @@ export interface User {
     name: string;
     email: string;
     email_verified_at?: string;
+    avatar_url?: string | null;
 }
 
 export type PageProps<
@@ -15,6 +16,7 @@ export type PageProps<
     };
     workspace: Workspace | null;
     unreadInboxCount: number;
+    vapidPublicKey: string | null;
     flash: {
         success?: string | null;
         error?: string | null;

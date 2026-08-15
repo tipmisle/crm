@@ -9,13 +9,14 @@ use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\FollowUp;
 use App\Models\Order;
+use App\Services\RevenueStatsService;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class TodayController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(RevenueStatsService $stats): Response
     {
         $workspace = auth()->user()->currentWorkspace;
 
@@ -173,6 +174,21 @@ class TodayController extends Controller
 
         $attention = $attention->filter(fn ($item) => $item['count'] > 0)->values();
 
+        $unansweredConversations = Conversation::query()
+            ->with('customer')
+            ->where('unread_count', '>', 0)
+            ->orderByDesc('last_message_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (Conversation $c) => [
+                'id' => $c->id,
+                'display_name' => $c->displayName(),
+                'last_message_preview' => $c->last_message_preview,
+                'last_message_at' => $c->last_message_at,
+                'unread_count' => $c->unread_count,
+                'href' => route('inbox.show', $c->id),
+            ]);
+
         $followUps = FollowUp::query()
             ->with('followable')
             ->pending()
@@ -187,8 +203,16 @@ class TodayController extends Controller
             'todaysOrders' => $todaysOrders,
             'todaysAppointments' => $todaysAppointments,
             'followUps' => $followUps,
+            'unansweredConversations' => $unansweredConversations,
             'upcoming' => $upcomingOrders,
             'upcomingAppointments' => $upcomingAppointments,
+            'stats' => $stats->summary(
+                $workspace,
+                Carbon::today()->startOfDay(),
+                Carbon::today()->endOfDay(),
+                Carbon::yesterday()->startOfDay(),
+                Carbon::yesterday()->endOfDay(),
+            ),
         ]);
     }
 

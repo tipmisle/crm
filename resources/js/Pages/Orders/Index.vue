@@ -48,10 +48,10 @@ watch([status, payment, due], applyFilters);
             <h1 class="text-sm font-semibold text-neutral-900">Naročila</h1>
         </template>
 
-        <div class="mx-auto max-w-5xl space-y-5 px-6 py-8">
-            <div class="flex items-center justify-between">
+        <div class="mx-auto max-w-5xl space-y-5 px-4 py-4 sm:px-6 sm:py-6">
+            <div class="flex flex-wrap items-center justify-between gap-2">
                 <h1 class="text-2xl font-semibold text-neutral-900">Naročila</h1>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <Link
                         :href="route('orders.index', { view: 'kanban' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
@@ -66,7 +66,7 @@ watch([status, payment, due], applyFilters);
                     </Link>
                     <Link
                         :href="route('orders.create')"
-                        class="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+                        class="flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                     >
                         <Plus :size="14" /> Novo naročilo
                     </Link>

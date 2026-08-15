@@ -6,6 +6,7 @@ import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
+import DateInput from '@/Components/DateInput.vue';
 import { formatMoney, formatDate, formatDateTime, formatTime } from '@/lib/format';
 import { ORDER_STATUS_ORDER, ORDER_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
 import type { ActivityLogEntry, FollowUp, Order, OrderStatus, PaymentStatus } from '@/types/models';
@@ -76,7 +77,7 @@ const followUpOpen = ref(false);
             </div>
         </template>
 
-        <div class="mx-auto max-w-5xl px-6 py-8">
+        <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
             <div class="mb-6 flex items-start justify-between">
                 <div>
                     <h1 class="text-2xl font-semibold text-neutral-900">{{ order.title }}</h1>
@@ -93,7 +94,7 @@ const followUpOpen = ref(false);
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti naročila</h2>
                         <p class="mt-2 text-sm text-neutral-700">{{ order.description || 'Opis ni dodan.' }}</p>
 
@@ -109,7 +110,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Opombe</h2>
 
                         <form class="mt-3 flex gap-2" @submit.prevent="submitNote">
@@ -122,7 +123,7 @@ const followUpOpen = ref(false);
                             <button
                                 type="submit"
                                 :disabled="noteForm.processing"
-                                class="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                                class="rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                             >
                                 Dodaj
                             </button>
@@ -139,7 +140,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Časovnica</h2>
                         <div class="mt-3 space-y-3">
                             <div v-for="entry in activity" :key="entry.id" class="flex gap-2.5 text-sm">
@@ -164,7 +165,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="order.conversation" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="order.conversation" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
                             <h2 class="text-sm font-semibold text-neutral-900">Izvorni pogovor</h2>
                             <Link
@@ -178,7 +179,7 @@ const followUpOpen = ref(false);
                 </div>
 
                 <div class="space-y-5">
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Stranka</h3>
                         <Link
                             :href="route('customers.show', order.customer!.id)"
@@ -192,7 +193,7 @@ const followUpOpen = ref(false);
                         </Link>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Status naročila</h3>
                         <select
                             :value="order.status"
@@ -211,14 +212,10 @@ const followUpOpen = ref(false);
                         </button>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Rok</h3>
                         <div class="mt-2 space-y-2">
-                            <input
-                                v-model="deadlineForm.due_date"
-                                type="date"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
+                            <DateInput v-model="deadlineForm.due_date" />
                             <input
                                 v-model="deadlineForm.due_time"
                                 type="time"
@@ -234,7 +231,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Plačilo</h3>
                         <div class="mt-2 space-y-2">
                             <label class="block text-xs text-neutral-500">Cena</label>
@@ -276,7 +273,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="order.channel" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="order.channel" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Vir</h3>
                         <div class="mt-2 flex items-center gap-2">
                             <ChannelIcon :type="order.channel.type" size="md" />

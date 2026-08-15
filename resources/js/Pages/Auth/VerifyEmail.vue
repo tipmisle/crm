@@ -23,25 +23,20 @@ const verificationLinkSent = computed(
     <GuestLayout>
         <Head title="Potrditev e-pošte" />
 
-        <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-            Hvala za registracijo! Preden začnete, prosimo potrdite svoj
-            e-poštni naslov s klikom na povezavo, ki smo vam jo pravkar
-            poslali. Če e-pošte niste prejeli, vam bomo z veseljem poslali
-            novo.
-        </div>
+        <h1 class="mb-1 text-lg font-semibold text-neutral-900">Potrditev e-pošte</h1>
+        <p class="mb-5 text-sm text-neutral-500">
+            Hvala za registracijo! Preden začneš, potrdi svoj e-poštni naslov s klikom na povezavo, ki smo ti jo
+            pravkar poslali. Če e-pošte nisi prejel/a, ti bomo z veseljem poslali novo.
+        </p>
 
-        <div
-            class="mb-4 text-sm font-medium text-green-600 dark:text-green-400"
-            v-if="verificationLinkSent"
-        >
-            Nova potrditvena povezava je bila poslana na e-poštni naslov, ki
-            ste ga navedli ob registraciji.
+        <div class="mb-4 text-sm font-medium text-emerald-600" v-if="verificationLinkSent">
+            Nova potrditvena povezava je bila poslana na e-poštni naslov, ki ste ga navedli ob registraciji.
         </div>
 
         <form @submit.prevent="submit">
-            <div class="mt-4 flex items-center justify-between">
+            <div class="flex items-center justify-between">
                 <PrimaryButton
-                    :class="{ 'opacity-25': form.processing }"
+                    :class="{ 'opacity-50': form.processing }"
                     :disabled="form.processing"
                 >
                     Znova pošlji potrditveno e-pošto
@@ -51,7 +46,7 @@ const verificationLinkSent = computed(
                     :href="route('logout')"
                     method="post"
                     as="button"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
+                    class="rounded-md text-sm text-neutral-500 hover:text-neutral-800"
                     >Odjava</Link
                 >
             </div>

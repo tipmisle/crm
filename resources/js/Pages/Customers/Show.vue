@@ -79,7 +79,7 @@ const followUpOpen = ref(false);
             </div>
         </template>
 
-        <div class="mx-auto max-w-5xl px-6 py-8">
+        <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
             <div class="mb-6 flex items-start justify-between">
                 <div class="flex items-center gap-4">
                     <Avatar :name="customer.full_name" size="lg" />
@@ -101,7 +101,7 @@ const followUpOpen = ref(false);
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
-                    <section v-if="ordersEnabled && openOrders.length" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="ordersEnabled && openOrders.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
                             <h2 class="text-sm font-semibold text-neutral-900">Trenutna naročila</h2>
                             <Link
@@ -116,7 +116,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Zgodovina naročil</h2>
                         <div v-if="customer.orders.length" class="mt-3 space-y-2">
                             <OrderCard v-for="order in customer.orders" :key="order.id" :order="order" />
@@ -125,7 +125,7 @@ const followUpOpen = ref(false);
                             <template #action>
                                 <Link
                                     :href="route('orders.create', { customer_id: customer.id })"
-                                    class="mt-2 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+                                    class="mt-2 flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                                 >
                                     <Plus :size="14" /> Novo naročilo
                                 </Link>
@@ -133,7 +133,7 @@ const followUpOpen = ref(false);
                         </EmptyState>
                     </section>
 
-                    <section v-if="appointmentsEnabled && upcomingAppointments.length" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="appointmentsEnabled && upcomingAppointments.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
                             <h2 class="text-sm font-semibold text-neutral-900">Prihajajoči termini</h2>
                             <Link
@@ -148,7 +148,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Zgodovina terminov</h2>
                         <div v-if="customer.appointments.length" class="mt-3 space-y-2">
                             <AppointmentCard v-for="appointment in customer.appointments" :key="appointment.id" :appointment="appointment" />
@@ -157,7 +157,7 @@ const followUpOpen = ref(false);
                             <template #action>
                                 <Link
                                     :href="route('appointments.create', { customer_id: customer.id })"
-                                    class="mt-2 flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+                                    class="mt-2 flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                                 >
                                     <Plus :size="14" /> Nov termin
                                 </Link>
@@ -165,7 +165,7 @@ const followUpOpen = ref(false);
                         </EmptyState>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Zgodovina pogovorov</h2>
                         <div v-if="customer.conversations.length" class="mt-3 space-y-2">
                             <Link
@@ -187,7 +187,7 @@ const followUpOpen = ref(false);
                         <EmptyState v-else title="Še ni pogovorov" />
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h2 class="text-sm font-semibold text-neutral-900">Časovnica aktivnosti</h2>
                         <div v-if="activity.length" class="mt-3 space-y-3">
                             <div v-for="entry in activity" :key="entry.id" class="flex gap-2.5 text-sm">
@@ -203,7 +203,7 @@ const followUpOpen = ref(false);
                 </div>
 
                 <div class="space-y-5">
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
                             <h3 class="text-xs font-semibold text-neutral-500 uppercase">Kontakt</h3>
                             <button type="button" class="text-neutral-400 hover:text-neutral-600" @click="editing = !editing">
@@ -223,11 +223,11 @@ const followUpOpen = ref(false);
                             <input v-model="editForm.email" type="email" placeholder="E-pošta" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
                             <input v-model="editForm.phone" type="text" placeholder="Telefon" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
                             <textarea v-model="editForm.notes" rows="3" placeholder="Opombe" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                            <button type="submit" class="w-full rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800">Shrani</button>
+                            <button type="submit" class="w-full rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]">Shrani</button>
                         </form>
                     </section>
 
-                    <section class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Družbeni profili</h3>
                         <div class="mt-2 space-y-2">
                             <div v-for="identity in customer.identities" :key="identity.id" class="flex items-center gap-2">
@@ -238,7 +238,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Skupna vrednost naročil</h3>
                         <p class="mt-2 text-2xl font-semibold text-neutral-900">{{ formatMoney(customer.lifetime_spend) }}</p>
                         <div class="mt-3 grid grid-cols-2 gap-2 text-center">
@@ -253,7 +253,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Skupna vrednost terminov</h3>
                         <p class="mt-2 text-2xl font-semibold text-neutral-900">{{ formatMoney(customer.appointments_lifetime_spend) }}</p>
                         <div class="mt-3 grid grid-cols-2 gap-2 text-center">
@@ -268,7 +268,7 @@ const followUpOpen = ref(false);
                         </div>
                     </section>
 
-                    <section v-if="followUps.length" class="rounded-xl border border-neutral-200 bg-white p-5">
+                    <section v-if="followUps.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Opomniki</h3>
                         <div class="mt-2 space-y-2">
                             <div v-for="f in followUps" :key="f.id" class="text-sm">

@@ -1,13 +1,17 @@
 <?php
 
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderNoteController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
@@ -35,6 +39,11 @@ Route::middleware('auth')->group(function () {
     Route::resource('orders', OrderController::class)->except(['edit']);
     Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
 
+    Route::get('/analitika', [AnalyticsController::class, 'index'])->name('analytics.index');
+
+    Route::get('/ponudba', [CatalogController::class, 'index'])->name('catalog.index');
+    Route::resource('products', ProductController::class)->only(['store', 'update', 'destroy']);
+
     Route::middleware('appointments.enabled')->group(function () {
         Route::resource('appointments', AppointmentController::class)->except(['edit']);
         Route::resource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
@@ -43,6 +52,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/follow-ups', [FollowUpController::class, 'store'])->name('follow-ups.store');
     Route::patch('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
     Route::delete('/follow-ups/{followUp}', [FollowUpController::class, 'destroy'])->name('follow-ups.destroy');
+
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings/business', [SettingsController::class, 'update'])->name('settings.update');

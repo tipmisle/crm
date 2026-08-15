@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
@@ -25,6 +26,9 @@ const submit = () => {
 <template>
     <GuestLayout>
         <Head title="Registracija" />
+
+        <h1 class="mb-1 text-lg font-semibold text-neutral-900">Registracija</h1>
+        <p class="mb-5 text-sm text-neutral-500">Ustvari nov račun in delovni prostor.</p>
 
         <form @submit.prevent="submit">
             <div>
@@ -70,6 +74,8 @@ const submit = () => {
                     autocomplete="new-password"
                 />
 
+                <PasswordStrengthMeter :password="form.password" />
+
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
@@ -94,17 +100,14 @@ const submit = () => {
                 />
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    :href="route('login')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
-                >
+            <div class="mt-5 flex items-center justify-end">
+                <Link :href="route('login')" class="rounded-md text-sm text-neutral-500 hover:text-neutral-800">
                     Že imate račun?
                 </Link>
 
                 <PrimaryButton
                     class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
+                    :class="{ 'opacity-50': form.processing }"
                     :disabled="form.processing"
                 >
                     Registracija

@@ -22,7 +22,7 @@ defineProps<{ links: PageLink[] }>();
                 v-else
                 :href="link.url"
                 class="rounded-md px-3 py-1.5 text-sm"
-                :class="link.active ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'"
+                :class="link.active ? 'bg-[var(--color-ink-900)] text-white' : 'text-neutral-600 hover:bg-neutral-100'"
                 v-html="link.label"
             />
         </template>

@@ -31,7 +31,10 @@ const submit = () => {
     <GuestLayout>
         <Head title="Prijava" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
+        <h1 class="mb-1 text-lg font-semibold text-neutral-900">Prijava</h1>
+        <p class="mb-5 text-sm text-neutral-500">Vpiši se v svoj račun.</p>
+
+        <div v-if="status" class="mb-4 text-sm font-medium text-emerald-600">
             {{ status }}
         </div>
 
@@ -70,29 +73,34 @@ const submit = () => {
             <div class="mt-4 block">
                 <label class="flex items-center">
                     <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600 dark:text-gray-400"
-                        >Zapomni si me</span
-                    >
+                    <span class="ms-2 text-sm text-neutral-600">Zapomni si me</span>
                 </label>
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
+            <div class="mt-5 flex items-center justify-end">
                 <Link
                     v-if="canResetPassword"
                     :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
+                    class="rounded-md text-sm text-neutral-500 hover:text-neutral-800"
                 >
                     Ste pozabili geslo?
                 </Link>
 
                 <PrimaryButton
                     class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
+                    :class="{ 'opacity-50': form.processing }"
                     :disabled="form.processing"
                 >
                     Prijava
                 </PrimaryButton>
             </div>
         </form>
+
+        <p class="mt-6 text-center text-sm text-neutral-500">
+            Nimate računa?
+            <Link :href="route('register')" class="font-medium text-[var(--color-accent-600)] hover:text-[var(--color-accent-700)]">
+                Registracija
+            </Link>
+        </p>
     </GuestLayout>
 </template>

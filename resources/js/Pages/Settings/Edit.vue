@@ -5,9 +5,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import { channelMeta } from '@/lib/channels';
-import { relativeTime, formatMoney } from '@/lib/format';
-import { Plus, Trash2 } from 'lucide-vue-next';
-import type { Channel, ChannelType, Service, Workspace } from '@/types/models';
+import { relativeTime } from '@/lib/format';
+import type { Channel, ChannelType, Workspace } from '@/types/models';
 
 interface MetaPendingAccount {
     channel_type: ChannelType;
@@ -19,7 +18,6 @@ interface MetaPendingAccount {
 const props = defineProps<{
     workspace: Workspace;
     channels: Channel[];
-    services: Service[];
     metaPendingAccounts: MetaPendingAccount[] | null;
 }>();
 
@@ -41,29 +39,6 @@ const capabilitiesForm = useForm({
 
 function saveCapabilities() {
     capabilitiesForm.patch(route('settings.capabilities.update'), { preserveScroll: true });
-}
-
-const newServiceForm = useForm({
-    name: '',
-    default_duration_minutes: 60,
-    default_price: '',
-    default_deposit_amount: '',
-});
-
-function addService() {
-    newServiceForm.post(route('services.store'), {
-        preserveScroll: true,
-        onSuccess: () => newServiceForm.reset(),
-    });
-}
-
-function toggleServiceActive(service: Service) {
-    router.patch(route('services.update', service.id), { active: !service.active }, { preserveScroll: true });
-}
-
-function deleteService(service: Service) {
-    if (!confirm(`Izbriši storitev "${service.name}"?`)) return;
-    router.delete(route('services.destroy', service.id), { preserveScroll: true });
 }
 
 const timezones = ['Europe/Ljubljana', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'UTC'];
@@ -106,7 +81,7 @@ function cancelPending() {
             <h1 class="text-sm font-semibold text-neutral-900">Nastavitve</h1>
         </template>
 
-        <div class="mx-auto max-w-3xl space-y-6 px-6 py-8">
+        <div class="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
             <h1 class="text-2xl font-semibold text-neutral-900">Nastavitve</h1>
 
             <SectionCard title="Podjetje" subtitle="Osnovni podatki o tvojem podjetju">
@@ -147,7 +122,7 @@ function cancelPending() {
                     <button
                         type="submit"
                         :disabled="form.processing"
-                        class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                        class="rounded-md bg-[var(--color-ink-900)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                     >
                         Shrani spremembe
                     </button>
@@ -177,76 +152,11 @@ function cancelPending() {
                 <button
                     type="button"
                     :disabled="capabilitiesForm.processing"
-                    class="mt-4 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                    class="mt-4 rounded-md bg-[var(--color-ink-900)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                     @click="saveCapabilities"
                 >
                     Shrani način poslovanja
                 </button>
-            </SectionCard>
-
-            <SectionCard v-if="workspace.appointments_enabled" title="Storitve" subtitle="Vnaprej pripravljene storitve za hitro rezervacijo terminov">
-                <div class="space-y-2">
-                    <div
-                        v-for="service in services"
-                        :key="service.id"
-                        class="flex items-center justify-between rounded-lg border border-neutral-200 px-4 py-3"
-                        :class="!service.active && 'opacity-50'"
-                    >
-                        <div>
-                            <p class="text-sm font-medium text-neutral-900">{{ service.name }}</p>
-                            <p class="text-xs text-neutral-500">
-                                {{ service.default_duration_minutes }} min
-                                <span v-if="service.default_price !== null"> · {{ formatMoney(service.default_price) }}</span>
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <button
-                                type="button"
-                                class="text-xs font-medium text-neutral-500 hover:text-neutral-700"
-                                @click="toggleServiceActive(service)"
-                            >
-                                {{ service.active ? 'Deaktiviraj' : 'Aktiviraj' }}
-                            </button>
-                            <button type="button" class="text-neutral-400 hover:text-red-600" @click="deleteService(service)">
-                                <Trash2 :size="14" />
-                            </button>
-                        </div>
-                    </div>
-                    <p v-if="!services.length" class="rounded-lg border border-dashed border-neutral-200 px-4 py-3 text-sm text-neutral-400">
-                        Še ni storitev.
-                    </p>
-                </div>
-
-                <form class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4" @submit.prevent="addService">
-                    <input
-                        v-model="newServiceForm.name"
-                        type="text"
-                        placeholder="npr. Gel nohti"
-                        class="col-span-2 rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400 sm:col-span-1"
-                    />
-                    <input
-                        v-model.number="newServiceForm.default_duration_minutes"
-                        type="number"
-                        min="5"
-                        placeholder="Min"
-                        class="rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
-                    />
-                    <input
-                        v-model="newServiceForm.default_price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Cena"
-                        class="rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
-                    />
-                    <button
-                        type="submit"
-                        :disabled="newServiceForm.processing || !newServiceForm.name"
-                        class="flex items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-                    >
-                        <Plus :size="14" /> Dodaj
-                    </button>
-                </form>
             </SectionCard>
 
             <SectionCard title="Kanali" subtitle="Poveži svoje Meta račune za samodejno sinhronizacijo pogovorov">
@@ -277,7 +187,7 @@ function cancelPending() {
                         <button
                             type="button"
                             :disabled="!selectedAccounts.length || pendingForm.processing"
-                            class="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                            class="rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                             @click="connectSelected"
                         >
                             Poveži izbrane

@@ -44,10 +44,10 @@ const totalAppointments = computed(() =>
             <h1 class="text-sm font-semibold text-neutral-900">Termini</h1>
         </template>
 
-        <div class="flex h-[calc(100vh-3.5rem)] flex-col px-6 py-6">
-            <div class="mb-4 flex items-center justify-between">
+        <div class="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-7xl flex-col px-4 py-4 sm:px-6 sm:py-6">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h1 class="text-2xl font-semibold text-neutral-900">Termini</h1>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <Link
                         :href="route('appointments.index', { view: 'list' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
@@ -56,7 +56,7 @@ const totalAppointments = computed(() =>
                     </Link>
                     <Link
                         :href="route('appointments.create')"
-                        class="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+                        class="flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                     >
                         <Plus :size="14" /> Nov termin
                     </Link>
@@ -102,7 +102,7 @@ const totalAppointments = computed(() =>
                         <span class="text-xs font-medium text-neutral-500 capitalize">{{ format(day, 'EEE', { locale: sl }) }}</span>
                         <span
                             class="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold"
-                            :class="isToday(day) ? 'bg-neutral-900 text-white' : 'text-neutral-700'"
+                            :class="isToday(day) ? 'bg-[var(--color-ink-900)] text-white' : 'text-neutral-700'"
                         >
                             {{ format(day, 'd') }}
                         </span>

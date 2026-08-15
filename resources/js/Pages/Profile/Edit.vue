@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import SectionCard from '@/Components/SectionCard.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
@@ -14,39 +15,28 @@ defineProps<{
 <template>
     <Head title="Profil" />
 
-    <AuthenticatedLayout>
+    <AppLayout>
         <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200"
-            >
-                Profil
-            </h2>
+            <h1 class="text-sm font-semibold text-neutral-900">Profil</h1>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8 dark:bg-gray-800"
-                >
-                    <UpdateProfileInformationForm
-                        :must-verify-email="mustVerifyEmail"
-                        :status="status"
-                        class="max-w-xl"
-                    />
-                </div>
+        <div class="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+            <h1 class="text-2xl font-semibold text-neutral-900">Profil</h1>
 
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8 dark:bg-gray-800"
-                >
-                    <UpdatePasswordForm class="max-w-xl" />
-                </div>
+            <SectionCard title="Informacije o profilu" subtitle="Posodobite podatke o profilu svojega računa in e-poštni naslov.">
+                <UpdateProfileInformationForm :must-verify-email="mustVerifyEmail" :status="status" />
+            </SectionCard>
 
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8 dark:bg-gray-800"
-                >
-                    <DeleteUserForm class="max-w-xl" />
-                </div>
-            </div>
+            <SectionCard title="Posodobi geslo" subtitle="Za varnost vašega računa uporabite dolgo, naključno geslo.">
+                <UpdatePasswordForm />
+            </SectionCard>
+
+            <SectionCard
+                title="Izbriši račun"
+                subtitle="Ko je vaš račun izbrisan, bodo vsi njegovi viri in podatki trajno izbrisani."
+            >
+                <DeleteUserForm />
+            </SectionCard>
         </div>
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>

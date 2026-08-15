@@ -13,7 +13,21 @@ import FollowUpModal from '@/Components/FollowUpModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { relativeTime, formatMoney, formatDate, formatTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
-import { Send, Plus, Bell, StickyNote, UserRound, Inbox as InboxIcon, ExternalLink, Paperclip, Loader2, X, CalendarPlus } from 'lucide-vue-next';
+import {
+    Send,
+    Plus,
+    Bell,
+    StickyNote,
+    UserRound,
+    Inbox as InboxIcon,
+    ExternalLink,
+    Paperclip,
+    Loader2,
+    X,
+    CalendarPlus,
+    ArrowLeft,
+    Info,
+} from 'lucide-vue-next';
 import type { Channel, ConversationStatus, Message } from '@/types/models';
 
 interface ConversationListItem {
@@ -202,6 +216,14 @@ function submitNote() {
     });
 }
 
+// Below lg, the three panes (list / thread / customer info) become three
+// separate full-width screens — a conversation list, a chat, and an info
+// drawer — the way a mobile messaging app works, instead of three squeezed
+// columns. customerPanelOpen only matters below lg; at lg+ the info panel
+// is always visible as its own column regardless of this flag.
+const customerPanelOpen = ref(false);
+watch(() => props.conversation?.id, () => (customerPanelOpen.value = false));
+
 const followableId = computed(() => props.conversation?.customer?.id ?? props.conversation?.id ?? 0);
 const followableType = computed(() =>
     props.conversation?.customer ? 'App\\Models\\Customer' : 'App\\Models\\Conversation',
@@ -217,7 +239,10 @@ const followableType = computed(() =>
         </template>
 
         <div class="flex h-[calc(100vh-3.5rem)]">
-            <div class="w-80 shrink-0 overflow-y-auto border-r border-neutral-200 bg-white">
+            <div
+                class="w-full shrink-0 overflow-y-auto border-r border-neutral-200 bg-white lg:w-80"
+                :class="conversation ? 'hidden lg:block' : 'block'"
+            >
                 <Link
                     v-for="c in conversations"
                     :key="c.id"
@@ -241,7 +266,7 @@ const followableType = computed(() =>
                             <Badge :color="CONVERSATION_STATUS_META[c.status].color" :bg="CONVERSATION_STATUS_META[c.status].bg">
                                 {{ CONVERSATION_STATUS_META[c.status].label }}
                             </Badge>
-                            <span v-if="c.unread_count" class="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-accent-500)] px-1 text-[10px] font-semibold text-white">
+                            <span v-if="c.unread_count" class="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
                                 {{ c.unread_count }}
                             </span>
                         </div>
@@ -251,37 +276,53 @@ const followableType = computed(() =>
                 <EmptyState v-if="!conversations.length" title="Ni še pogovorov" />
             </div>
 
-            <div class="flex flex-1 flex-col">
+            <div class="flex-1 flex-col" :class="conversation ? 'flex' : 'hidden lg:flex'">
                 <template v-if="conversation">
-                    <div class="flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-3">
-                        <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-white px-3 py-3 sm:px-5">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <Link
+                                :href="route('inbox.index')"
+                                class="-ml-1 shrink-0 rounded-md p-1 text-neutral-500 hover:bg-neutral-100 lg:hidden"
+                            >
+                                <ArrowLeft :size="18" />
+                            </Link>
                             <ChannelIcon :type="conversation.channel.type" size="md" />
-                            <span class="text-sm font-medium text-neutral-900">
+                            <span class="truncate text-sm font-medium text-neutral-900">
                                 {{ conversation.customer?.full_name ?? conversation.customer_display_name }}
                             </span>
-                            <span class="text-xs text-neutral-400">{{ conversation.customer_username }}</span>
+                            <span class="hidden shrink-0 text-xs text-neutral-400 sm:inline">{{ conversation.customer_username }}</span>
                             <a
                                 v-if="conversation.open_in_platform_url"
                                 :href="conversation.open_in_platform_url"
                                 target="_blank"
                                 rel="noopener"
                                 title="Odpri v izvorni platformi"
-                                class="text-neutral-300 hover:text-neutral-500"
+                                class="hidden shrink-0 text-neutral-300 hover:text-neutral-500 sm:inline"
                             >
                                 <ExternalLink :size="13" />
                             </a>
                         </div>
 
-                        <select
-                            :value="conversation.status"
-                            class="rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-600 outline-none"
-                            @change="updateStatus(($event.target as HTMLSelectElement).value)"
-                        >
-                            <option v-for="(meta, key) in CONVERSATION_STATUS_META" :key="key" :value="key">{{ meta.label }}</option>
-                        </select>
+                        <div class="ml-auto flex shrink-0 items-center gap-2">
+                            <select
+                                :value="conversation.status"
+                                class="rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-600 outline-none"
+                                @change="updateStatus(($event.target as HTMLSelectElement).value)"
+                            >
+                                <option v-for="(meta, key) in CONVERSATION_STATUS_META" :key="key" :value="key">{{ meta.label }}</option>
+                            </select>
+                            <button
+                                type="button"
+                                class="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 lg:hidden"
+                                title="Podrobnosti o stranki"
+                                @click="customerPanelOpen = true"
+                            >
+                                <Info :size="18" />
+                            </button>
+                        </div>
                     </div>
 
-                    <div ref="threadEl" class="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+                    <div ref="threadEl" class="flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-5 sm:py-5">
                         <MessageBubble v-for="m in conversation.messages" :key="m.id" :message="m" />
 
                         <div v-if="attachmentForm.processing" class="flex justify-end">
@@ -340,7 +381,7 @@ const followableType = computed(() =>
                         <button
                             type="submit"
                             :disabled="messageForm.processing || (!messageForm.body.trim() && !attachmentForm.attachment)"
-                            class="flex min-w-24 items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                            class="flex min-w-24 items-center justify-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                         >
                             <Loader2 v-if="messageForm.processing" :size="14" class="animate-spin" />
                             <Send v-else :size="14" />
@@ -369,7 +410,34 @@ const followableType = computed(() =>
                 </EmptyState>
             </div>
 
-            <div v-if="conversation" class="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-5">
+            <!-- Below lg this is a full-screen drawer over the chat (closed by
+                 default); at lg+ it's the permanent third column. -->
+            <Transition
+                enter-active-class="transition duration-150 ease-out"
+                enter-from-class="opacity-0"
+                leave-active-class="transition duration-100 ease-in"
+                leave-to-class="opacity-0"
+            >
+                <div v-if="conversation && customerPanelOpen" class="fixed inset-0 z-40 bg-[var(--color-ink-900)]/50 lg:hidden" @click="customerPanelOpen = false" />
+            </Transition>
+
+            <div
+                v-if="conversation"
+                class="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-5 transition-transform duration-200 ease-out lg:static lg:translate-x-0"
+                :class="
+                    customerPanelOpen
+                        ? 'fixed inset-y-0 right-0 z-40 max-w-[85vw] translate-x-0'
+                        : 'fixed inset-y-0 right-0 z-40 max-w-[85vw] translate-x-full lg:translate-x-0'
+                "
+            >
+                <button
+                    type="button"
+                    class="mb-3 flex items-center gap-1.5 rounded-md px-1 py-1 text-sm font-medium text-neutral-500 hover:text-neutral-700 lg:hidden"
+                    @click="customerPanelOpen = false"
+                >
+                    <X :size="16" /> Zapri
+                </button>
+
                 <template v-if="conversation.customer">
                     <div class="flex items-center gap-3">
                         <Avatar :name="conversation.customer.full_name" :src="conversation.avatar_url" size="lg" />
@@ -427,7 +495,7 @@ const followableType = computed(() =>
                         <Link
                             v-if="ordersEnabled"
                             :href="route('orders.create', { customer_id: conversation.customer.id, conversation_id: conversation.id })"
-                            class="flex items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                            class="flex items-center justify-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                         >
                             <Plus :size="14" /> Ustvari naročilo
                         </Link>
@@ -435,7 +503,7 @@ const followableType = computed(() =>
                             v-if="appointmentsEnabled"
                             :href="route('appointments.create', { customer_id: conversation.customer.id, conversation_id: conversation.id })"
                             class="flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-                            :class="ordersEnabled ? 'bg-neutral-700' : 'bg-neutral-900 hover:bg-neutral-800'"
+                            :class="ordersEnabled ? 'bg-neutral-700' : 'bg-[var(--color-ink-900)] hover:bg-[var(--color-ink-800)]'"
                         >
                             <CalendarPlus :size="14" /> Rezerviraj termin
                         </Link>
@@ -479,7 +547,7 @@ const followableType = computed(() =>
 
                     <button
                         type="button"
-                        class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                        class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                         @click="createCustomer"
                     >
                         <Plus :size="14" /> Ustvari stranko
@@ -528,7 +596,7 @@ const followableType = computed(() =>
                     <button
                         type="submit"
                         :disabled="noteForm.processing"
-                        class="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                        class="rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                     >
                         Shrani opombo
                     </button>

@@ -21,11 +21,14 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Carbon\Carbon;
+use Database\Seeders\Concerns\SpreadsTimestamps;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class StudioNolaSeeder extends Seeder
 {
+    use SpreadsTimestamps;
+
     private Workspace $workspace;
 
     /** @var array<string, Channel> */
@@ -117,10 +120,10 @@ class StudioNolaSeeder extends Seeder
     private function createServices(): void
     {
         $definitions = [
-            ['name' => 'Gel manikura', 'description' => 'Klasična gel manikura z barvo po izbiri.', 'duration' => 75, 'price' => 35, 'deposit' => 10],
-            ['name' => 'BIAB nadgradnja', 'description' => 'Podaljšanje in ojačitev naravnega nohta z BIAB gelom.', 'duration' => 60, 'price' => 30, 'deposit' => 10],
-            ['name' => 'Gel podaljški', 'description' => 'Podaljški z gel tehniko na šablonah.', 'duration' => 105, 'price' => 45, 'deposit' => 15],
-            ['name' => 'Nail art dodatek', 'description' => 'Dodatna dekoracija — kamenčki, francoska linija, ombre.', 'duration' => 30, 'price' => 12, 'deposit' => null],
+            ['name' => 'Gel manikura', 'description' => 'Klasična gel manikura z barvo po izbiri.', 'duration' => 60, 'price' => 35, 'deposit' => null],
+            ['name' => 'BIAB nadgradnja', 'description' => 'Podaljšanje in ojačitev naravnega nohta z BIAB gelom.', 'duration' => 75, 'price' => 42, 'deposit' => 10],
+            ['name' => 'Gel podaljški', 'description' => 'Podaljški z gel tehniko na šablonah.', 'duration' => 120, 'price' => 55, 'deposit' => 15],
+            ['name' => 'Nail art dodatek', 'description' => 'Dodatna dekoracija — kamenčki, francoska linija, ombre.', 'duration' => 15, 'price' => 8, 'deposit' => null],
         ];
 
         foreach ($definitions as $def) {
@@ -145,7 +148,7 @@ class StudioNolaSeeder extends Seeder
             $fullName = "{$name['first']} {$name['last']}";
             $username = Str::slug($fullName, '').['_nails', '', '.nails', ''][($i % 4)];
             $channelType = $this->weightedChannel();
-            $firstContact = Carbon::now()->subDays(rand(15, 300));
+            $firstContact = Carbon::now()->subDays(rand(1, 120));
 
             $customer = Customer::create([
                 'workspace_id' => $this->workspace->id,
@@ -157,6 +160,8 @@ class StudioNolaSeeder extends Seeder
                 'first_contacted_at' => $firstContact,
                 'last_interaction_at' => $firstContact->copy()->addDays(rand(0, 250)),
             ]);
+
+            $this->backdate($customer, $firstContact);
 
             CustomerIdentity::create([
                 'customer_id' => $customer->id,
@@ -219,6 +224,7 @@ class StudioNolaSeeder extends Seeder
         $conversations = collect();
         $total = 24;
         $unlinkedCount = 5;
+        $startDates = $this->spreadDates($total);
 
         for ($i = 0; $i < $total; $i++) {
             $isUnlinked = $i < $unlinkedCount;
@@ -233,7 +239,7 @@ class StudioNolaSeeder extends Seeder
             $username = '@'.Str::slug($displayName, '');
 
             $status = $this->weightedConversationStatus();
-            $startedAt = Carbon::now()->subDays(rand(0, 10))->subHours(rand(0, 20));
+            $startedAt = array_pop($startDates);
 
             $conversation = Conversation::create([
                 'workspace_id' => $this->workspace->id,
@@ -244,6 +250,8 @@ class StudioNolaSeeder extends Seeder
                 'status' => $status,
                 'unread_count' => 0,
             ]);
+
+            $this->backdate($conversation, $startedAt);
 
             $this->seedMessages($conversation, $displayName, $status, $startedAt);
             $conversations->push($conversation);
@@ -371,6 +379,8 @@ class StudioNolaSeeder extends Seeder
         $serviceNames = array_keys($this->services);
         $slots = ['09:00', '10:00', '11:00', '12:30', '14:00', '15:00', '16:00', '17:00'];
         $convIndex = 0;
+        $totalAppointments = array_sum(array_column($plan, 2));
+        $createdDates = $this->spreadDates($totalAppointments);
 
         foreach ($plan as [$dayOffset, $status, $count]) {
             for ($i = 0; $i < $count; $i++) {
@@ -382,6 +392,13 @@ class StudioNolaSeeder extends Seeder
                 $service = $this->services[$serviceName];
                 $date = Carbon::today()->addDays($dayOffset);
                 $startTime = $slots[array_rand($slots)];
+
+                // The booking (created_at) can't land after the appointment
+                // itself for anything already in the past.
+                $createdAt = array_pop($createdDates);
+                if ($date->isPast() && $createdAt->gt($date)) {
+                    $createdAt = $date->copy()->subHours(rand(1, 72));
+                }
 
                 $paymentStatus = match ($status) {
                     AppointmentStatus::Completed => PaymentStatus::Paid,
@@ -418,6 +435,8 @@ class StudioNolaSeeder extends Seeder
                     'internal_notes' => rand(0, 4) === 0 ? 'Stranka je prosila za natančno isti odtenek kot zadnjič.' : null,
                     'customer_notes' => rand(0, 4) === 0 ? 'Občutljiva koža okoli nohtov, previdno pri odstranjevanju.' : null,
                 ]);
+
+                $this->backdate($appointment, $createdAt);
 
                 $appointments->push($appointment);
             }

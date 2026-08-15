@@ -149,6 +149,8 @@ export interface Order {
     conversation?: Conversation;
     channel_id: number | null;
     channel?: Channel;
+    catalog_item_id: number | null;
+    product?: Product;
     title: string;
     description: string | null;
     due_date: string | null;
@@ -193,9 +195,21 @@ export interface AuthUser {
 export interface Service {
     id: number;
     workspace_id: number;
+    type: 'service';
     name: string;
     description: string | null;
     default_duration_minutes: number;
+    default_price: string | number | null;
+    default_deposit_amount: string | number | null;
+    active: boolean;
+}
+
+export interface Product {
+    id: number;
+    workspace_id: number;
+    type: 'product';
+    name: string;
+    description: string | null;
     default_price: string | number | null;
     default_deposit_amount: string | number | null;
     active: boolean;

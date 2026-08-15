@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
+import CustomerModal from '@/Components/CustomerModal.vue';
 import { Search, Plus, Users } from 'lucide-vue-next';
 import { formatMoney, formatDate } from '@/lib/format';
 import type { Channel } from '@/types/models';
@@ -28,6 +29,7 @@ const props = defineProps<{
 }>();
 
 const search = ref(props.filters.search ?? '');
+const createOpen = ref(false);
 
 let debounce: ReturnType<typeof setTimeout>;
 watch(search, () => {
@@ -46,15 +48,16 @@ watch(search, () => {
             <h1 class="text-sm font-semibold text-neutral-900">Stranke</h1>
         </template>
 
-        <div class="mx-auto max-w-5xl space-y-5 px-6 py-8">
+        <div class="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-semibold text-neutral-900">Stranke</h1>
-                <Link
-                    :href="route('customers.create')"
-                    class="flex items-center gap-1.5 rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
+                    @click="createOpen = true"
                 >
                     <Plus :size="14" /> Nova stranka
-                </Link>
+                </button>
             </div>
 
             <div class="relative">
@@ -67,7 +70,7 @@ watch(search, () => {
                 />
             </div>
 
-            <div v-if="customers.data.length" class="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+            <div v-if="customers.data.length" class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
                 <table class="w-full text-sm">
                     <thead class="border-b border-neutral-100 bg-neutral-50 text-left text-xs font-medium text-neutral-500">
                         <tr>
@@ -113,5 +116,7 @@ watch(search, () => {
 
             <Pagination :links="customers.links" />
         </div>
+
+        <CustomerModal v-model:open="createOpen" />
     </AppLayout>
 </template>

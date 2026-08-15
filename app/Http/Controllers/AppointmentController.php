@@ -82,16 +82,18 @@ class AppointmentController extends Controller
             'customer' => $customer,
             'conversation' => $conversation,
             'services' => Service::where('active', true)->orderBy('name')->get(),
+            'customers' => $customer || $conversation ? [] : Customer::orderBy('full_name')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'service_id' => 'nullable|exists:services,id',
+            'service_id' => 'nullable|exists:catalog_items,id',
             'service_name' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'customer_id' => 'nullable|exists:customers,id',
+            'customer_name' => 'required_without_all:customer_id,conversation_id|nullable|string|max:255',
             'conversation_id' => 'nullable|exists:conversations,id',
             'appointment_date' => 'required|date',
             'start_time' => 'required',
@@ -100,6 +102,8 @@ class AppointmentController extends Controller
             'deposit_amount' => 'nullable|numeric|min:0',
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
+        ], [
+            'customer_name.required_without_all' => 'Termin potrebuje stranko.',
         ]);
 
         $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
@@ -124,6 +128,14 @@ class AppointmentController extends Controller
             ]);
 
             $conversation->update(['customer_id' => $customer->id]);
+        }
+
+        if (! $customer && ! empty($data['customer_name'])) {
+            $customer = Customer::create([
+                'full_name' => $data['customer_name'],
+                'first_contacted_at' => now(),
+                'last_interaction_at' => now(),
+            ]);
         }
 
         abort_unless($customer, 422, 'Termin potrebuje stranko.');

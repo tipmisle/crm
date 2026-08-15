@@ -2,36 +2,24 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToWorkspace;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Service extends Model
+/**
+ * A catalog item of type "service" — the Ponudba entries appointments are
+ * booked from. Backed by the same catalog_items table as Product; scoped to
+ * type=service so both remain distinct in every query and route-model bind.
+ */
+class Service extends CatalogItem
 {
-    use BelongsToWorkspace, HasFactory;
-
-    protected $fillable = [
-        'workspace_id',
-        'name',
-        'description',
-        'default_duration_minutes',
-        'default_price',
-        'default_deposit_amount',
-        'active',
-    ];
-
-    protected function casts(): array
+    protected static function booted(): void
     {
-        return [
-            'default_price' => 'decimal:2',
-            'default_deposit_amount' => 'decimal:2',
-            'active' => 'boolean',
-        ];
+        static::addGlobalScope('type', fn ($query) => $query->where('type', 'service'));
+
+        static::creating(fn (Service $service) => $service->type = 'service');
     }
 
     public function appointments(): HasMany
     {
-        return $this->hasMany(Appointment::class);
+        return $this->hasMany(Appointment::class, 'service_id');
     }
 }

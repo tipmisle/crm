@@ -9,6 +9,7 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -100,15 +101,19 @@ class OrderController extends Controller
         return Inertia::render('Orders/Create', [
             'customer' => $customer,
             'conversation' => $conversation,
+            'products' => Product::where('active', true)->orderBy('name')->get(),
+            'customers' => $customer || $conversation ? [] : Customer::orderBy('full_name')->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            'catalog_item_id' => 'nullable|exists:catalog_items,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'customer_id' => 'nullable|exists:customers,id',
+            'customer_name' => 'required_without_all:customer_id,conversation_id|nullable|string|max:255',
             'conversation_id' => 'nullable|exists:conversations,id',
             'due_date' => 'nullable|date',
             'due_time' => 'nullable',
@@ -116,6 +121,8 @@ class OrderController extends Controller
             'deposit_amount' => 'nullable|numeric|min:0',
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
+        ], [
+            'customer_name.required_without_all' => 'Naročilo potrebuje stranko.',
         ]);
 
         $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
@@ -140,6 +147,14 @@ class OrderController extends Controller
             $conversation->update(['customer_id' => $customer->id]);
         }
 
+        if (! $customer && ! empty($data['customer_name'])) {
+            $customer = Customer::create([
+                'full_name' => $data['customer_name'],
+                'first_contacted_at' => now(),
+                'last_interaction_at' => now(),
+            ]);
+        }
+
         abort_unless($customer, 422, 'Naročilo potrebuje stranko.');
 
         $deposit = (float) ($data['deposit_amount'] ?? 0);
@@ -149,6 +164,7 @@ class OrderController extends Controller
             'customer_id' => $customer->id,
             'conversation_id' => $conversation?->id,
             'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
+            'catalog_item_id' => $data['catalog_item_id'] ?? null,
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
             'due_date' => $data['due_date'] ?? null,

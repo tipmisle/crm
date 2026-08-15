@@ -41,6 +41,7 @@ class HandleInertiaRequests extends Middleware
             'unreadInboxCount' => $user?->current_workspace_id
                 ? (int) Conversation::where('unread_count', '>', 0)->sum('unread_count')
                 : 0,
+            'vapidPublicKey' => config('webpush.vapid.public_key'),
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
