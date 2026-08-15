@@ -4,7 +4,7 @@ withDefaults(defineProps<{ size?: number }>(), { size: 76 });
 
 <template>
     <img
-        src="https://images.unsplash.com/photo-1535141192574-5d4897c12636?w=200&h=200&fit=crop&q=80"
+        src="/images/marketing/cake-reference.webp"
         alt="Rojstnodnevna torta"
         :style="{ width: `${size}px`, height: `${size}px` }"
         class="shrink-0 rounded-lg object-cover"

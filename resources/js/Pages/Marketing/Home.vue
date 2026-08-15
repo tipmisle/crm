@@ -99,7 +99,7 @@ const heroMessages = computed<HeroMessage[]>(() => {
         list.push({ id: 'm1', from: 'them', type: 'text', text: 'Živjo! Bi bilo možno naročiti torto za 30. avgust? Nekaj za približno 20 ljudi 😊' });
     }
     if (heroPhase.value >= 3) {
-        list.push({ id: 'm2', from: 'me', type: 'text', text: 'Seveda 😊 Kakšen stil ste imela pa v mislih in kdo praznuje? 😊' });
+        list.push({ id: 'm2', from: 'me', type: 'text', text: 'Seveda 😊 Kakšen stil ste imeli v mislih? Za koga pa bo torta?' });
     }
     if (heroPhase.value >= 4) {
         list.push({ id: 'm3', from: 'them', type: 'photo', text: 'Za hčerkin 10. rojstni dan. Tole bi mi bilo všeč:' });
@@ -109,7 +109,7 @@ const heroMessages = computed<HeroMessage[]>(() => {
             id: 'm4',
             from: 'me',
             type: 'text',
-            text: 'Ni problema! 😊 Ara je 20 €, prevzamete pa lahko 30. avgusta ob 8:00, vam tako odgovarja? :)',
+            text: 'Super 😊 Ara je 20 €. Torta bo pripravljena 30. avgusta ob 8:00 — vam ta ura ustreza?',
         });
     }
     if (heroPhase.value >= 11) {
@@ -121,15 +121,34 @@ const heroMessages = computed<HeroMessage[]>(() => {
 // Placeholder — swap when pricing is finalized. Referenced only here.
 const MONTHLY_PRICE = '19 €';
 
-const painFragments = [
-    { text: 'Čakaj — koliko sem ji rekla za torto?', tag: 'Zapiski', rotate: '-rotate-2', accent: 'bg-neutral-100 text-neutral-500' },
-    { text: 'A je tale že nakazala aro?', tag: 'Plačila', rotate: 'rotate-1', accent: 'bg-amber-50 text-amber-700' },
-    { text: 'Nekdo mi je pisal za petek. Kdo že?', tag: 'Messenger', rotate: 'rotate-2', accent: 'bg-[#E3F1FF] text-[#0084FF]' },
-    { text: 'Katera Nina je to?', tag: 'Instagram', rotate: '-rotate-1', accent: 'bg-[#FCE7F0] text-[#E1306C]' },
-    { text: 'Uf, tej sem pozabila odgovoriti.', tag: 'Instagram', rotate: 'rotate-2', accent: 'bg-[#FCE7F0] text-[#E1306C]' },
-    { text: 'Kje sva se dogovorili za 14:30?', tag: 'Koledar', rotate: '-rotate-2', accent: 'bg-neutral-100 text-neutral-500' },
-    { text: 'Katera naročila imam sploh ta teden?', tag: 'Zapiski', rotate: 'rotate-1', accent: 'bg-neutral-100 text-neutral-500' },
-    { text: 'Komu moram danes še pisati?', tag: 'V glavi', rotate: '-rotate-1', accent: 'bg-[var(--color-accent-50)] text-[var(--color-accent-700)]' },
+const painCategories = [
+    {
+        label: 'Dogovori',
+        offset: 'lg:mt-0',
+        items: [
+            { text: 'Kakšno ceno sem že postavila?', tag: 'Zapiski', rotate: 'sm:-rotate-2', accent: 'bg-neutral-100 text-neutral-500' },
+            { text: 'Kje sva rekli, da bo prevzem?', tag: 'Instagram', rotate: 'sm:rotate-1', accent: 'bg-[#FCE7F0] text-[#E1306C]' },
+            { text: 'Kakšno torto je že želela?', tag: 'Messenger', rotate: 'sm:-rotate-1', accent: 'bg-[#E3F1FF] text-[#0084FF]' },
+        ],
+    },
+    {
+        label: 'Roki in termini',
+        offset: 'lg:mt-10',
+        items: [
+            { text: 'Kdo pride v petek?', tag: 'Koledar', rotate: 'sm:rotate-2', accent: 'bg-neutral-100 text-neutral-500' },
+            { text: 'A sem termin prestavila?', tag: 'Koledar', rotate: 'sm:-rotate-2', accent: 'bg-neutral-100 text-neutral-500' },
+            { text: 'Katera naročila imam ta teden?', tag: 'Zapiski', rotate: 'sm:rotate-1', accent: 'bg-neutral-100 text-neutral-500' },
+        ],
+    },
+    {
+        label: 'Follow-upi in plačila',
+        offset: 'lg:mt-4',
+        items: [
+            { text: 'Ali je bila ara že plačana?', tag: 'Plačila', rotate: 'sm:-rotate-1', accent: 'bg-amber-50 text-amber-700' },
+            { text: 'Komu moram še odgovoriti?', tag: 'Instagram', rotate: 'sm:rotate-2', accent: 'bg-[#FCE7F0] text-[#E1306C]' },
+            { text: 'Koga moram danes spomniti?', tag: 'V glavi', rotate: 'sm:-rotate-2', accent: 'bg-[var(--color-accent-50)] text-[var(--color-accent-700)]' },
+        ],
+    },
 ];
 
 const faqs = [
@@ -507,38 +526,152 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
             <div class="mx-auto max-w-6xl px-4 sm:px-6">
                 <Reveal>
                     <h2 class="text-center text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-                        Se ti tole sliši znano?
+                        Manj kaosa, več pregleda.
                     </h2>
                 </Reveal>
 
-                <div class="mx-auto mt-14 grid max-w-4xl grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-                    <Reveal v-for="(fragment, i) in painFragments" :key="fragment.text" :delay="i * 60">
-                        <div
-                            class="rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm shadow-neutral-900/[0.04] transition hover:-translate-y-0.5 hover:shadow-md"
-                            :class="fragment.rotate"
-                        >
-                            <span class="inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase" :class="fragment.accent">
-                                {{ fragment.tag }}
-                            </span>
-                            <p class="mt-2 text-[15px] leading-snug text-neutral-800">{{ fragment.text }}</p>
+                <Reveal :delay="60">
+                    <p class="mx-auto mt-4 max-w-md text-center text-[15px] text-neutral-500">
+                        Dogovori, roki, plačila in opombe se hitro razpršijo med zasebna sporočila, zapiske,
+                        koledarje in razne aplikacije.
+                    </p>
+                </Reveal>
+
+                <div class="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-3">
+                    <Reveal v-for="(category, ci) in painCategories" :key="category.label" :delay="ci * 80" :class="category.offset">
+                        <div>
+                            <p class="text-xs font-semibold tracking-wide text-neutral-400 uppercase">{{ category.label }}</p>
+                            <div class="mt-4 space-y-3">
+                                <div
+                                    v-for="(fragment, fi) in category.items"
+                                    :key="fragment.text"
+                                    class="rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm shadow-neutral-900/[0.04] transition hover:-translate-y-0.5 hover:shadow-md"
+                                    :class="[fragment.rotate, fi === 1 && 'sm:ml-4']"
+                                >
+                                    <span class="inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase" :class="fragment.accent">
+                                        {{ fragment.tag }}
+                                    </span>
+                                    <p class="mt-2 text-[15px] leading-snug text-neutral-800">{{ fragment.text }}</p>
+                                </div>
+                            </div>
                         </div>
                     </Reveal>
                 </div>
 
-                <Reveal :delay="200">
-                    <div class="mx-auto mt-16 max-w-2xl text-center">
-                        <p class="text-2xl font-semibold text-neutral-900">
-                            Beležka je narejena za točno ta del posla.
+                <!-- Sources: where the scattered information is actually coming from -->
+                <Reveal :delay="120">
+                    <div class="mx-auto mt-10 flex max-w-lg flex-wrap items-center justify-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-500 shadow-sm shadow-neutral-900/[0.03]">
+                            <ChannelIcon type="instagram" size="sm" /> Instagram
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-500 shadow-sm shadow-neutral-900/[0.03]">
+                            <ChannelIcon type="facebook_messenger" size="sm" /> Facebook
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-500 shadow-sm shadow-neutral-900/[0.03]">
+                            <StickyNote :size="11" class="text-neutral-400" /> Zapiski
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-500 shadow-sm shadow-neutral-900/[0.03]">
+                            <CalendarDays :size="11" class="text-neutral-400" /> Koledar
+                        </span>
+                    </div>
+                </Reveal>
+
+                <!-- Convergence: scattered groups visually flow down into Beležka -->
+                <div class="relative mx-auto mt-4 h-16 max-w-5xl lg:mt-6 lg:h-24" aria-hidden="true">
+                    <div class="mx-auto h-full w-px bg-gradient-to-b from-neutral-200 to-[var(--color-accent-300)] lg:hidden" />
+                    <svg class="pointer-events-none absolute inset-0 hidden h-full w-full lg:block" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+                        <path
+                            d="M 16.5 0 C 16.5 55, 50 55, 50 100"
+                            stroke="var(--color-accent-200)"
+                            stroke-width="1.25"
+                            stroke-linecap="round"
+                            vector-effect="non-scaling-stroke"
+                        />
+                        <path d="M 50 0 L 50 100" stroke="var(--color-accent-200)" stroke-width="1.25" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+                        <path
+                            d="M 83.5 0 C 83.5 55, 50 55, 50 100"
+                            stroke="var(--color-accent-200)"
+                            stroke-width="1.25"
+                            stroke-linecap="round"
+                            vector-effect="non-scaling-stroke"
+                        />
+                    </svg>
+                </div>
+
+                <!-- Central hub: scattered bits become one structured business record -->
+                <Reveal :delay="180">
+                    <div class="mx-auto max-w-sm">
+                        <div class="overflow-hidden rounded-2xl border border-[var(--color-accent-200)] bg-white shadow-lg shadow-[var(--color-accent-500)]/10 ring-1 ring-[var(--color-accent-500)]/5">
+                            <div class="flex items-center gap-2 border-b border-[var(--color-accent-100)] bg-[var(--color-accent-50)] px-5 py-3">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-500)] text-[11px] font-bold text-white">B</span>
+                                <p class="text-xs font-semibold tracking-wide text-[var(--color-accent-700)] uppercase">Beležka</p>
+                            </div>
+                            <div class="space-y-2.5 px-5 py-4 text-sm">
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-neutral-400">Stranka</span>
+                                    <span class="font-medium text-neutral-900">Nina Kovač</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-neutral-400">Kanal</span>
+                                    <span class="inline-flex items-center gap-1.5 font-medium text-neutral-900">
+                                        <ChannelIcon type="instagram" size="sm" /> Instagram
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-neutral-400">Naročilo</span>
+                                    <span class="font-medium text-neutral-900">Rojstnodnevna torta</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-neutral-400">Status</span>
+                                    <Badge color="#6A3CCB" bg="#EBE5FD">V pripravi</Badge>
+                                </div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-neutral-400">Rok</span>
+                                    <span class="font-medium text-neutral-900">30. avgust</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-neutral-400">Plačilo</span>
+                                    <Badge :color="depositPaid.color" :bg="depositPaid.bg">Ara plačana (20 €)</Badge>
+                                </div>
+                                <div class="flex items-start justify-between gap-3 border-t border-neutral-100 pt-2.5">
+                                    <span class="shrink-0 text-neutral-400">Opomba</span>
+                                    <span class="text-right font-medium text-neutral-700">Prevzem ob 8:00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Reveal>
+
+                <Reveal :delay="220">
+                    <div class="mx-auto mt-12 max-w-2xl text-center">
+                        <p class="text-2xl font-semibold text-neutral-900">Vse vidiš na enem mestu.</p>
+
+                        <p class="mx-auto mt-2 max-w-md text-sm text-neutral-500">
+                            Kdo je stranka, kaj je naročila, za kdaj, koliko je že plačala in kaj moraš urediti
+                            naslednje.
                         </p>
 
-                        <div class="mt-8 inline-flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-neutral-800">
-                            <span class="rounded-md bg-white px-3 py-1.5 shadow-sm shadow-neutral-900/[0.04]">Sporočilo</span>
-                            <ArrowRight :size="14" class="text-neutral-300" />
-                            <span class="rounded-md bg-white px-3 py-1.5 shadow-sm shadow-neutral-900/[0.04]">Stranka</span>
-                            <ArrowRight :size="14" class="text-neutral-300" />
-                            <span class="rounded-md bg-white px-3 py-1.5 shadow-sm shadow-neutral-900/[0.04]">Naročilo / Termin</span>
-                            <ArrowRight :size="14" class="text-neutral-300" />
-                            <span class="rounded-md bg-[var(--color-accent-500)] px-3 py-1.5 text-white shadow-sm">vse ostane povezano</span>
+                        <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+                            <span class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm shadow-neutral-900/[0.04]">
+                                Sporočilo
+                            </span>
+                            <ArrowRight :size="14" class="hidden text-neutral-300 sm:block" />
+                            <span class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm shadow-neutral-900/[0.04]">
+                                Stranka
+                            </span>
+                            <ArrowRight :size="14" class="hidden text-neutral-300 sm:block" />
+                            <span class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 shadow-sm shadow-neutral-900/[0.04]">
+                                Naročilo / Termin
+                            </span>
+                            <ArrowRight :size="14" class="hidden text-neutral-300 sm:block" />
+                            <div
+                                class="flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-[var(--color-accent-200)] bg-[var(--color-accent-50)] px-2.5 py-2"
+                            >
+                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Rok</span>
+                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Plačilo</span>
+                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Status</span>
+                                <span class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-700)] shadow-sm">Opombe</span>
+                            </div>
                         </div>
                     </div>
                 </Reveal>
