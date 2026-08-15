@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\Service;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\DemoWorkspaceCleanupService;
 use App\Support\SupportSessionManager;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -83,8 +84,6 @@ class WorkspaceController extends Controller
                 ->get()
                 ->map(fn (Integration $i) => $this->integrationSummary($i)),
             'supportAccess' => $grant ? [
-                'scope' => $grant->scope->value,
-                'scope_label' => $grant->scope->label(),
                 'expires_at' => $grant->expires_at,
                 'granted_by' => $grant->grantedBy?->name,
             ] : null,
@@ -95,7 +94,7 @@ class WorkspaceController extends Controller
     {
         $manager->start($request->user(), $workspace, $request);
 
-        return redirect()->route('admin.workspaces.show', $workspace)
+        return redirect()->route('admin.workspaces.support.browse', $workspace)
             ->with('success', 'Način podpore je aktiven.');
     }
 
@@ -106,17 +105,18 @@ class WorkspaceController extends Controller
         return redirect()->route('admin.workspaces.index')->with('success', 'Zapustil si način podpore.');
     }
 
-    public function destroyDemo(Request $request, Workspace $workspace)
+    public function destroyDemo(Request $request, Workspace $workspace, DemoWorkspaceCleanupService $cleanup)
     {
         // Server-side guard is the actual boundary — never trust that the
-        // UI only offers this action for demo workspaces.
+        // UI only offers this action for demo workspaces. The cleanup
+        // service also re-checks is_demo itself before deleting anything.
         abort_unless($workspace->is_demo === true, 422, 'Samo demo delovne prostore je mogoče izbrisati na ta način.');
 
         AuditLog::record('admin.workspace.changed', $request, $workspace->id, $workspace, [
             'action' => 'delete_demo_workspace',
         ]);
 
-        $workspace->delete();
+        $cleanup->delete($workspace);
 
         return redirect()->route('admin.workspaces.index')->with('success', 'Demo delovni prostor je bil izbrisan.');
     }

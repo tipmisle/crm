@@ -17,9 +17,11 @@ Route::middleware(['auth', 'platform.admin'])->prefix('admin')->name('admin.')->
     Route::get('/workspaces', [WorkspaceController::class, 'index'])->name('workspaces.index');
     Route::get('/workspaces/{workspace}', [WorkspaceController::class, 'show'])->name('workspaces.show');
 
+    Route::get('/workspaces/{workspace}/support', [SupportContentController::class, 'browse'])->name('workspaces.support.browse');
     Route::get('/workspaces/{workspace}/support/conversations/{conversation}', [SupportContentController::class, 'conversation'])->name('workspaces.support.conversation');
     Route::get('/workspaces/{workspace}/support/customers/{customer}', [SupportContentController::class, 'customer'])->name('workspaces.support.customer');
     Route::get('/workspaces/{workspace}/support/orders/{order}', [SupportContentController::class, 'order'])->name('workspaces.support.order');
+    Route::get('/workspaces/{workspace}/support/appointments/{appointment}', [SupportContentController::class, 'appointment'])->name('workspaces.support.appointment');
     Route::get('/workspaces/{workspace}/support/attachments/{message}/{index}', [SupportContentController::class, 'attachment'])->name('workspaces.support.attachment');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');

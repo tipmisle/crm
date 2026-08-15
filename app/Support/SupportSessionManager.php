@@ -27,6 +27,13 @@ class SupportSessionManager
 
         abort_if(! $grant, 403, 'Podpora nima dostopa do vsebine tega delovnega prostora.');
 
+        // Never let a second support session start while one is already
+        // active for this admin browser session — close the old one first
+        // so there is only ever one live session per session cookie, and
+        // no orphaned "active" row lingers un-auditable until it expires
+        // on its own.
+        $this->end($request, 'replaced');
+
         $session = SupportSession::create([
             'support_access_grant_id' => $grant->id,
             'workspace_id' => $workspace->id,
@@ -83,6 +90,21 @@ class SupportSessionManager
             return null;
         }
 
+        // The session id living in this browser's Laravel session must
+        // belong to the currently authenticated admin — never trust the
+        // session cookie alone (e.g. a shared machine, or a stale id left
+        // over from a previous login as a different admin). This does NOT
+        // close the session (it may still be legitimately active for its
+        // real owner elsewhere) — it just refuses to honor it here, and
+        // stops this browser session from referencing it.
+        if ($session->admin_user_id !== $request->user()?->id) {
+            $request->session()->forget(self::SESSION_KEY);
+
+            AuditLog::record('support_session.admin_mismatch', $request, $session->workspace_id, $session);
+
+            return null;
+        }
+
         if ($session->expires_at->isPast()) {
             $this->close($request, $session, 'expired');
 
@@ -118,20 +140,18 @@ class SupportSessionManager
     }
 
     /**
-     * Verifies the current support session grants access to $workspace
-     * under (at least) $requiredScope. Aborts with 403 otherwise.
+     * Verifies there is an active support session for $workspace. Aborts
+     * with 403 otherwise. V1 has exactly one grantable scope
+     * (SupportAccessScope::WorkspaceContent), so a valid, unexpired,
+     * unrevoked session already implies content access — there is no
+     * narrower scope left to check.
      */
-    public function require(Request $request, Workspace $workspace, SupportAccessScope $requiredScope): SupportSession
+    public function require(Request $request, Workspace $workspace): SupportSession
     {
         $session = $this->current($request);
 
         abort_if(! $session, 403, 'Ni aktivne seje podpore.');
         abort_if($session->workspace_id !== $workspace->id, 403, 'Seja podpore ne velja za ta delovni prostor.');
-
-        $hasScope = $session->scope === $requiredScope
-            || $session->scope === SupportAccessScope::WorkspaceContent;
-
-        abort_if(! $hasScope, 403, 'Seja podpore nima zadostnega obsega dostopa.');
 
         return $session;
     }

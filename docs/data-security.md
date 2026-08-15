@@ -159,7 +159,20 @@ would attempt to decrypt existing plaintext and throw. The strategy used:
      after deploy if any row was written by old code in the meantime;
    - otherwise encrypts with `Crypt::encryptString()` and writes back via
      `DB::table(...)->where('id', ...)->update(...)`;
-   - null/empty values are left untouched;
+   - null values are left untouched;
+   - **fixed during the security fix pass**: legacy empty strings (`''`)
+     were previously excluded from the query entirely (`where($column, '!=', '')`)
+     and silently left as plaintext `''` forever — reading them once the
+     `encrypted` cast went live threw `DecryptException` (`''` is not a
+     valid ciphertext payload). Every target column now declares whether it
+     is nullable; on a nullable column a legacy `''` is normalized to
+     `NULL` (an empty note is semantically "no note"); on a `NOT NULL`
+     column (`order_notes.body`, `follow_ups.note`) it is instead encrypted
+     as an empty string, which round-trips correctly through the
+     `'encrypted'` cast. See
+     `tests/Feature/Security/EncryptSensitiveDataCommandTest.php` for
+     coverage of null / legacy-empty / plaintext / already-encrypted values
+     all reading correctly through the model after migration;
    - supports `--dry-run` (report without writing) and `--chunk=N`.
 3. **Deploy the model casts** (`'encrypted'` / `'encrypted:array'`) *only
    after* step 2 has run successfully against production data — see the

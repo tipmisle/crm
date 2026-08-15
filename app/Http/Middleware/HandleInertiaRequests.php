@@ -48,7 +48,6 @@ class HandleInertiaRequests extends Middleware
                 : 0,
             'activeSupportSession' => $activeSupportSession ? [
                 'workspace' => $activeSupportSession->workspace,
-                'scope' => $activeSupportSession->scope->value,
                 'expires_at' => $activeSupportSession->expires_at,
             ] : null,
             'vapidPublicKey' => config('webpush.vapid.public_key'),

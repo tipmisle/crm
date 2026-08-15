@@ -129,17 +129,27 @@ grant exists.
 
 ## 9. Support-access scopes
 
-`App\Enums\SupportAccessScope`: `technical` and `workspace_content`.
-`workspace_content` is a superset of `technical` for gating purposes
-(`SupportSessionManager::require`) — a content grant also covers technical
-diagnostics, never the reverse.
+**Updated in the security fix pass**: `App\Enums\SupportAccessScope` now has
+exactly one case, `WorkspaceContent`. The original design also had a
+`technical` scope, but normal admin metadata (workspace config, integration
+status, operational counts — see §3/§4/§6) was already visible without any
+grant at all, so `technical` granted almost nothing beyond the no-grant
+baseline and only confused the owner-facing consent copy about what they
+were approving. It was removed from the enum, the grant form, and
+`SupportSessionManager::require()` (which no longer takes a scope
+parameter — a valid session now always implies content access, since
+there's nothing narrower left to check). A migration
+(`2026_08_15_215622_migrate_legacy_technical_support_scope_to_workspace_content`)
+rewrites any pre-existing `scope='technical'` row to `'workspace_content'`
+for enum-cast validity, while simultaneously revoking the grant / ending the
+session if it was still active — so no row silently gains access an owner
+never explicitly approved for content.
 
 Grant flow (`Settings\SupportAccessController`, customer-facing, "Nastavitve
 → Podpora"): only the workspace **owner** (`WorkspaceMember.role ===
 'owner'`) can grant or revoke; duration is restricted to 30/60/240 minutes
-server-side; `workspace_content` is never pre-checked; granting a new
-access supersedes (revokes) any prior active grant for that workspace so
-scope/duration can never silently widen.
+server-side; granting a new access supersedes (revokes) any prior active
+grant for that workspace so duration can never silently extend by stacking.
 
 ## 10. Support-session behavior
 
@@ -152,11 +162,24 @@ scope/duration can never silently widen.
   every call** — session/cookie state is never trusted alone. If the
   session's own `expires_at` has passed, or the backing grant is missing,
   revoked, or itself expired, the session is closed server-side and `null`
-  is returned.
-- `require($request, $workspace, $scope)` is what every content-viewing
-  controller action calls: 403s if there's no session, if the session's
-  workspace doesn't match the URL's workspace, or if the scope is
-  insufficient.
+  is returned. **Updated in the security fix pass**: `current()` also
+  verifies `$session->admin_user_id === $request->user()->id` — a support
+  session id living in the browser's Laravel session is only ever honored
+  for the admin it actually belongs to. A mismatch does not end the
+  session (it may still be legitimately active for its real owner
+  elsewhere) — it just refuses to use it for the mismatched requester,
+  forgets the reference in *this* browser session, and records a
+  `support_session.admin_mismatch` audit row. Never rely on the session
+  cookie alone as proof of identity.
+- `start()` also now closes any existing active support session for that
+  admin browser session first (via `end($request, 'replaced')`) before
+  creating the new one — an admin can never have two "active" sessions
+  where only one is reachable through `current()`, with the other silently
+  orphaned until it expires on its own.
+- `require($request, $workspace)` is what every content-viewing controller
+  action calls: 403s if there's no session, or if the session's workspace
+  doesn't match the URL's workspace. (No scope parameter as of the fix
+  pass — see §9.)
 
 ## 11. Revocation / expiration enforcement
 
@@ -182,7 +205,8 @@ Events emitted: `admin.access_denied`, `admin.workspace.view`,
 `admin.workspace.changed`, `admin.user.changed`, `admin.integration.changed`,
 `support_access.granted`, `support_access.revoked`,
 `support_session.started`, `support_session.ended`,
-`support_session.expired`, `support.content_access`.
+`support_session.expired`, `support_session.admin_mismatch`,
+`support.content_access`.
 
 `AuditLog::record()` only ever accepts identifiers and short metadata —
 callers pass things like `['resource' => 'conversation']` or
@@ -284,7 +308,14 @@ this task to have a bypass in.
 
 ## 20. Remaining pre-launch security TODOs
 
-1. **MFA for platform admins.** Recommended: TOTP via Fortify or
+1. **MFA for platform admins — still a PRE-LAUNCH BLOCKER, not implemented.**
+   Re-verified during the security fix pass: `composer.json`/`composer.lock`
+   contain no Fortify, `pragmarx/google2fa`, or any other 2FA/TOTP package —
+   there is no mature MFA implementation already installed to wire up.
+   Deliberately not built in this fix pass (a rushed custom OTP
+   implementation would be worse than none). Any platform admin who can
+   enter `workspace_content` support mode must not do so in production
+   without MFA in front of their account. Recommended: TOTP via Fortify or
    `pragmarx/google2fa`, required specifically for `is_platform_admin`
    accounts (not the whole user base).
 2. **Message-body encryption at rest** — explicitly out of scope for this
@@ -312,6 +343,72 @@ this task to have a bypass in.
    default `password.confirm` window is 3 hours; consider shortening it
    specifically for the admin area if that feels too long for this
    threat model.
+
+## Security fix pass (post-launch review)
+
+A follow-up review of the first two milestones found and fixed several
+issues, none of which changed the overall architecture:
+
+1. **Meta webhook tenant routing** (critical). `channels.external_account_id`
+   was only unique per-workspace, so nothing stopped the same Instagram/
+   Messenger account from being connected to two different workspaces —
+   `MessageIngestionService`'s inbound-webhook channel lookup
+   (`Channel::where('external_account_id', ...)->first()`) would then
+   arbitrarily pick one, silently routing a customer's DM into the wrong
+   business's Inbox. Fixed with a DB-level invariant (a global
+   `unique(type, external_account_id)` index on `channels`, migration
+   `2026_08_15_215001_...`) plus an application-level rejection in
+   `MetaIntegrationController::store` (connecting an already-claimed
+   account is refused with a clear Slovenian error, nothing is silently
+   reassigned) plus a hardened ingestion lookup (now filters to
+   `status='connected'` and explicitly refuses to guess — logging
+   `messaging.ingest.ambiguous_channel` with identifiers only — if more
+   than one connected channel somehow matches). Disconnecting a channel now
+   clears `external_account_id`, freeing the account for a different
+   workspace ("one workspace at a time," not "ever"). See
+   `tests/Feature/Webhooks/MetaTenantRoutingTest.php` and
+   `tests/Feature/Integrations/MetaAccountClaimTest.php`.
+2. **Admin aggregate query bug**: `DashboardController`'s connected-
+   integration counts used `Integration::withoutGlobalScopes()->whereHas('channels', ...)`
+   — but the `channels` relation's query still carried `Channel`'s own
+   `BelongsToWorkspace` scope, which (per §13 below) resolves to "match
+   nothing" for a platform admin with no `current_workspace_id`. Every
+   count silently came back as 0 regardless of real data. Fixed by adding
+   `->withoutGlobalScopes()` inside the `whereHas` closure too. The same
+   bug was found and fixed in `SupportContentController` (customer/channel
+   eager-loads on conversation/order/appointment detail and browse views)
+   while building the support browser below — see
+   `tests/Feature/Admin/DashboardAggregateTest.php` and
+   `tests/Feature/Admin/SupportBrowserTest.php`.
+3. **Support content browser**: `/admin/workspaces/{workspace}/support`
+   (`SupportContentController::browse`), available only during a valid
+   support session for that exact workspace. Read-only tabs — Pogovori,
+   Stranke, Naročila, Termini — each a minimal-metadata list (no decrypting
+   every message body just to render a list) linking into the existing
+   per-resource detail pages. An Appointment support detail page
+   (`Admin/Support/Appointment.vue`, `SupportContentController::appointment`)
+   was added — it was the one resource type missing a detail view. Browsing
+   the list itself is not separately audited (consistent with the app's
+   normal index-page-isn't-logged pattern); opening an individual resource
+   is. `admin.current_workspace_id` is never touched and there is still no
+   impersonation — every query is explicitly re-constrained to the support
+   session's workspace, not switched into it.
+4. **Support session binding**: see the updated §10 above —
+   `SupportSessionManager::current()` now verifies the session belongs to
+   the requesting admin, and `start()` closes any prior active session for
+   that admin first. See `tests/Feature/Admin/SupportSessionBindingTest.php`.
+5. **Technical scope removed**: see the updated §9 above.
+6. **Demo deletion centralized**: `App\Services\DemoWorkspaceCleanupService`
+   is now the single implementation both `demos:cleanup` and
+   `Admin\WorkspaceController::destroyDemo` (manual admin deletion) call —
+   previously the admin manual-deletion path only deleted the `Workspace`
+   row itself, skipping demo-user cleanup and private-attachment file
+   cleanup that the scheduled command already did. See
+   `tests/Feature/Admin/DemoSafetyTest.php`.
+7. **Empty-string encryption gap**: see `docs/data-security.md` for the
+   `security:encrypt-sensitive-data` fix (legacy `''` rows were previously
+   skipped entirely, which would throw `DecryptException` on read once the
+   `encrypted` cast went live).
 
 ## Explicit confirmations
 

@@ -11,7 +11,6 @@ export interface User {
 
 export interface ActiveSupportSession {
     workspace: { id: number; name: string };
-    scope: 'technical' | 'workspace_content';
     expires_at: string;
 }
 

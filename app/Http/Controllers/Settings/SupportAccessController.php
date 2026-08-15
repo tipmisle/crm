@@ -12,6 +12,12 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * V1 has exactly one grantable scope
+ * (SupportAccessScope::WorkspaceContent) — see docs/admin-security.md for
+ * why the earlier `technical` scope was removed. Granting support access
+ * therefore only ever asks the owner for a duration, not a scope choice.
+ */
 class SupportAccessController extends Controller
 {
     private const ALLOWED_MINUTES = [30, 60, 240];
@@ -39,12 +45,10 @@ class SupportAccessController extends Controller
 
         $data = $request->validate([
             'duration_minutes' => ['required', 'integer', Rule::in(self::ALLOWED_MINUTES)],
-            'scope' => ['required', Rule::enum(SupportAccessScope::class)],
         ]);
 
         // A new grant supersedes any prior one for this workspace — never
-        // stack grants, and never let scope quietly widen without a fresh
-        // explicit choice.
+        // stack grants.
         $workspace->supportAccessGrants()->active()->update(['revoked_at' => now()]);
 
         $grant = SupportAccessGrant::create([
@@ -52,7 +56,7 @@ class SupportAccessController extends Controller
             'granted_by_user_id' => $user->id,
             'granted_at' => now(),
             'expires_at' => now()->addMinutes($data['duration_minutes']),
-            'scope' => $data['scope'],
+            'scope' => SupportAccessScope::WorkspaceContent,
         ]);
 
         AuditLog::record('support_access.granted', $request, $workspace->id, $grant, [

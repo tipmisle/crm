@@ -39,21 +39,28 @@ class EncryptSensitiveData extends Command
     protected $description = 'Encrypt existing plaintext values in high-sensitivity free-text columns (idempotent, chunked).';
 
     /**
-     * @var array<int, array{table: string, column: string, json: bool}>
+     * `nullable` must match the actual DB column nullability. For nullable
+     * columns, a legacy empty string is normalized to NULL (an empty note
+     * is semantically "no note", and NULL sidesteps ever needing to decrypt
+     * an empty-string ciphertext). order_notes.body and follow_ups.note are
+     * NOT NULL columns — a legacy '' there is encrypted as an empty string
+     * instead, which round-trips through the 'encrypted' cast correctly.
+     *
+     * @var array<int, array{table: string, column: string, json: bool, nullable: bool}>
      */
     private const TARGETS = [
-        ['table' => 'messages', 'column' => 'body', 'json' => false],
-        ['table' => 'messages', 'column' => 'metadata', 'json' => true],
-        ['table' => 'conversations', 'column' => 'last_message_preview', 'json' => false],
-        ['table' => 'customers', 'column' => 'notes', 'json' => false],
-        ['table' => 'orders', 'column' => 'description', 'json' => false],
-        ['table' => 'orders', 'column' => 'internal_notes', 'json' => false],
-        ['table' => 'orders', 'column' => 'customer_notes', 'json' => false],
-        ['table' => 'appointments', 'column' => 'description', 'json' => false],
-        ['table' => 'appointments', 'column' => 'internal_notes', 'json' => false],
-        ['table' => 'appointments', 'column' => 'customer_notes', 'json' => false],
-        ['table' => 'order_notes', 'column' => 'body', 'json' => false],
-        ['table' => 'follow_ups', 'column' => 'note', 'json' => false],
+        ['table' => 'messages', 'column' => 'body', 'json' => false, 'nullable' => true],
+        ['table' => 'messages', 'column' => 'metadata', 'json' => true, 'nullable' => true],
+        ['table' => 'conversations', 'column' => 'last_message_preview', 'json' => false, 'nullable' => true],
+        ['table' => 'customers', 'column' => 'notes', 'json' => false, 'nullable' => true],
+        ['table' => 'orders', 'column' => 'description', 'json' => false, 'nullable' => true],
+        ['table' => 'orders', 'column' => 'internal_notes', 'json' => false, 'nullable' => true],
+        ['table' => 'orders', 'column' => 'customer_notes', 'json' => false, 'nullable' => true],
+        ['table' => 'appointments', 'column' => 'description', 'json' => false, 'nullable' => true],
+        ['table' => 'appointments', 'column' => 'internal_notes', 'json' => false, 'nullable' => true],
+        ['table' => 'appointments', 'column' => 'customer_notes', 'json' => false, 'nullable' => true],
+        ['table' => 'order_notes', 'column' => 'body', 'json' => false, 'nullable' => false],
+        ['table' => 'follow_ups', 'column' => 'note', 'json' => false, 'nullable' => false],
     ];
 
     public function handle(): int
@@ -65,26 +72,26 @@ class EncryptSensitiveData extends Command
             $this->warn('Dry run — no rows will be modified.');
         }
 
-        $totals = ['encrypted' => 0, 'already_encrypted' => 0, 'null_or_empty' => 0, 'errors' => 0];
+        $totals = ['encrypted' => 0, 'normalized_empty' => 0, 'already_encrypted' => 0, 'errors' => 0];
 
         foreach (self::TARGETS as $target) {
             $this->line("→ {$target['table']}.{$target['column']}");
 
-            $counts = $this->migrateColumn($target['table'], $target['column'], $target['json'], $chunkSize, $dryRun);
+            $counts = $this->migrateColumn($target['table'], $target['column'], $target['json'], $target['nullable'], $chunkSize, $dryRun);
 
             foreach ($counts as $key => $value) {
                 $totals[$key] += $value;
             }
 
-            $this->line("  encrypted={$counts['encrypted']} already_encrypted={$counts['already_encrypted']} skipped_null={$counts['null_or_empty']} errors={$counts['errors']}");
+            $this->line("  encrypted={$counts['encrypted']} normalized_empty={$counts['normalized_empty']} already_encrypted={$counts['already_encrypted']} errors={$counts['errors']}");
         }
 
         $this->newLine();
         $this->info(sprintf(
-            'Done. encrypted=%d already_encrypted=%d skipped_null=%d errors=%d',
+            'Done. encrypted=%d normalized_empty=%d already_encrypted=%d errors=%d',
             $totals['encrypted'],
+            $totals['normalized_empty'],
             $totals['already_encrypted'],
-            $totals['null_or_empty'],
             $totals['errors'],
         ));
 
@@ -92,23 +99,32 @@ class EncryptSensitiveData extends Command
     }
 
     /**
-     * @return array{encrypted: int, already_encrypted: int, null_or_empty: int, errors: int}
+     * @return array{encrypted: int, normalized_empty: int, already_encrypted: int, errors: int}
      */
-    private function migrateColumn(string $table, string $column, bool $isJson, int $chunkSize, bool $dryRun): array
+    private function migrateColumn(string $table, string $column, bool $isJson, bool $nullable, int $chunkSize, bool $dryRun): array
     {
-        $counts = ['encrypted' => 0, 'already_encrypted' => 0, 'null_or_empty' => 0, 'errors' => 0];
+        $counts = ['encrypted' => 0, 'normalized_empty' => 0, 'already_encrypted' => 0, 'errors' => 0];
 
+        // Deliberately does NOT exclude '' here (a previous version of this
+        // command did, which left legacy empty-string rows plaintext
+        // forever — reading '' through Crypt::decryptString() once the
+        // 'encrypted' cast was deployed threw DecryptException). Every
+        // non-null value, including '', is now visited and either
+        // normalized or encrypted below.
         DB::table($table)
             ->select(['id', $column])
             ->whereNotNull($column)
-            ->where($column, '!=', '')
             ->orderBy('id')
-            ->chunkById($chunkSize, function ($rows) use ($table, $column, $isJson, $dryRun, &$counts) {
+            ->chunkById($chunkSize, function ($rows) use ($table, $column, $isJson, $nullable, $dryRun, &$counts) {
                 foreach ($rows as $row) {
                     $value = $row->{$column};
 
-                    if ($value === null || $value === '') {
-                        $counts['null_or_empty']++;
+                    if ($value === '' && $nullable) {
+                        if (! $dryRun) {
+                            DB::table($table)->where('id', $row->id)->update([$column => null]);
+                        }
+
+                        $counts['normalized_empty']++;
 
                         continue;
                     }

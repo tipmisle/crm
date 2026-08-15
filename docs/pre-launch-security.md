@@ -10,6 +10,137 @@ Related: `docs/admin-security.md` (platform admin / support access),
 `docs/data-security.md` (encryption inventory),
 `docs/encryption-key-runbook.md`.
 
+## Production encryption cutover runbook
+
+Covers deploying the encrypted casts introduced in
+`docs/data-security.md` (`Message.body`, `Conversation.last_message_preview`,
+`Customer.notes`, `Order.*`, `Appointment.*`, `OrderNote.body`,
+`FollowUp.note`, `Message.metadata`) to a production database that still has
+plaintext data. There are currently no meaningful production customers, so a
+short maintenance window is acceptable and this runbook keeps the procedure
+simple rather than building a zero-downtime dual-read/dual-write system.
+
+**The problem this avoids**: the model casts (`'encrypted'`) and the
+migration command (`security:encrypt-sensitive-data`) are released together.
+If application code with the casts already deployed starts serving traffic
+against a database that still has plaintext rows, every read of an
+unmigrated row throws `DecryptException`. The order below guarantees the
+backfill always completes *before* any code that expects ciphertext runs.
+
+**1. Back up the database before touching anything.** This is the actual
+rollback mechanism — see "Rollback / recovery" below; there is deliberately
+no automated down-migration for the ciphertext-affecting schema change.
+
+```
+# example, adapt to your actual DB host/tooling:
+mysqldump --single-transaction -h $DB_HOST -u $DB_USERNAME -p $DB_DATABASE > pre-encryption-backup.sql
+```
+
+Confirm the backup file is non-trivial in size and store it somewhere
+access-controlled (not the app server's local disk only).
+
+**2. Put the app in maintenance mode** (stop accepting new writes to the
+tables being migrated):
+
+```
+php artisan down
+```
+
+**3. Deploy the schema-compatible migration** (widens `follow_ups.note` to
+`text`, converts `messages.metadata` from `json` to `text` — the migration
+that also adds the `channels` global-uniqueness constraint from this fix
+pass can run in the same step, it's unrelated to encryption and always
+safe/reversible):
+
+```
+php artisan migrate --force
+```
+
+At this point the schema can hold ciphertext, but every row is still
+plaintext and the application's model casts are **not yet deployed** — old
+code is still running, so nothing attempts to decrypt anything yet.
+
+**4. Dry run the backfill** and read the counts before writing anything:
+
+```
+php artisan security:encrypt-sensitive-data --dry-run
+```
+
+Confirm `errors=0`. Every row should show up as `encrypted` (first run) —
+`already_encrypted`/`normalized_empty` should be 0 on a true first run.
+
+**5. Run the backfill for real:**
+
+```
+php artisan security:encrypt-sensitive-data
+```
+
+If it's interrupted (deploy timeout, DB blip), it is safe to just run it
+again — it's idempotent and resumes correctly (see
+`docs/data-security.md` Part 6).
+
+**6. Verify** before deploying the code that adds the casts:
+
+```
+php artisan security:encrypt-sensitive-data --dry-run
+```
+
+Every row should now report `already_encrypted` and `errors=0`. If
+`errors` is non-zero, **stop** — do not proceed to step 7 until every row
+is accounted for (investigate the specific row ids logged by the command).
+
+**7. Deploy the application code with the `'encrypted'` / `'encrypted:array'`
+casts live** (i.e. the release containing this milestone's model changes),
+and restart the queue workers along with the app (queued jobs — e.g.
+`ProcessMetaWebhook` — run the same model code and must not straddle the
+cutover with stale casts):
+
+```
+php artisan queue:restart
+```
+
+**8. Bring the app back up:**
+
+```
+php artisan up
+```
+
+**9. Verify the running application**, not just the database:
+
+```
+php artisan tinker
+>>> \App\Models\Message::latest()->first()->body
+>>> \App\Models\Customer::whereNotNull('notes')->first()->notes
+```
+
+Both should return readable plaintext. Spot-check the actual Inbox/Customers
+UI as a real authenticated user, not only tinker.
+
+## Rollback / recovery procedure
+
+There is **no automated rollback** for the schema migration once any row has
+been encrypted — `messages.metadata`'s `down()` deliberately throws instead
+of attempting to convert ciphertext-containing `text` back to a native
+`json` column (which would fail or corrupt data), and shrinking
+`follow_ups.note` back to `varchar(255)` would silently truncate ciphertext.
+This is intentional (see PART 3 of the original task: choose either an
+explicitly irreversible migration with a documented restore procedure, or a
+safe decrypt/backout command — the irreversible-migration option was chosen
+as the simplest production-safe approach given there are no real customers
+yet to justify the complexity of a backout command).
+
+**If something goes wrong before step 7 (casts not yet deployed)**: the
+backfill command is safe to re-run; there is no need to roll back at all —
+diagnose the `errors` count and fix the underlying row(s), or restore from
+the step-1 backup if the database itself is suspect.
+
+**If something goes wrong after step 7 (casts live, reads failing)**:
+restore the database from the step-1 backup, redeploy the pre-cutover
+application code (casts removed), bring the app back up, and restart the
+cutover from step 1 once the root cause is understood. Do not attempt
+`php artisan migrate:rollback` against a database that has any encrypted
+row — the migration's `down()` will refuse to run for exactly this reason.
+
 ## CODE — implemented and tested in this repository
 
 - [x] Private conversation/note content application-encrypted at rest
@@ -47,6 +178,21 @@ Related: `docs/admin-security.md` (platform admin / support access),
       `Content-Security-Policy: frame-ancestors 'none'`, `Permissions-Policy`)
 - [x] File upload validation (size, real-content MIME check via Laravel's
       `mimes` rule, random non-guessable storage filenames)
+- [x] Meta webhook tenant routing hardened: `channels.(type, external_account_id)`
+      is globally unique, connecting an already-claimed account is rejected,
+      and inbound-webhook channel lookup refuses to guess on ambiguity — see
+      `docs/admin-security.md` "Security fix pass"
+- [x] Legacy empty-string encryption gap fixed in
+      `security:encrypt-sensitive-data` — see `docs/data-security.md` Part 6
+- [x] Admin aggregate-query tenant-scope bug fixed (dashboard integration
+      counts and support-browser customer/channel eager-loads) — see
+      `docs/admin-security.md` "Security fix pass"
+- [x] Read-only support content browser
+      (`/admin/workspaces/{workspace}/support`), Appointment support detail
+      page added, demo deletion centralized into one service used by both
+      the scheduled cleanup and manual admin deletion, support sessions
+      bound to the requesting admin — see `docs/admin-security.md`
+      "Security fix pass"
 
 ## CODE — explicitly deferred, with reasoning
 

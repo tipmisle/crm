@@ -90,6 +90,33 @@ class MetaIntegrationController extends Controller
         $selected = collect($pending['accounts'])
             ->whereIn('external_account_id', $data['external_account_ids']);
 
+        // Product rule: one Meta channel/account may belong to only one
+        // workspace at a time (see the DB-level unique index on
+        // channels.(type, external_account_id) and
+        // MessageIngestionService, which would otherwise have no reliable
+        // way to route an inbound webhook to the right workspace). Reject
+        // the whole request rather than silently connecting some accounts
+        // and reassigning/skipping others.
+        $alreadyClaimed = $selected->filter(function (array $accountData) use ($workspace) {
+            $account = DiscoveredAccount::fromSessionArray($accountData);
+
+            return Channel::withoutGlobalScopes()
+                ->where('type', $account->channelType->value)
+                ->where('external_account_id', $account->externalAccountId)
+                ->where('status', 'connected')
+                ->where('workspace_id', '!=', $workspace->id)
+                ->exists();
+        });
+
+        if ($alreadyClaimed->isNotEmpty()) {
+            $names = $alreadyClaimed->map(fn (array $a) => $a['display_name'])->implode(', ');
+
+            return redirect()->route('settings.edit')->with(
+                'error',
+                "Račun(i) {$names} so že povezani z drugim delovnim prostorom Beležke. En Meta račun je lahko naenkrat povezan samo z enim delovnim prostorom."
+            );
+        }
+
         $connected = [];
 
         foreach ($selected as $accountData) {
@@ -151,9 +178,14 @@ class MetaIntegrationController extends Controller
 
         $integration = $channel->integration;
 
+        // Clearing external_account_id frees the account to be connected to
+        // a different workspace later — see the migration adding
+        // unique(type, external_account_id) on channels for why this must
+        // happen ("one Meta account, one workspace, at a time").
         $channel->update([
             'status' => 'disconnected',
             'access_token' => null,
+            'external_account_id' => null,
         ]);
 
         ActivityLog::record('channel_disconnected', "Kanal {$channel->display_name} je bil odklopljen", $channel);

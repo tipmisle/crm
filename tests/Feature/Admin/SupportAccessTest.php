@@ -22,7 +22,6 @@ test('the workspace owner can grant support access', function () {
 
     $this->actingAs($owner)->post(route('settings.support.store'), [
         'duration_minutes' => 60,
-        'scope' => 'technical',
     ])->assertRedirect();
 
     expect(SupportAccessGrant::where('workspace_id', $workspace->id)->active()->exists())->toBeTrue();
@@ -36,7 +35,6 @@ test('a non-owner workspace member cannot grant support access', function () {
 
     $this->actingAs($member)->post(route('settings.support.store'), [
         'duration_minutes' => 60,
-        'scope' => 'technical',
     ])->assertForbidden();
 });
 
@@ -71,24 +69,6 @@ test('a revoked grant stops working immediately, even mid-session', function () 
     $this->get(route('admin.workspaces.support.conversation', [$workspace, $conversation]))->assertOk();
 
     $grant->update(['revoked_at' => now()]);
-
-    $this->get(route('admin.workspaces.support.conversation', [$workspace, $conversation]))->assertForbidden();
-});
-
-test('technical scope cannot access private workspace content', function () {
-    [$workspace, $owner] = createWorkspaceWithUser();
-    $admin = confirmedAdmin();
-    $channel = createMetaChannel($workspace);
-
-    createSupportGrant($workspace, $owner, 'technical');
-    actingAsConfirmedAdmin($this, $admin)->post(route('admin.workspaces.support.start', $workspace))->assertRedirect();
-
-    $conversation = Conversation::withoutGlobalScopes()->create([
-        'workspace_id' => $workspace->id,
-        'channel_id' => $channel->id,
-        'external_conversation_id' => 'sender_z',
-        'status' => 'new_enquiry',
-    ]);
 
     $this->get(route('admin.workspaces.support.conversation', [$workspace, $conversation]))->assertForbidden();
 });
@@ -156,7 +136,6 @@ test('granting, starting and ending support access all generate audit events', f
 
     $this->actingAs($owner)->post(route('settings.support.store'), [
         'duration_minutes' => 30,
-        'scope' => 'workspace_content',
     ]);
 
     actingAsConfirmedAdmin($this, $admin)->post(route('admin.workspaces.support.start', $workspace));

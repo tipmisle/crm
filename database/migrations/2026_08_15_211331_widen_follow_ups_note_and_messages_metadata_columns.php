@@ -30,14 +30,25 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Intentionally irreversible once any row has been encrypted (which, in
+     * the documented deployment order, happens shortly after this
+     * migration runs — see docs/pre-launch-security.md "Production
+     * encryption cutover"). Shrinking follow_ups.note back to varchar(255)
+     * would silently truncate ciphertext, and converting messages.metadata
+     * back to a native JSON column would fail outright (ciphertext isn't
+     * valid JSON) or corrupt data. There is no safe automatic down() for
+     * this migration — restore from the pre-cutover database backup
+     * instead. Do not attempt `php artisan migrate:rollback` on this
+     * migration in an environment that has run
+     * security:encrypt-sensitive-data or deployed the encrypted casts.
+     */
     public function down(): void
     {
-        Schema::table('follow_ups', function (Blueprint $table) {
-            $table->string('note')->change();
-        });
-
-        Schema::table('messages', function (Blueprint $table) {
-            $table->json('metadata')->nullable()->change();
-        });
+        throw new RuntimeException(
+            'This migration cannot be safely reversed once data has been encrypted. '.
+            'Restore from the pre-cutover database backup instead — see '.
+            'docs/pre-launch-security.md "Production encryption cutover" for the exact procedure.'
+        );
     }
 };

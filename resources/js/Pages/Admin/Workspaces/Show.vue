@@ -32,7 +32,7 @@ const props = defineProps<{
         token_expires_at: string | null;
         scopes: string[] | null;
     }>;
-    supportAccess: { scope: string; scope_label: string; expires_at: string; granted_by: string | null } | null;
+    supportAccess: { expires_at: string; granted_by: string | null } | null;
 }>();
 
 const usageLabels: Record<string, string> = {
@@ -137,12 +137,10 @@ function deleteDemo() {
                 </div>
                 <div v-else class="flex flex-wrap items-center justify-between gap-3">
                     <p class="text-sm text-neutral-700">
-                        Dostop odobren do <strong>{{ formatDateTime(supportAccess.expires_at) }}</strong> ·
-                        obseg: <strong>{{ supportAccess.scope_label }}</strong>
+                        Dostop odobren do <strong>{{ formatDateTime(supportAccess.expires_at) }}</strong>
                         <span v-if="supportAccess.granted_by" class="text-neutral-400"> · odobril(a) {{ supportAccess.granted_by }}</span>
                     </p>
                     <button
-                        v-if="supportAccess.scope === 'workspace_content'"
                         type="button"
                         class="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
                         @click="startSupportSession"

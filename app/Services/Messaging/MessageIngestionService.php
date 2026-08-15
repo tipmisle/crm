@@ -12,6 +12,7 @@ use App\Models\Conversation;
 use App\Models\CustomerIdentity;
 use App\Models\Message;
 use App\Services\Messaging\DTOs\NormalizedIncomingMessage;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -29,9 +30,30 @@ class MessageIngestionService
 
     public function ingest(NormalizedIncomingMessage $normalized): ?Message
     {
-        $channel = Channel::withoutGlobalScopes()
+        // A channel's (type, external_account_id) pair is enforced globally
+        // unique at the DB level (see the channels migration) — this query
+        // additionally filters by status='connected' (disconnecting a
+        // channel clears external_account_id, but this keeps the lookup
+        // correct even for older rows) and defends against ever routing a
+        // webhook to the wrong tenant if that invariant is somehow violated
+        // (e.g. a manual DB edit): if more than one connected channel
+        // matches, that is tenant-routing ambiguity — refuse to guess.
+        $candidates = Channel::withoutGlobalScopes()
             ->where('external_account_id', $normalized->channelExternalId)
-            ->first();
+            ->where('status', 'connected')
+            ->get();
+
+        if ($candidates->count() > 1) {
+            Log::error('messaging.ingest.ambiguous_channel', [
+                'provider' => $normalized->provider,
+                'channel_external_id' => $normalized->channelExternalId,
+                'channel_ids' => $candidates->pluck('id')->all(),
+            ]);
+
+            return null;
+        }
+
+        $channel = $candidates->first();
 
         if (! $channel) {
             Log::warning('messaging.ingest.unknown_channel', [
@@ -98,7 +120,7 @@ class MessageIngestionService
                     'metadata' => empty($normalized->attachments) ? null : ['attachments' => $normalized->attachments],
                     'sent_at' => $normalized->sentAt,
                 ]);
-            } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            } catch (UniqueConstraintViolationException) {
                 // Lost a race with a concurrent webhook retry — the message
                 // already exists, fetch and return it instead of failing.
                 return Message::where('external_message_id', $normalized->messageExternalId)->first();
