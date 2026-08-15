@@ -7,6 +7,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
+use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderNoteController;
 use App\Http\Controllers\ProductController;
@@ -19,9 +20,7 @@ use App\Http\Controllers\TodayController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect()->route(auth()->check() ? 'dashboard' : 'login');
-});
+Route::get('/', [MarketingController::class, 'home'])->name('home');
 
 Route::middleware('auth')->group(function () {
     Route::get('/today', TodayController::class)->name('dashboard');
