@@ -48,7 +48,7 @@ onUnmounted(stopNavigateListener);
                         :href="route('register')"
                         class="rounded-lg bg-[var(--color-accent-500)] px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-[var(--color-accent-500)]/25 transition hover:bg-[var(--color-accent-600)]"
                     >
-                        Začni brezplačno
+                        Začni z Beležko
                     </Link>
                 </div>
 
@@ -91,7 +91,7 @@ onUnmounted(stopNavigateListener);
                             :href="route('register')"
                             class="rounded-lg bg-[var(--color-accent-500)] px-4 py-2.5 text-center text-sm font-semibold text-white"
                         >
-                            Začni brezplačno
+                            Začni z Beležko
                         </Link>
                     </div>
                 </div>
