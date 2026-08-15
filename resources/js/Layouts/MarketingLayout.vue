@@ -20,9 +20,9 @@ onUnmounted(stopNavigateListener);
 
 <template>
     <div class="min-h-screen bg-white text-neutral-900">
-        <header class="sticky top-0 z-40 border-b border-neutral-200/70 bg-white/85 backdrop-blur-sm">
+        <header class="sticky top-0 z-40 border-b border-white/10 bg-[var(--color-ink-950)]/95 backdrop-blur-sm">
             <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-                <Link href="/" class="flex items-center gap-2 rounded-lg bg-[var(--color-ink-950)] px-2.5 py-1.5">
+                <Link href="/" class="flex items-center gap-2">
                     <img src="/images/logo.png" alt="Beležka" class="h-5 w-auto" />
                 </Link>
 
@@ -31,7 +31,7 @@ onUnmounted(stopNavigateListener);
                         v-for="item in navigation"
                         :key="item.href"
                         :href="item.href"
-                        class="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
+                        class="text-sm font-medium text-neutral-300 transition hover:text-white"
                     >
                         {{ item.label }}
                     </a>
@@ -40,7 +40,7 @@ onUnmounted(stopNavigateListener);
                 <div class="hidden items-center gap-3 lg:flex">
                     <Link
                         :href="route('login')"
-                        class="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
+                        class="text-sm font-medium text-neutral-300 transition hover:text-white"
                     >
                         Prijava
                     </Link>
@@ -54,7 +54,7 @@ onUnmounted(stopNavigateListener);
 
                 <button
                     type="button"
-                    class="-mr-1.5 rounded-md p-2 text-neutral-600 hover:bg-neutral-100 lg:hidden"
+                    class="-mr-1.5 rounded-md p-2 text-neutral-300 hover:bg-white/10 hover:text-white lg:hidden"
                     @click="mobileMenuOpen = !mobileMenuOpen"
                 >
                     <Menu v-if="!mobileMenuOpen" :size="20" />
@@ -68,22 +68,22 @@ onUnmounted(stopNavigateListener);
                 leave-active-class="transition duration-100 ease-in"
                 leave-to-class="opacity-0"
             >
-                <div v-if="mobileMenuOpen" class="border-t border-neutral-200 bg-white px-4 py-4 lg:hidden">
+                <div v-if="mobileMenuOpen" class="border-t border-white/10 bg-[var(--color-ink-950)] px-4 py-4 lg:hidden">
                     <nav class="flex flex-col gap-1">
                         <a
                             v-for="item in navigation"
                             :key="item.href"
                             :href="item.href"
-                            class="rounded-md px-2 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                            class="rounded-md px-2 py-2.5 text-sm font-medium text-neutral-300 hover:bg-white/5 hover:text-white"
                             @click="mobileMenuOpen = false"
                         >
                             {{ item.label }}
                         </a>
                     </nav>
-                    <div class="mt-3 flex flex-col gap-2 border-t border-neutral-100 pt-3">
+                    <div class="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
                         <Link
                             :href="route('login')"
-                            class="rounded-md px-2 py-2.5 text-center text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                            class="rounded-md px-2 py-2.5 text-center text-sm font-medium text-neutral-300 hover:bg-white/5 hover:text-white"
                         >
                             Prijava
                         </Link>

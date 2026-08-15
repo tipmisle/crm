@@ -17,6 +17,11 @@ import {
     Minus,
     Bell,
     Sparkles,
+    Mail,
+    Phone,
+    CalendarDays,
+    StickyNote,
+    Image as ImageIcon,
 } from 'lucide-vue-next';
 
 // Placeholder — swap when pricing is finalized. Referenced only here.
@@ -78,19 +83,16 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
 
     <MarketingLayout>
         <!-- HERO -->
-        <section class="bg-white pt-14 pb-0 sm:pt-20">
-            <div class="mx-auto max-w-4xl px-4 text-center sm:px-6">
-                <p class="text-sm font-medium text-[var(--color-accent-600)]">Instagram + Facebook Messenger za mala podjetja</p>
-
-                <h1 class="mt-4 text-4xl leading-[1.08] font-semibold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
-                    Stranka ti piše.<br />
-                    Vse ostalo moraš trenutno<br class="hidden sm:block" />
-                    držati v glavi.
+        <section class="bg-[var(--color-ink-950)] pt-14 pb-20 sm:pt-20 sm:pb-28">
+            <div class="mx-auto max-w-5xl px-4 text-center sm:px-6">
+                <h1 class="text-4xl leading-[1.15] font-semibold tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+                    Vodiš posel prek Instagram DM-jev?<br class="hidden sm:block" />
+                    Beležka ti da sistem, ki ti manjka.
                 </h1>
 
-                <p class="mx-auto mt-6 max-w-xl text-lg text-neutral-600">
-                    Beležka poveže sporočila s strankami, naročili in termini — da se nič več ne izgubi med
-                    DM-i, zapiski in koledarjem.
+                <p class="mx-auto mt-6 max-w-xl text-lg text-neutral-300">
+                    Beležka poveže Instagram in Facebook sporočila s strankami, naročili in termini — brez
+                    prepisovanja v zapiske, koledarje in druge aplikacije.
                 </p>
 
                 <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -103,7 +105,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                     </Link>
                     <a
                         href="#kako-deluje"
-                        class="inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-neutral-600 transition hover:text-neutral-900"
+                        class="inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-neutral-300 transition hover:text-white"
                     >
                         Poglej, kako deluje
                     </a>
@@ -117,7 +119,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
             <!-- Hero visual: full-bleed real product composition -->
             <Reveal :delay="150">
                 <div class="relative mx-auto mt-12 max-w-6xl px-2 sm:mt-16 sm:px-6">
-                    <div class="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-neutral-900/[0.08] sm:rounded-3xl">
+                    <div class="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-2xl shadow-black/40 ring-1 ring-white/10 sm:rounded-3xl">
                         <div class="flex h-12 shrink-0 items-center border-b border-neutral-200 bg-white px-5">
                             <span class="text-sm font-semibold text-neutral-900">Prejeta pošta</span>
                         </div>
@@ -128,7 +130,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                     <div class="h-9 w-9 shrink-0 rounded-full bg-[var(--color-accent-200)]" />
                                     <div class="min-w-0">
                                         <p class="truncate text-sm font-semibold text-neutral-800">Nina Kovač</p>
-                                        <p class="truncate text-xs text-neutral-500">Bi bilo možno naročiti...</p>
+                                        <p class="truncate text-xs text-neutral-500">Poslala bi vam še sliko...</p>
                                     </div>
                                 </div>
                                 <div v-for="i in 5" :key="i" class="flex items-center gap-2.5 border-b border-neutral-50 px-4 py-3.5">
@@ -147,7 +149,7 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                         <p class="text-sm font-semibold text-neutral-900">Nina Kovač</p>
                                         <div class="flex items-center gap-1 text-xs text-neutral-400">
                                             <ChannelIcon type="instagram" />
-                                            <span>Instagram</span>
+                                            <span>@nina.kovac</span>
                                         </div>
                                     </div>
                                 </div>
@@ -161,7 +163,15 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                     </div>
                                     <div class="flex justify-end">
                                         <div class="max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--color-accent-500)] px-4 py-2.5 text-sm text-white">
-                                            Seveda — 85 €, ara 20 €. Za koga praznuješ? 🎂
+                                            Seveda — za 20 ljudi bi bila cena 85 €, ara pa 20 €. Za koga praznujete? 🎂
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-start">
+                                        <div class="max-w-[85%] space-y-2 rounded-2xl rounded-bl-sm bg-neutral-100 px-4 py-2.5 text-sm text-neutral-800">
+                                            <p>Za hčerkin 10. rojstni dan. Poslala bi vam še sliko, kakšen stil imam v mislih.</p>
+                                            <div class="flex h-20 w-20 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-accent-100)] to-[var(--color-accent-300)]">
+                                                <ImageIcon :size="20" class="text-white/90" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -175,7 +185,34 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
 
                             <div class="hidden bg-neutral-50 px-5 py-5 lg:block">
                                 <p class="text-sm font-semibold text-neutral-900">Nina Kovač</p>
-                                <p class="mt-0.5 text-xs text-neutral-500">3 prejšnja naročila · 248 € skupaj</p>
+                                <p class="text-xs text-neutral-500">@nina.kovac</p>
+
+                                <div class="mt-3 space-y-1 text-xs text-neutral-500">
+                                    <p class="flex items-center gap-1.5"><Mail :size="11" /> nina@example.com</p>
+                                    <p class="flex items-center gap-1.5"><Phone :size="11" /> +386 XX XXX XXX</p>
+                                </div>
+
+                                <p class="mt-3 rounded-md bg-white px-2.5 py-2 text-xs text-neutral-500 ring-1 ring-neutral-200">
+                                    "Priporočila jo je prejšnja stranka."
+                                </p>
+
+                                <div class="mt-4 border-t border-neutral-200 pt-3">
+                                    <p class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase">Poslovni podatki</p>
+                                    <dl class="mt-2 space-y-1.5 text-xs">
+                                        <div class="flex items-center justify-between">
+                                            <dt class="text-neutral-500">Prejšnja naročila</dt>
+                                            <dd class="font-medium text-neutral-800">3</dd>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <dt class="text-neutral-500">Skupaj porabljeno</dt>
+                                            <dd class="font-medium text-neutral-800">248 €</dd>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <dt class="text-neutral-500">Zadnje naročilo</dt>
+                                            <dd class="font-medium text-neutral-800">9. jul.</dd>
+                                        </div>
+                                    </dl>
+                                </div>
 
                                 <div class="mt-4 rounded-lg border border-neutral-200 bg-white p-3.5">
                                     <p class="text-[10px] font-medium tracking-wide text-neutral-400 uppercase">
@@ -185,19 +222,32 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                     <p class="mt-0.5 text-xs text-neutral-500">30. avgust</p>
                                     <div class="mt-2.5 flex items-center justify-between text-xs">
                                         <span class="font-semibold text-neutral-900">85 €</span>
-                                        <span class="rounded-md bg-[var(--color-accent-50)] px-1.5 py-0.5 font-medium text-[var(--color-accent-700)]">
-                                            Ara 20 €
-                                        </span>
+                                        <Badge :color="depositPaid.color" :bg="depositPaid.bg">Ara 20 €</Badge>
                                     </div>
                                 </div>
-
-                                <button
-                                    type="button"
-                                    class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent-500)] px-3 py-2 text-xs font-semibold text-white"
-                                >
-                                    <Plus :size="13" /> Ustvari naročilo
-                                </button>
                             </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 border-t border-neutral-100 bg-white px-5 py-3.5">
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent-500)] px-3.5 py-2 text-xs font-semibold text-white"
+                            >
+                                <Plus :size="13" /> Ustvari naročilo
+                            </button>
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700"
+                            >
+                                <CalendarDays :size="13" /> Rezerviraj termin
+                            </button>
+                            <span class="mx-1 hidden h-4 w-px bg-neutral-200 sm:inline-block" />
+                            <button type="button" class="inline-flex items-center gap-1.5 px-1.5 py-2 text-xs font-medium text-neutral-400 hover:text-neutral-600">
+                                <StickyNote :size="13" /> Dodaj opombo
+                            </button>
+                            <button type="button" class="inline-flex items-center gap-1.5 px-1.5 py-2 text-xs font-medium text-neutral-400 hover:text-neutral-600">
+                                <Bell :size="13" /> Nastavi opomnik
+                            </button>
                         </div>
                     </div>
                 </div>
