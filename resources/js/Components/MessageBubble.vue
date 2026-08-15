@@ -6,9 +6,19 @@ import type { Message } from '@/types/models';
 const props = defineProps<{ message: Message }>();
 
 const isBusiness = computed(() => props.message.sender_type === 'business');
-const attachments = computed(() => props.message.metadata?.attachments ?? []);
 const isFailed = computed(() => props.message.status === 'failed');
 const isPending = computed(() => props.message.status === 'pending');
+
+// Local (Beležka-hosted) attachments have no stored URL — they live on a
+// private disk and are only reachable through the authorized
+// inbox.attachments.show route. Provider-hosted (Meta CDN) attachments keep
+// their own URL as-is. See docs/data-security.md.
+const attachments = computed(() =>
+    (props.message.metadata?.attachments ?? []).map((attachment, i) => ({
+        ...attachment,
+        url: attachment.source === 'local' ? route('inbox.attachments.show', [props.message.id, i]) : attachment.url,
+    })),
+);
 </script>
 
 <template>

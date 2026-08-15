@@ -136,9 +136,21 @@ class ConversationController extends Controller
         return $message;
     }
 
+    /**
+     * Outbound attachments are private customer-facing files — stored on
+     * the 'local' (non-public) disk under a random, non-guessable name, and
+     * only ever served back through the authorized
+     * inbox.attachments.show / admin support-content routes. See
+     * docs/data-security.md "Private message attachments".
+     */
     private function storeOutboundAttachment(UploadedFile $file): OutboundAttachment
     {
-        $path = $file->store('inbox-attachments', 'public');
+        // UploadedFile::store() already generates a random filename (never
+        // the original) and Laravel's 'mimes' validation rule (see
+        // sendMessage()) already checks the file's actual content, not just
+        // the browser-supplied Content-Type — both satisfy "don't trust the
+        // browser MIME alone" without extra code here.
+        $path = $file->store('inbox-attachments', 'local');
 
         $type = match (true) {
             str_starts_with((string) $file->getMimeType(), 'image/') => 'image',
@@ -146,7 +158,7 @@ class ConversationController extends Controller
             default => 'file',
         };
 
-        return new OutboundAttachment($type, Storage::disk('public')->url($path), Storage::disk('public')->path($path));
+        return new OutboundAttachment($type, $path, Storage::disk('local')->path($path));
     }
 
     public function update(Request $request, Conversation $conversation): RedirectResponse

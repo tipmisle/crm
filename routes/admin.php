@@ -20,6 +20,7 @@ Route::middleware(['auth', 'platform.admin'])->prefix('admin')->name('admin.')->
     Route::get('/workspaces/{workspace}/support/conversations/{conversation}', [SupportContentController::class, 'conversation'])->name('workspaces.support.conversation');
     Route::get('/workspaces/{workspace}/support/customers/{customer}', [SupportContentController::class, 'customer'])->name('workspaces.support.customer');
     Route::get('/workspaces/{workspace}/support/orders/{order}', [SupportContentController::class, 'order'])->name('workspaces.support.order');
+    Route::get('/workspaces/{workspace}/support/attachments/{message}/{index}', [SupportContentController::class, 'attachment'])->name('workspaces.support.attachment');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');

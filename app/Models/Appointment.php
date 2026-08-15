@@ -46,6 +46,10 @@ class Appointment extends Model
             'deposit_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
             'tags' => 'array',
+            // Application-encrypted — see docs/data-security.md.
+            'description' => 'encrypted',
+            'internal_notes' => 'encrypted',
+            'customer_notes' => 'encrypted',
         ];
     }
 

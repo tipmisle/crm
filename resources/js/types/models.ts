@@ -101,6 +101,8 @@ export type MessageStatus = 'pending' | 'sent' | 'failed' | 'delivered' | 'read'
 
 export interface MessageAttachment {
     type: 'image' | 'video' | 'audio' | 'file';
+    source?: 'local' | 'external';
+    path?: string;
     url: string | null;
 }
 

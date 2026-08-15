@@ -16,6 +16,14 @@ class OrderNote extends Model
         'body',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            // Application-encrypted — see docs/data-security.md.
+            'body' => 'encrypted',
+        ];
+    }
+
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);

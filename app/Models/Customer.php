@@ -31,6 +31,9 @@ class Customer extends Model
     {
         return [
             'tags' => 'array',
+            // Application-encrypted — see docs/data-security.md. Free-text
+            // notes may contain health or other sensitive disclosures.
+            'notes' => 'encrypted',
             'first_contacted_at' => 'datetime',
             'last_interaction_at' => 'datetime',
         ];

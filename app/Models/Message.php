@@ -34,7 +34,13 @@ class Message extends Model
             'message_type' => MessageType::class,
             'status' => MessageStatus::class,
             'failed_at' => 'datetime',
-            'metadata' => 'array',
+            // Application-encrypted at rest — see docs/data-security.md.
+            // Existing rows were migrated by security:encrypt-sensitive-data
+            // BEFORE this cast was deployed; do not add this cast without
+            // running that command first, or reads of legacy plaintext rows
+            // will throw a decryption exception.
+            'body' => 'encrypted',
+            'metadata' => 'encrypted:array',
             'sent_at' => 'datetime',
         ];
     }

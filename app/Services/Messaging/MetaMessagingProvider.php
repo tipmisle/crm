@@ -272,10 +272,18 @@ class MetaMessagingProvider implements MessagingProviderInterface
                     continue;
                 }
 
+                // Inbound attachments are never downloaded/copied into our
+                // own storage — Meta's CDN URL is stored as-is (it's
+                // provider-hosted and typically short-lived/signed by Meta
+                // itself). 'source' => 'external' tells the frontend to use
+                // this URL directly rather than routing through our
+                // authorized attachment endpoint. See docs/data-security.md
+                // "Provider-hosted attachments".
                 $attachments = [];
                 foreach ($message['attachments'] ?? [] as $attachment) {
                     $attachments[] = [
                         'type' => $attachment['type'] ?? 'file',
+                        'source' => 'external',
                         'url' => $attachment['payload']['url'] ?? null,
                     ];
                 }

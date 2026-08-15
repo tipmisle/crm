@@ -31,6 +31,9 @@ class Conversation extends Model
     {
         return [
             'status' => ConversationStatus::class,
+            // Application-encrypted — see docs/data-security.md and the
+            // note on App\Models\Message::casts().
+            'last_message_preview' => 'encrypted',
             'last_message_at' => 'datetime',
         ];
     }

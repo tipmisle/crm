@@ -6,6 +6,7 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DemoController;
 use App\Http\Controllers\FollowUpController;
+use App\Http\Controllers\Inbox\AttachmentController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
 use App\Http\Controllers\MarketingController;
@@ -38,6 +39,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/inbox/{conversation}', [ConversationController::class, 'update'])->name('inbox.update');
     Route::post('/inbox/{conversation}/create-customer', [ConversationController::class, 'createCustomer'])->name('inbox.create-customer');
     Route::post('/inbox/{conversation}/notes', [ConversationController::class, 'addNote'])->name('inbox.notes.store');
+    Route::get('/inbox/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
 
     Route::resource('customers', CustomerController::class)->except(['edit']);
     Route::resource('orders', OrderController::class)->except(['edit']);

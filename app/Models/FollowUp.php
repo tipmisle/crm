@@ -27,6 +27,8 @@ class FollowUp extends Model
     protected function casts(): array
     {
         return [
+            // Application-encrypted — see docs/data-security.md.
+            'note' => 'encrypted',
             'due_at' => 'datetime',
             'notified_at' => 'datetime',
             'completed_at' => 'datetime',
