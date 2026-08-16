@@ -8,6 +8,7 @@ use App\Models\LegalAcceptance;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\WorkspaceStatusDefaults;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,6 +62,8 @@ class RegisteredUserController extends Controller
         ]);
 
         $user->update(['current_workspace_id' => $workspace->id]);
+
+        WorkspaceStatusDefaults::seed($workspace);
 
         // Versions come from server-side config, never client input — see
         // docs/legal-compliance.md. Privacy Policy is intentionally not

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\OrderStatus;
-use App\Enums\PaymentStatus;
 use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\FollowUp;
 use App\Models\Order;
+use App\Models\OrderStatus;
+use App\Models\PaymentStatus;
 use App\Services\RevenueStatsService;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -39,12 +39,9 @@ class TodayController extends Controller
         $upcomingOrders = collect();
 
         if ($workspace->orders_enabled) {
-            $openStatuses = array_map(
-                fn (OrderStatus $s) => $s->value,
-                array_filter(
-                    OrderStatus::board(),
-                    fn (OrderStatus $s) => ! in_array($s, [OrderStatus::Completed, OrderStatus::Cancelled], true)
-                )
+            $openStatuses = array_diff(
+                OrderStatus::query()->pluck('key')->all(),
+                OrderStatus::openExclusionKeys()
             );
 
             $todaysOrders = Order::query()
@@ -54,11 +51,14 @@ class TodayController extends Controller
                 ->orderBy('due_time')
                 ->get();
 
-            $quotesWaitingCount = Order::query()->where('status', OrderStatus::QuoteSent->value)->count();
+            // Tied to the seeded default key rather than a new semantic
+            // flag — degrades to 0 if a workspace renames/removes it, works
+            // identically for everyone else. See docs on this decision.
+            $quotesWaitingCount = Order::query()->where('status', 'quote_sent')->count();
 
             $depositsUnpaidCount = Order::query()
                 ->whereIn('status', $openStatuses)
-                ->whereIn('payment_status', [PaymentStatus::Unpaid->value, PaymentStatus::DepositDue->value])
+                ->whereIn('payment_status', PaymentStatus::outstandingKeys())
                 ->where('deposit_amount', '>', 0)
                 ->count();
 
@@ -130,7 +130,7 @@ class TodayController extends Controller
 
             $appointmentDepositsUnpaidCount = Appointment::query()
                 ->whereIn('status', $activeStatuses)
-                ->whereIn('payment_status', [PaymentStatus::Unpaid->value, PaymentStatus::DepositDue->value])
+                ->whereIn('payment_status', PaymentStatus::outstandingKeys())
                 ->where('deposit_amount', '>', 0)
                 ->count();
 

@@ -28,7 +28,7 @@ onUnmounted(stopNavigateListener);
         <header class="legal-page-chrome sticky top-0 z-40 border-b border-white/10 bg-[var(--color-ink-950)]/95 backdrop-blur-sm">
             <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
                 <Link href="/" class="flex items-center gap-2">
-                    <img src="/images/logo.png" alt="Beležka" class="h-5 w-auto" />
+                    <img src="/images/logo-white.png" alt="Beležka" class="h-5 w-auto" />
                 </Link>
 
                 <nav class="hidden items-center gap-8 lg:flex">
@@ -127,9 +127,7 @@ onUnmounted(stopNavigateListener);
             <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
                 <div class="grid grid-cols-2 gap-8 sm:grid-cols-4">
                     <div class="col-span-2 sm:col-span-1">
-                        <div class="flex items-center gap-2 rounded-lg bg-[var(--color-ink-950)] px-2.5 py-1.5">
-                            <img src="/images/logo.png" alt="Beležka" class="h-5 w-auto" />
-                        </div>
+                        <img src="/images/logo-dark.png" alt="Beležka" class="h-5 w-auto" />
                         <p class="mt-3 max-w-xs text-sm text-neutral-500">
                             Sporočila, stranke, naročila in termini — povezani na enem mestu.
                         </p>

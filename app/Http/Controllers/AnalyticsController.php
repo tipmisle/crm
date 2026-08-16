@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\ChannelType;
-use App\Enums\OrderStatus;
 use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Order;
+use App\Models\OrderStatus;
 use App\Services\RevenueStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -129,7 +129,7 @@ class AnalyticsController extends Controller
     {
         $orderDaily = $workspace->orders_enabled
             ? Order::whereBetween('created_at', [$start, $end])
-                ->where('status', '!=', OrderStatus::Cancelled->value)
+                ->whereNotIn('status', OrderStatus::cancelledKeys())
                 ->selectRaw('DATE(created_at) as day, SUM(price) as total')
                 ->groupBy('day')
                 ->pluck('total', 'day')
@@ -180,7 +180,7 @@ class AnalyticsController extends Controller
 
         if ($workspace->orders_enabled) {
             foreach (Order::whereBetween('created_at', [$start, $end])
-                ->where('status', '!=', OrderStatus::Cancelled->value)
+                ->whereNotIn('status', OrderStatus::cancelledKeys())
                 ->with('channel')->get() as $order) {
                 $type = $order->channel?->type ?? ChannelType::Website;
                 if (! in_array($type, self::SOCIAL_CHANNELS, true)) {
@@ -225,7 +225,7 @@ class AnalyticsController extends Controller
         $totals = [];
 
         foreach (Order::whereBetween('created_at', [$start, $end])
-            ->where('status', '!=', OrderStatus::Cancelled->value)
+            ->whereNotIn('status', OrderStatus::cancelledKeys())
             ->get() as $order) {
             $totals[$order->title] = ($totals[$order->title] ?? 0) + (float) $order->price;
         }

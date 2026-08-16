@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\OrderStatus;
 use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Order;
+use App\Models\OrderStatus;
 use App\Models\Workspace;
 use Illuminate\Support\Carbon;
 
@@ -22,7 +22,7 @@ class RevenueStatsService
     {
         $orders = $workspace->orders_enabled
             ? (float) Order::whereBetween('created_at', [$start, $end])
-                ->where('status', '!=', OrderStatus::Cancelled->value)
+                ->whereNotIn('status', OrderStatus::cancelledKeys())
                 ->sum('price')
             : 0.0;
 

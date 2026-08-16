@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\PaymentStatus;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,7 +39,9 @@ class Appointment extends Model
     {
         return [
             'status' => AppointmentStatus::class,
-            'payment_status' => PaymentStatus::class,
+            // payment_status is a plain string referencing a workspace-
+            // editable PaymentStatus row's `key` (shared with Order) — see
+            // paymentStatusRecord() below. No enum cast.
             'appointment_date' => 'date',
             'price' => 'decimal:2',
             'deposit_amount' => 'decimal:2',
@@ -93,6 +94,11 @@ class Appointment extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function paymentStatusRecord(): BelongsTo
+    {
+        return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key');
     }
 
     public function followUps(): MorphMany

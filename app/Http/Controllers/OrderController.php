@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\OrderStatus;
-use App\Enums\PaymentStatus;
 use App\Models\ActivityLog;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
 use App\Models\Order;
+use App\Models\OrderStatus;
+use App\Models\PaymentStatus;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,7 +47,7 @@ class OrderController extends Controller
             $query->whereDate('due_date', Carbon::today());
         } elseif ($due === 'overdue') {
             $query->whereDate('due_date', '<', Carbon::today())
-                ->whereNotIn('status', [OrderStatus::Completed->value, OrderStatus::Cancelled->value]);
+                ->whereNotIn('status', OrderStatus::openExclusionKeys());
         } elseif ($due === 'week') {
             $query->whereBetween('due_date', [Carbon::today(), Carbon::today()->addDays(7)]);
         }
@@ -73,10 +73,10 @@ class OrderController extends Controller
         }
 
         if ($view === 'kanban') {
-            $orders = $query->orderBy('due_date')->get()->groupBy(fn (Order $o) => $o->status->value);
+            $orders = $query->orderBy('due_date')->get()->groupBy('status');
 
-            $board = collect(OrderStatus::board())->mapWithKeys(fn (OrderStatus $status) => [
-                $status->value => $orders->get($status->value, collect())->values(),
+            $board = OrderStatus::query()->ordered()->pluck('key')->mapWithKeys(fn (string $key) => [
+                $key => $orders->get($key, collect())->values(),
             ]);
 
             return Inertia::render('Orders/Kanban', [
@@ -158,7 +158,7 @@ class OrderController extends Controller
         abort_unless($customer, 422, 'Naročilo potrebuje stranko.');
 
         $deposit = (float) ($data['deposit_amount'] ?? 0);
-        $paymentStatus = $deposit > 0 ? PaymentStatus::DepositDue : PaymentStatus::Unpaid;
+        $paymentStatus = $deposit > 0 ? PaymentStatus::depositDefaultKey() : PaymentStatus::defaultKey();
 
         $order = Order::create([
             'customer_id' => $customer->id,
@@ -173,7 +173,7 @@ class OrderController extends Controller
             'deposit_amount' => $deposit,
             'amount_paid' => 0,
             'payment_status' => $paymentStatus,
-            'status' => OrderStatus::New,
+            'status' => OrderStatus::defaultKey(),
             'internal_notes' => $data['internal_notes'] ?? null,
             'customer_notes' => $data['customer_notes'] ?? null,
         ]);
@@ -221,10 +221,12 @@ class OrderController extends Controller
 
         $order->update($data);
 
-        if (isset($data['status']) && $data['status'] !== $previousStatus->value) {
+        if (isset($data['status']) && $data['status'] !== $previousStatus) {
+            $label = OrderStatus::where('key', $order->status)->value('label') ?? $order->status;
+
             ActivityLog::record(
                 'status_changed',
-                "Naročilo {$order->order_number} označeno kot {$order->status->label()}",
+                "Naročilo {$order->order_number} označeno kot {$label}",
                 $order
             );
         }

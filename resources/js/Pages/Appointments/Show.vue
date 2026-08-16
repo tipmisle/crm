@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
 import DateInput from '@/Components/DateInput.vue';
 import { formatMoney, formatDate, formatDateTime } from '@/lib/format';
-import { APPOINTMENT_STATUS_ORDER, APPOINTMENT_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
+import { APPOINTMENT_STATUS_ORDER, APPOINTMENT_STATUS_META } from '@/lib/statuses';
 import type { ActivityLogEntry, Appointment, AppointmentStatus, FollowUp } from '@/types/models';
+import type { PageProps } from '@/types';
 import { MessageSquare, Bell } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -17,8 +18,17 @@ const props = defineProps<{
     activity: ActivityLogEntry[];
 }>();
 
+const page = usePage<PageProps>();
+const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
 const statusMeta = computed(() => APPOINTMENT_STATUS_META[props.appointment.status]);
-const paymentMeta = computed(() => PAYMENT_STATUS_META[props.appointment.payment_status]);
+const paymentMeta = computed(
+    () =>
+        paymentStatuses.value.find((s) => s.key === props.appointment.payment_status) ?? {
+            label: props.appointment.payment_status,
+            color: '#4B5563',
+            bg: '#F1F2F4',
+        },
+);
 
 const remainingBalance = computed(() => {
     const price = Number(props.appointment.price ?? 0);
@@ -259,7 +269,7 @@ const followUpOpen = ref(false);
                                 class="mt-2 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
                                 @change="updatePayment(($event.target as HTMLSelectElement).value)"
                             >
-                                <option v-for="(meta, key) in PAYMENT_STATUS_META" :key="key" :value="key">{{ meta.label }}</option>
+                                <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
                             </select>
                         </div>
                     </section>

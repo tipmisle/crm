@@ -1,17 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import { formatDate, formatMoney, formatTime } from '@/lib/format';
-import { APPOINTMENT_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
+import { APPOINTMENT_STATUS_META } from '@/lib/statuses';
 import type { Appointment } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{ appointment: Appointment }>();
 
+const page = usePage<PageProps>();
 const statusMeta = computed(() => APPOINTMENT_STATUS_META[props.appointment.status]);
-const paymentMeta = computed(() => PAYMENT_STATUS_META[props.appointment.payment_status]);
+const paymentMeta = computed(
+    () =>
+        page.props.paymentStatuses?.find((s) => s.key === props.appointment.payment_status) ?? {
+            label: props.appointment.payment_status,
+            color: '#4B5563',
+            bg: '#F1F2F4',
+        },
+);
 </script>
 
 <template>

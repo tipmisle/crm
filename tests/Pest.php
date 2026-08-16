@@ -6,6 +6,7 @@ use App\Models\SupportAccessGrant;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\WorkspaceStatusDefaults;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Subscription;
@@ -87,6 +88,10 @@ function createWorkspaceWithUser(array $userAttributes = [], bool $withSubscript
         'user_id' => $user->id,
         'role' => 'owner',
     ]);
+
+    // Mirrors RegisteredUserController::store()/DemoController::create() —
+    // every real workspace has these seeded, so test workspaces must too.
+    WorkspaceStatusDefaults::seed($workspace);
 
     if ($withSubscription) {
         attachSubscription($workspace, 'active');

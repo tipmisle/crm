@@ -99,7 +99,7 @@ onUnmounted(stopNavigateListener);
             :class="sidebarOpen && 'translate-x-0'"
         >
             <div class="flex items-center gap-2 px-5 py-5">
-                <img src="/images/logo.png" alt="Beležka" class="h-6 w-auto" />
+                <img src="/images/logo-white.png" alt="Beležka" class="h-6 w-auto" />
                 <button
                     type="button"
                     class="rounded-md p-1 text-neutral-400 hover:bg-white/10 hover:text-white lg:hidden"

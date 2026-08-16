@@ -21,6 +21,9 @@ use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\Settings\BillingController;
+use App\Http\Controllers\Settings\OrderStatusController;
+use App\Http\Controllers\Settings\PaymentStatusController;
+use App\Http\Controllers\Settings\StatusesController as SettingsStatusesController;
 use App\Http\Controllers\Settings\SupportAccessController;
 use App\Http\Controllers\Settings\WorkspaceExportController;
 use App\Http\Controllers\Settings\WorkspacePrivacyController;
@@ -62,6 +65,17 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/settings/billing', [BillingController::class, 'edit'])->name('settings.billing.edit');
     Route::get('/settings/billing/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
+
+    Route::get('/settings/statuses', [SettingsStatusesController::class, 'edit'])->name('settings.statuses.edit');
+    Route::post('/settings/statuses/order', [OrderStatusController::class, 'store'])->name('settings.statuses.order.store');
+    Route::patch('/settings/statuses/order/{orderStatus}', [OrderStatusController::class, 'update'])->name('settings.statuses.order.update');
+    Route::delete('/settings/statuses/order/{orderStatus}', [OrderStatusController::class, 'destroy'])->name('settings.statuses.order.destroy');
+    Route::post('/settings/statuses/order/reorder', [OrderStatusController::class, 'reorder'])->name('settings.statuses.order.reorder');
+
+    Route::post('/settings/statuses/payment', [PaymentStatusController::class, 'store'])->name('settings.statuses.payment.store');
+    Route::patch('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'update'])->name('settings.statuses.payment.update');
+    Route::delete('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'destroy'])->name('settings.statuses.payment.destroy');
+    Route::post('/settings/statuses/payment/reorder', [PaymentStatusController::class, 'reorder'])->name('settings.statuses.payment.reorder');
 
     Route::get('/settings/privacy', [WorkspacePrivacyController::class, 'edit'])->name('settings.privacy.edit');
     Route::get('/settings/privacy/export/{export}/download', [WorkspaceExportController::class, 'download'])->name('settings.privacy.export.download');

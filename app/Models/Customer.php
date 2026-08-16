@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\OrderStatus;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -81,20 +80,12 @@ class Customer extends Model
 
     public function openOrdersCount(): int
     {
-        $openStatuses = array_map(
-            fn (OrderStatus $s) => $s->value,
-            array_filter(
-                OrderStatus::board(),
-                fn (OrderStatus $s) => ! in_array($s, [OrderStatus::Completed, OrderStatus::Cancelled], true)
-            )
-        );
-
-        return $this->orders()->whereIn('status', $openStatuses)->count();
+        return $this->orders()->whereNotIn('status', OrderStatus::openExclusionKeys())->count();
     }
 
     public function completedOrdersCount(): int
     {
-        return $this->orders()->where('status', OrderStatus::Completed->value)->count();
+        return $this->orders()->whereIn('status', OrderStatus::completedKeys())->count();
     }
 
     public function appointmentsLifetimeSpend(): float

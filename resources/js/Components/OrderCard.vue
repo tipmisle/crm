@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import { formatDate, formatMoney, formatTime } from '@/lib/format';
-import { ORDER_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
 import type { Order } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{ order: Order }>();
 
-const statusMeta = computed(() => ORDER_STATUS_META[props.order.status]);
-const paymentMeta = computed(() => PAYMENT_STATUS_META[props.order.payment_status]);
+const page = usePage<PageProps>();
+const fallback = (key: string) => ({ label: key, color: '#4B5563', bg: '#F1F2F4' });
+const statusMeta = computed(
+    () => page.props.orderStatuses?.find((s) => s.key === props.order.status) ?? fallback(props.order.status),
+);
+const paymentMeta = computed(
+    () => page.props.paymentStatuses?.find((s) => s.key === props.order.payment_status) ?? fallback(props.order.payment_status),
+);
 </script>
 
 <template>

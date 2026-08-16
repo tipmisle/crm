@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\Conversation;
+use App\Models\OrderStatus;
+use App\Models\PaymentStatus;
 use App\Services\Billing\WorkspaceSubscriptionStateService;
 use App\Support\SupportSessionManager;
 use Illuminate\Http\Request;
@@ -42,6 +44,14 @@ class HandleInertiaRequests extends Middleware
             ? ['status' => app(WorkspaceSubscriptionStateService::class)->for($user->currentWorkspace)->value]
             : null;
 
+        $orderStatuses = $user?->current_workspace_id
+            ? OrderStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_completed', 'is_cancelled'])
+            : null;
+
+        $paymentStatuses = $user?->current_workspace_id
+            ? PaymentStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_deposit_default', 'is_outstanding'])
+            : null;
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -57,6 +67,8 @@ class HandleInertiaRequests extends Middleware
             ] : null,
             'vapidPublicKey' => config('webpush.vapid.public_key'),
             'billing' => $billing,
+            'orderStatuses' => $orderStatuses,
+            'paymentStatuses' => $paymentStatuses,
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

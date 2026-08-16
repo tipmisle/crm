@@ -13,23 +13,27 @@ export type ConversationStatus =
     | 'order_confirmed'
     | 'closed';
 
-export type OrderStatus =
-    | 'new'
-    | 'quote_needed'
-    | 'quote_sent'
-    | 'waiting_for_customer'
-    | 'confirmed'
-    | 'in_progress'
-    | 'ready'
-    | 'completed'
-    | 'cancelled';
+/**
+ * Order status and payment status are workspace-editable (Settings → Statusi
+ * naročil in plačil) — the actual list of keys/labels/colors in use comes
+ * from the shared Inertia props `orderStatuses`/`paymentStatuses`
+ * (`StatusOption[]`), not from a fixed union.
+ */
+export type OrderStatus = string;
+export type PaymentStatus = string;
 
-export type PaymentStatus =
-    | 'unpaid'
-    | 'deposit_due'
-    | 'deposit_paid'
-    | 'partially_paid'
-    | 'paid';
+export interface StatusOption {
+    id: number;
+    key: string;
+    label: string;
+    color: string;
+    bg: string;
+    is_default: boolean;
+    is_completed?: boolean;
+    is_cancelled?: boolean;
+    is_deposit_default?: boolean;
+    is_outstanding?: boolean;
+}
 
 export type AppointmentStatus = 'requested' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 

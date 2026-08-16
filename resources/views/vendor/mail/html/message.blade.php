@@ -2,7 +2,7 @@
 {{-- Header --}}
 <x-slot:header>
 <x-mail::header :url="config('app.url')">
-<img src="{{ asset('images/logo.png') }}" alt="{{ config('app.name') }}" style="height: 28px; width: auto; display: inline-block; background-color: #241a42; padding: 10px 16px; border-radius: 8px;">
+<img src="{{ asset('images/logo-white.png') }}" alt="{{ config('app.name') }}" style="height: 28px; width: auto; display: inline-block; background-color: #241a42; padding: 10px 16px; border-radius: 8px;">
 </x-mail::header>
 </x-slot:header>
 

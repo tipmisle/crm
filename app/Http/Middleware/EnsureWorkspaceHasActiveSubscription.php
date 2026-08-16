@@ -9,7 +9,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Gates the real product surface (Inbox, Customers, Orders, ...) behind an
- * active subscription. Demo workspaces bypass entirely. See docs/billing.md
+ * active subscription. Demo workspaces bypass entirely, and so do platform
+ * admins (Beležka staff, is_platform_admin=true) — the same deny-by-default,
+ * CLI-only-grant flag already used for /admin access (see EnsurePlatformAdmin,
+ * docs/admin-security.md), not a separate hidden bypass. See docs/billing.md
  * and routes/web.php for the exact gated/exempt route list.
  */
 class EnsureWorkspaceHasActiveSubscription
@@ -18,11 +21,12 @@ class EnsureWorkspaceHasActiveSubscription
 
     public function handle(Request $request, Closure $next): Response
     {
-        $workspace = $request->user()?->currentWorkspace;
+        $user = $request->user();
+        $workspace = $user?->currentWorkspace;
 
         abort_unless($workspace, 403);
 
-        if ($workspace->is_demo) {
+        if ($workspace->is_demo || $user->isPlatformAdmin()) {
             return $next($request);
         }
 

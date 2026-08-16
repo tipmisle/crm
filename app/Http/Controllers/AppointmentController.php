@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AppointmentStatus;
-use App\Enums\PaymentStatus;
 use App\Models\ActivityLog;
 use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
+use App\Models\PaymentStatus;
 use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -141,7 +141,7 @@ class AppointmentController extends Controller
         abort_unless($customer, 422, 'Termin potrebuje stranko.');
 
         $deposit = (float) ($data['deposit_amount'] ?? 0);
-        $paymentStatus = $deposit > 0 ? PaymentStatus::DepositDue : PaymentStatus::Unpaid;
+        $paymentStatus = $deposit > 0 ? PaymentStatus::depositDefaultKey() : PaymentStatus::defaultKey();
 
         $appointment = Appointment::create([
             'customer_id' => $customer->id,

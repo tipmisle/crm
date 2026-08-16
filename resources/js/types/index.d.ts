@@ -1,4 +1,4 @@
-import type { Workspace } from './models';
+import type { StatusOption, Workspace } from './models';
 
 export interface User {
     id: number;
@@ -30,6 +30,8 @@ export type PageProps<
     unreadInboxCount: number;
     activeSupportSession: ActiveSupportSession | null;
     billing: BillingStatus | null;
+    orderStatuses: StatusOption[] | null;
+    paymentStatuses: StatusOption[] | null;
     vapidPublicKey: string | null;
     flash: {
         success?: string | null;

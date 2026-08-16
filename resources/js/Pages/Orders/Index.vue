@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, watch, computed } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import OrderCard from '@/Components/OrderCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Search, Plus, LayoutGrid, List, CalendarDays } from 'lucide-vue-next';
-import { ORDER_STATUS_ORDER, ORDER_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
-import type { Order, OrderStatus, PaymentStatus } from '@/types/models';
+import type { Order } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{
     orders: { data: Order[]; links: { url: string | null; label: string; active: boolean }[] };
     filters: { search?: string; status?: string; payment?: string; due?: string };
 }>();
+
+const page = usePage<PageProps>();
+const orderStatuses = computed(() => page.props.orderStatuses ?? []);
+const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
 
 const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
@@ -86,12 +90,12 @@ watch([status, payment, due], applyFilters);
 
                 <select v-model="status" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
                     <option value="">Vsi statusi</option>
-                    <option v-for="s in ORDER_STATUS_ORDER" :key="s" :value="s">{{ ORDER_STATUS_META[s as OrderStatus].label }}</option>
+                    <option v-for="s in orderStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
                 </select>
 
                 <select v-model="payment" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
                     <option value="">Vsa plačila</option>
-                    <option v-for="(meta, key) in PAYMENT_STATUS_META" :key="key" :value="key">{{ meta.label }}</option>
+                    <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
                 </select>
 
                 <select v-model="due" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">

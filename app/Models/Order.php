@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\OrderStatus;
-use App\Enums\PaymentStatus;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,8 +38,11 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'status' => OrderStatus::class,
-            'payment_status' => PaymentStatus::class,
+            // status/payment_status are plain strings referencing a
+            // workspace-editable OrderStatus/PaymentStatus row's `key` —
+            // see orderStatus()/paymentStatusRecord() below and
+            // docs on WorkspaceStatusDefaults. No enum cast: the set of
+            // valid values is per-workspace, not fixed.
             'due_date' => 'date',
             'price' => 'decimal:2',
             'deposit_amount' => 'decimal:2',
@@ -100,11 +101,21 @@ class Order extends Model
         return $this->morphMany(FollowUp::class, 'followable');
     }
 
+    public function orderStatus(): BelongsTo
+    {
+        return $this->belongsTo(OrderStatus::class, 'status', 'key');
+    }
+
+    public function paymentStatusRecord(): BelongsTo
+    {
+        return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key');
+    }
+
     public function isOverdue(): bool
     {
         return $this->due_date
             && $this->due_date->isPast()
-            && ! in_array($this->status, [OrderStatus::Completed, OrderStatus::Cancelled], true);
+            && ! ($this->orderStatus?->is_completed || $this->orderStatus?->is_cancelled);
     }
 
     // Carbon's default JSON output ("2026-08-20T00:00:00.000000Z") doesn't

@@ -68,6 +68,13 @@ test('demo workspaces bypass the subscription gate entirely, even with zero subs
     $this->actingAs($user)->get(route('dashboard'))->assertOk();
 });
 
+test('a platform admin bypasses the subscription gate on their own workspace, even with no subscription', function () {
+    [$workspace, $owner] = createWorkspaceWithUser(withSubscription: false);
+    $owner->forceFill(['is_platform_admin' => true])->save();
+
+    $this->actingAs($owner)->get(route('dashboard'))->assertOk();
+});
+
 test('one workspace subscription never unlocks another workspace', function () {
     [, $paidOwner] = createWorkspaceWithSubscription('active');
     [, $unpaidOwner] = createWorkspaceWithUser(withSubscription: false);

@@ -437,7 +437,7 @@ class StudioNolaSeeder extends Seeder
                     'price' => $price,
                     'deposit_amount' => $deposit,
                     'amount_paid' => $amountPaid,
-                    'payment_status' => $paymentStatus,
+                    'payment_status' => $paymentStatus->value,
                     'status' => $status,
                     'internal_notes' => rand(0, 4) === 0 ? 'Stranka je prosila za natančno isti odtenek kot zadnjič.' : null,
                     'customer_notes' => rand(0, 4) === 0 ? 'Občutljiva koža okoli nohtov, previdno pri odstranjevanju.' : null,

@@ -493,8 +493,8 @@ class BloomAndCrumbSeeder extends Seeder
                     'price' => $price,
                     'deposit_amount' => $deposit,
                     'amount_paid' => $amountPaid,
-                    'payment_status' => $paymentStatus,
-                    'status' => $status,
+                    'payment_status' => $paymentStatus->value,
+                    'status' => $status->value,
                     'internal_notes' => rand(0, 3) === 0 ? 'Pred peko še enkrat preveri opombe o alergijah.' : null,
                     'customer_notes' => rand(0, 3) === 0 ? 'Prosimo, naj bo brez mlečnih izdelkov, če je mogoče.' : null,
                     'tags' => rand(0, 2) === 0 ? ['priority'] : null,
@@ -643,13 +643,14 @@ class BloomAndCrumbSeeder extends Seeder
                 'description' => "Naročilo {$order->order_number} ustvarjeno za stranko {$order->customer->full_name}",
             ], $order->created_at);
 
-            if (in_array($order->status, [OrderStatus::Completed, OrderStatus::Confirmed, OrderStatus::Cancelled], true)) {
+            $terminalStatuses = [OrderStatus::Completed->value, OrderStatus::Confirmed->value, OrderStatus::Cancelled->value];
+            if (in_array($order->status, $terminalStatuses, true)) {
                 $this->logAt([
                     'workspace_id' => $this->workspace->id,
                     'subject_type' => Order::class,
                     'subject_id' => $order->id,
                     'type' => 'status_changed',
-                    'description' => "Naročilo {$order->order_number} označeno kot {$order->status->label()}",
+                    'description' => "Naročilo {$order->order_number} označeno kot ".OrderStatus::from($order->status)->label(),
                 ], $order->created_at->copy()->addHours(rand(1, 48)));
             }
         }

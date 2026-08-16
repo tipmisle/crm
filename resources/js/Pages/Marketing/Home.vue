@@ -8,7 +8,7 @@ import ChannelIcon from '@/Components/ChannelIcon.vue';
 import Badge from '@/Components/Badge.vue';
 import CustomerAvatar from '@/Components/Marketing/CustomerAvatar.vue';
 import CakeThumbnail from '@/Components/Marketing/CakeThumbnail.vue';
-import { PAYMENT_STATUS_META } from '@/lib/statuses';
+import { MARKETING_DEMO_PAYMENT_STATUS_META } from '@/lib/statuses';
 import { trackDemoClick } from '@/lib/analytics';
 import {
     Instagram,
@@ -90,8 +90,8 @@ const showCreatedBadge = computed(() => heroPhase.value === 8);
 const showThanksReaction = computed(() => heroPhase.value >= 12);
 const heroDepositBadge = computed(() =>
     heroPhase.value >= 11
-        ? PAYMENT_STATUS_META.paid
-        : { label: 'Neplačana ara', color: PAYMENT_STATUS_META.deposit_due.color, bg: PAYMENT_STATUS_META.deposit_due.bg },
+        ? MARKETING_DEMO_PAYMENT_STATUS_META.paid
+        : { label: 'Neplačana ara', color: MARKETING_DEMO_PAYMENT_STATUS_META.deposit_due.color, bg: MARKETING_DEMO_PAYMENT_STATUS_META.deposit_due.bg },
 );
 
 type HeroMessage = { id: string; from: 'them' | 'me'; type: 'text' | 'photo'; text: string };
@@ -240,7 +240,7 @@ function toggleFaq(index: number) {
     openFaq.value = openFaq.value === index ? null : index;
 }
 
-const depositPaid = PAYMENT_STATUS_META.deposit_paid;
+const depositPaid = MARKETING_DEMO_PAYMENT_STATUS_META.deposit_paid;
 </script>
 
 <template>

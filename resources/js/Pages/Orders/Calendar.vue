@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { ChevronLeft, ChevronRight, List, LayoutGrid, Plus, CalendarDays } from 'lucide-vue-next';
@@ -19,14 +19,19 @@ import {
 } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { formatMoney } from '@/lib/format';
-import { ORDER_STATUS_META } from '@/lib/statuses';
 import type { Order } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{
     ordersByDate: Record<string, Order[]>;
     month: string;
     filters: { search?: string; status?: string; payment?: string };
 }>();
+
+const page = usePage<PageProps>();
+function orderStatusMeta(key: string) {
+    return page.props.orderStatuses?.find((s) => s.key === key) ?? { label: key, color: '#4B5563', bg: '#F1F2F4' };
+}
 
 const monthStart = computed(() => startOfMonth(parseISO(`${props.month}-01`)));
 const gridStart = computed(() => startOfWeek(monthStart.value, { weekStartsOn: 1 }));
@@ -152,7 +157,7 @@ function goToday() {
                             :key="order.id"
                             :href="route('orders.show', order.id)"
                             class="block truncate rounded px-1.5 py-0.5 text-[11px] font-medium hover:opacity-80"
-                            :style="{ color: ORDER_STATUS_META[order.status].color, backgroundColor: ORDER_STATUS_META[order.status].bg }"
+                            :style="{ color: orderStatusMeta(order.status).color, backgroundColor: orderStatusMeta(order.status).bg }"
                             :title="`${order.title} · ${order.customer?.full_name ?? ''} · ${formatMoney(order.price)}`"
                         >
                             {{ order.due_time?.slice(0, 5) }} {{ order.title }}

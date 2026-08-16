@@ -250,6 +250,12 @@ function cancelPending() {
                 </div>
             </SectionCard>
 
+            <SectionCard title="Statusi naročil in plačil" subtitle="Prilagodi imena, barve in privzete statuse">
+                <Link :href="route('settings.statuses.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
+                    Upravljaj statuse →
+                </Link>
+            </SectionCard>
+
             <SectionCard title="Naročnina" subtitle="Plan, plačilo in način plačila">
                 <Link :href="route('settings.billing.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
                     Upravljaj naročnino →

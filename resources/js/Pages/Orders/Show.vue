@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
@@ -8,9 +8,9 @@ import ChannelIcon from '@/Components/ChannelIcon.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
 import DateInput from '@/Components/DateInput.vue';
 import { formatMoney, formatDate, formatDateTime, formatTime } from '@/lib/format';
-import { ORDER_STATUS_ORDER, ORDER_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
-import type { ActivityLogEntry, FollowUp, Order, OrderStatus, PaymentStatus } from '@/types/models';
-import { CalendarClock, MessageSquare, Bell, Check } from 'lucide-vue-next';
+import type { ActivityLogEntry, FollowUp, Order } from '@/types/models';
+import type { PageProps } from '@/types';
+import { CalendarClock, MessageSquare, Bell, Check, Ban, Settings } from 'lucide-vue-next';
 
 const props = defineProps<{
     order: Order;
@@ -18,8 +18,15 @@ const props = defineProps<{
     activity: ActivityLogEntry[];
 }>();
 
-const statusMeta = computed(() => ORDER_STATUS_META[props.order.status]);
-const paymentMeta = computed(() => PAYMENT_STATUS_META[props.order.payment_status]);
+const page = usePage<PageProps>();
+const orderStatuses = computed(() => page.props.orderStatuses ?? []);
+const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+
+const fallbackStatus = { label: props.order.status, color: '#4B5563', bg: '#F1F2F4' };
+const statusMeta = computed(() => orderStatuses.value.find((s) => s.key === props.order.status) ?? fallbackStatus);
+const paymentMeta = computed(
+    () => paymentStatuses.value.find((s) => s.key === props.order.payment_status) ?? { ...fallbackStatus, label: props.order.payment_status },
+);
 
 function updateStatus(status: string) {
     router.patch(route('orders.update', props.order.id), { status }, { preserveScroll: true });
@@ -53,6 +60,12 @@ function saveDeadline() {
     deadlineForm.patch(route('orders.update', props.order.id), { preserveScroll: true });
 }
 
+// DateInput only emits update:modelValue on a meaningful commit (blur or
+// picker selection, not per keystroke — see DateInput.vue), so watching it
+// is safe to auto-save on. The time <input> uses @change directly instead,
+// since its default v-model event ('input') fires more eagerly.
+watch(() => deadlineForm.due_date, saveDeadline);
+
 const noteForm = useForm({ body: '' });
 
 function submitNote() {
@@ -77,36 +90,111 @@ const followUpOpen = ref(false);
             </div>
         </template>
 
-        <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
             <div class="mb-6 flex items-start justify-between">
                 <div>
                     <h1 class="text-2xl font-semibold text-neutral-900">{{ order.title }}</h1>
                     <p class="mt-1 text-sm text-neutral-500">{{ order.order_number }} · Ustvarjeno {{ formatDate(order.created_at) }}</p>
                 </div>
-                <button
-                    type="button"
-                    class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                    @click="followUpOpen = true"
-                >
-                    <Bell :size="14" /> Nastavi opomnik
-                </button>
+                <div class="flex items-center gap-2">
+                    <button
+                        v-if="order.status !== 'cancelled'"
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
+                        @click="cancelOrder"
+                    >
+                        <Ban :size="14" /> Prekliči naročilo
+                    </button>
+                    <Link
+                        :href="route('settings.statuses.edit')"
+                        title="Nastavitve statusov"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <Settings :size="14" />
+                    </Link>
+                    <button
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                        @click="followUpOpen = true"
+                    >
+                        <Bell :size="14" /> Nastavi opomnik
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti naročila</h2>
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti naročila</h2>
+                            <Badge :color="statusMeta.color" :bg="statusMeta.bg">{{ statusMeta.label }}</Badge>
+                        </div>
                         <p class="mt-2 text-sm text-neutral-700">{{ order.description || 'Opis ni dodan.' }}</p>
 
-                        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="mt-4">
+                            <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
+                            <p class="mt-1 text-sm text-neutral-700">{{ order.customer_notes || '—' }}</p>
+                        </div>
+
+                        <div class="mt-4 max-w-xs">
+                            <label class="block text-xs text-neutral-500">Status naročila</label>
+                            <select
+                                :value="order.status"
+                                class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                @change="updateStatus(($event.target as HTMLSelectElement).value)"
+                            >
+                                <option v-for="s in orderStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                            </select>
+                        </div>
+                    </section>
+
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti o plačilu</h2>
+                            <Badge :color="paymentMeta.color" :bg="paymentMeta.bg">{{ paymentMeta.label }}</Badge>
+                        </div>
+                        <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div>
-                                <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
-                                <p class="mt-1 text-sm text-neutral-700">{{ order.customer_notes || '—' }}</p>
+                                <label class="block text-xs text-neutral-500">Cena</label>
+                                <input
+                                    v-model="paymentForm.price"
+                                    type="number"
+                                    step="0.01"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                    @change="savePayment"
+                                />
                             </div>
                             <div>
-                                <h3 class="text-xs font-medium text-neutral-500">Interne opombe</h3>
-                                <p class="mt-1 text-sm text-neutral-700">{{ order.internal_notes || '—' }}</p>
+                                <label class="block text-xs text-neutral-500">Ara</label>
+                                <input
+                                    v-model="paymentForm.deposit_amount"
+                                    type="number"
+                                    step="0.01"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                    @change="savePayment"
+                                />
                             </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Plačan znesek</label>
+                                <input
+                                    v-model="paymentForm.amount_paid"
+                                    type="number"
+                                    step="0.01"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                    @change="savePayment"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="mt-4 max-w-xs">
+                            <label class="block text-xs text-neutral-500">Status plačila</label>
+                            <select
+                                :value="order.payment_status"
+                                class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                @change="updatePayment(($event.target as HTMLSelectElement).value)"
+                            >
+                                <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                            </select>
                         </div>
                     </section>
 
@@ -194,25 +282,6 @@ const followUpOpen = ref(false);
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Status naročila</h3>
-                        <select
-                            :value="order.status"
-                            class="mt-2 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            @change="updateStatus(($event.target as HTMLSelectElement).value)"
-                        >
-                            <option v-for="s in ORDER_STATUS_ORDER" :key="s" :value="s">{{ ORDER_STATUS_META[s as OrderStatus].label }}</option>
-                        </select>
-                        <button
-                            v-if="order.status !== 'cancelled'"
-                            type="button"
-                            class="mt-2 w-full rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                            @click="cancelOrder"
-                        >
-                            Prekliči naročilo
-                        </button>
-                    </section>
-
-                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Rok</h3>
                         <div class="mt-2 space-y-2">
                             <DateInput v-model="deadlineForm.due_date" />
@@ -220,56 +289,8 @@ const followUpOpen = ref(false);
                                 v-model="deadlineForm.due_time"
                                 type="time"
                                 class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                @change="saveDeadline"
                             />
-                            <button
-                                type="button"
-                                class="w-full rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                                @click="saveDeadline"
-                            >
-                                Shrani rok
-                            </button>
-                        </div>
-                    </section>
-
-                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Plačilo</h3>
-                        <div class="mt-2 space-y-2">
-                            <label class="block text-xs text-neutral-500">Cena</label>
-                            <input
-                                v-model="paymentForm.price"
-                                type="number"
-                                step="0.01"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
-                            <label class="block text-xs text-neutral-500">Ara</label>
-                            <input
-                                v-model="paymentForm.deposit_amount"
-                                type="number"
-                                step="0.01"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
-                            <label class="block text-xs text-neutral-500">Plačan znesek</label>
-                            <input
-                                v-model="paymentForm.amount_paid"
-                                type="number"
-                                step="0.01"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
-                            <button
-                                type="button"
-                                class="w-full rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                                @click="savePayment"
-                            >
-                                Shrani plačilo
-                            </button>
-
-                            <select
-                                :value="order.payment_status"
-                                class="mt-2 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                                @change="updatePayment(($event.target as HTMLSelectElement).value)"
-                            >
-                                <option v-for="(meta, key) in PAYMENT_STATUS_META" :key="key" :value="key">{{ meta.label }}</option>
-                            </select>
                         </div>
                     </section>
 

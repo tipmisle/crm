@@ -499,7 +499,7 @@ class FotoStudioLunaSeeder extends Seeder
             'price' => 120,
             'deposit_amount' => 30,
             'amount_paid' => 30,
-            'payment_status' => PaymentStatus::DepositPaid,
+            'payment_status' => PaymentStatus::DepositPaid->value,
             'status' => AppointmentStatus::Confirmed,
         ]);
         $this->backdate($ninaAppointment, Carbon::now()->subHours(1));
@@ -522,7 +522,7 @@ class FotoStudioLunaSeeder extends Seeder
             'price' => 890,
             'deposit_amount' => 200,
             'amount_paid' => 200,
-            'payment_status' => PaymentStatus::DepositPaid,
+            'payment_status' => PaymentStatus::DepositPaid->value,
             'status' => AppointmentStatus::Confirmed,
         ]);
         $this->backdate($tinaAppointment, Carbon::now()->subDays(8));
@@ -584,7 +584,7 @@ class FotoStudioLunaSeeder extends Seeder
                     'price' => $price,
                     'deposit_amount' => $deposit,
                     'amount_paid' => $amountPaid,
-                    'payment_status' => $paymentStatus,
+                    'payment_status' => $paymentStatus->value,
                     'status' => $status,
                 ]);
 
@@ -612,8 +612,8 @@ class FotoStudioLunaSeeder extends Seeder
             'price' => 45,
             'deposit_amount' => 0,
             'amount_paid' => 0,
-            'payment_status' => PaymentStatus::Unpaid,
-            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Unpaid->value,
+            'status' => OrderStatus::New->value,
         ]);
         $this->backdate($ninaOrder, Carbon::now()->subMinutes(20));
         $orders->push($ninaOrder);
@@ -629,8 +629,8 @@ class FotoStudioLunaSeeder extends Seeder
             'price' => 140,
             'deposit_amount' => 40,
             'amount_paid' => 40,
-            'payment_status' => PaymentStatus::DepositPaid,
-            'status' => OrderStatus::Confirmed,
+            'payment_status' => PaymentStatus::DepositPaid->value,
+            'status' => OrderStatus::Confirmed->value,
         ]);
         $this->backdate($tinaOrder, Carbon::now()->subDays(7));
         $orders->push($tinaOrder);
@@ -682,8 +682,8 @@ class FotoStudioLunaSeeder extends Seeder
                     'price' => $price,
                     'deposit_amount' => $deposit,
                     'amount_paid' => $amountPaid,
-                    'payment_status' => $paymentStatus,
-                    'status' => $status,
+                    'payment_status' => $paymentStatus->value,
+                    'status' => $status->value,
                 ]);
 
                 $this->backdate($order, $createdAt);

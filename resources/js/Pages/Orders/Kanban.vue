@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
 import { List, Plus, CalendarDays } from 'lucide-vue-next';
 import { formatMoney, formatDate } from '@/lib/format';
-import { ORDER_STATUS_ORDER, ORDER_STATUS_META, PAYMENT_STATUS_META } from '@/lib/statuses';
 import type { Order, OrderStatus } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{
     board: Record<OrderStatus, Order[]>;
     filters: Record<string, string>;
 }>();
+
+const page = usePage<PageProps>();
+const orderStatuses = computed(() => page.props.orderStatuses ?? []);
+const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+
+function paymentMeta(key: string) {
+    return paymentStatuses.value.find((s) => s.key === key) ?? { label: key, color: '#4B5563', bg: '#F1F2F4' };
+}
 
 function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
     if (event.added) {
@@ -56,25 +65,25 @@ function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
 
             <div class="flex flex-1 gap-4 overflow-x-auto pb-2">
                 <div
-                    v-for="status in ORDER_STATUS_ORDER"
-                    :key="status"
+                    v-for="status in orderStatuses"
+                    :key="status.key"
                     class="flex w-72 shrink-0 flex-col rounded-lg bg-neutral-100"
                 >
                     <div class="flex items-center justify-between px-3 py-2.5">
                         <div class="flex items-center gap-1.5">
-                            <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: ORDER_STATUS_META[status].color }" />
-                            <span class="text-xs font-semibold text-neutral-700">{{ ORDER_STATUS_META[status].label }}</span>
+                            <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: status.color }" />
+                            <span class="text-xs font-semibold text-neutral-700">{{ status.label }}</span>
                         </div>
-                        <span class="text-xs text-neutral-400">{{ board[status]?.length ?? 0 }}</span>
+                        <span class="text-xs text-neutral-400">{{ board[status.key]?.length ?? 0 }}</span>
                     </div>
 
                     <draggable
-                        :list="board[status]"
+                        :list="board[status.key]"
                         item-key="id"
                         group="orders"
                         class="flex-1 space-y-2 overflow-y-auto px-2 pb-2"
                         :style="{ minHeight: '4rem' }"
-                        @change="(e: any) => onChange(status, e)"
+                        @change="(e: any) => onChange(status.key, e)"
                     >
                         <template #item="{ element: order }: { element: Order }">
                             <Link
@@ -90,8 +99,8 @@ function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
                                     <span class="text-xs text-neutral-500">{{ formatDate(order.due_date) }}</span>
                                     <span class="text-sm font-semibold text-neutral-900">{{ formatMoney(order.price) }}</span>
                                 </div>
-                                <Badge class="mt-2" :color="PAYMENT_STATUS_META[order.payment_status].color" :bg="PAYMENT_STATUS_META[order.payment_status].bg">
-                                    {{ PAYMENT_STATUS_META[order.payment_status].label }}
+                                <Badge class="mt-2" :color="paymentMeta(order.payment_status).color" :bg="paymentMeta(order.payment_status).bg">
+                                    {{ paymentMeta(order.payment_status).label }}
                                 </Badge>
                             </Link>
                         </template>

@@ -6,6 +6,7 @@ use App\Models\Channel;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\WorkspaceStatusDefaults;
 use Database\Seeders\BloomAndCrumbSeeder;
 use Database\Seeders\FotoStudioLunaSeeder;
 use Database\Seeders\StudioNolaSeeder;
@@ -105,6 +106,8 @@ class DemoController extends Controller
         ]);
 
         $user->update(['current_workspace_id' => $workspace->id]);
+
+        WorkspaceStatusDefaults::seed($workspace);
 
         (new $config['seeder']($workspace, $user))->run();
 
