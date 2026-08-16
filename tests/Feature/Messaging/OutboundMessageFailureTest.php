@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MessageStatus;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Support\Facades\Http;
@@ -27,7 +28,7 @@ test('a failed meta send is never marked as sent and shows an error', function (
     $response->assertSessionHas('error');
 
     $message = Message::where('conversation_id', $conversation->id)->latest()->first();
-    expect($message->status)->toBe(\App\Enums\MessageStatus::Failed);
+    expect($message->status)->toBe(MessageStatus::Failed);
     expect($message->failure_reason)->not->toBeNull();
 });
 
@@ -50,7 +51,7 @@ test('a successful meta send is marked as sent with the external message id', fu
     ])->assertSessionMissing('error');
 
     $message = Message::where('conversation_id', $conversation->id)->latest()->first();
-    expect($message->status)->toBe(\App\Enums\MessageStatus::Sent);
+    expect($message->status)->toBe(MessageStatus::Sent);
     expect($message->external_message_id)->toBe('mid_sent_1');
 });
 

@@ -349,6 +349,12 @@ class AppointmentController extends Controller
 
     public function destroy(Appointment $appointment): RedirectResponse
     {
+        // sales_documents.appointment_id is nullOnDelete, not cascade —
+        // deleting an appointment with issued financial documents would
+        // silently orphan them (severing the audit trail) instead of
+        // blocking outright.
+        abort_if($appointment->salesDocuments()->exists(), 422, 'Termina z izdanimi dokumenti ni mogoče izbrisati.');
+
         $appointment->delete();
 
         return redirect()->route('appointments.index')->with('success', 'Termin izbrisan.');

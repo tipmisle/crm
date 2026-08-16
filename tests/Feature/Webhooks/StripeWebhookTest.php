@@ -143,6 +143,44 @@ test('invoice.payment_failed logs a payment_failed audit event', function () {
     expect(AuditLog::where('event', 'billing.payment_failed')->where('workspace_id', $workspace->id)->exists())->toBeTrue();
 });
 
+test('a handler that throws on first delivery lets a later retry of the same event succeed', function () {
+    [$workspace] = createWorkspaceWithSubscription();
+
+    $payload = [
+        'id' => 'evt_'.Str::random(16),
+        'type' => 'invoice.payment_failed',
+        'data' => ['object' => [
+            'id' => 'in_'.Str::random(10),
+            'customer' => $workspace->stripe_id,
+        ]],
+    ];
+
+    $attempts = 0;
+    AuditLog::creating(function () use (&$attempts) {
+        $attempts++;
+
+        if ($attempts === 1) {
+            throw new RuntimeException('simulated handler failure');
+        }
+    });
+
+    try {
+        postStripeWebhook($payload);
+
+        expect(StripeWebhookEvent::where('stripe_event_id', $payload['id'])->first()?->processed_at)->toBeNull();
+        expect(AuditLog::where('event', 'billing.payment_failed')->where('workspace_id', $workspace->id)->count())->toBe(0);
+
+        postStripeWebhook($payload)->assertOk();
+
+        $event = StripeWebhookEvent::where('stripe_event_id', $payload['id'])->first();
+        expect($event)->not->toBeNull();
+        expect($event->processed_at)->not->toBeNull();
+        expect(AuditLog::where('event', 'billing.payment_failed')->where('workspace_id', $workspace->id)->count())->toBe(1);
+    } finally {
+        AuditLog::flushEventListeners();
+    }
+});
+
 test('invoice.payment_succeeded dispatches BillingPaymentSucceeded', function () {
     Event::fake([BillingPaymentSucceeded::class]);
 

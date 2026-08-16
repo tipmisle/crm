@@ -24,6 +24,7 @@ class CustomerExportService
             'orders.notes',
             'appointments',
             'followUps',
+            'salesDocuments',
         ]);
 
         $data = [
@@ -32,6 +33,11 @@ class CustomerExportService
                 'full_name' => $customer->full_name,
                 'email' => $customer->email,
                 'phone' => $customer->phone,
+                'address_line' => $customer->address_line,
+                'postal_code' => $customer->postal_code,
+                'city' => $customer->city,
+                'country' => $customer->country,
+                'tax_number' => $customer->tax_number,
                 'notes' => $customer->notes,
                 'tags' => $customer->tags,
                 'first_contacted_at' => $customer->first_contacted_at?->toIso8601String(),
@@ -58,7 +64,12 @@ class CustomerExportService
                 'title' => $o->title,
                 'description' => $o->description,
                 'price' => $o->price,
-                'status' => $o->status?->value,
+                'deposit_amount' => $o->deposit_amount,
+                'amount_paid' => $o->amount_paid,
+                'payment_status' => $o->payment_status,
+                // Order.status is a plain string (per-workspace-configurable
+                // status key), not an enum — no ?->value here.
+                'status' => $o->status,
                 'customer_notes' => $o->customer_notes,
                 'notes' => $o->notes->map(fn ($n) => ['body' => $n->body, 'created_at' => $n->created_at?->toIso8601String()])->all(),
             ])->all(),
@@ -66,6 +77,10 @@ class CustomerExportService
                 'id' => $a->id,
                 'appointment_date' => $a->appointment_date,
                 'description' => $a->description,
+                'price' => $a->price,
+                'deposit_amount' => $a->deposit_amount,
+                'amount_paid' => $a->amount_paid,
+                'payment_status' => $a->payment_status,
                 'status' => $a->status?->value,
                 'customer_notes' => $a->customer_notes,
             ])->all(),
@@ -73,6 +88,22 @@ class CustomerExportService
                 'note' => $f->note,
                 'due_at' => $f->due_at?->toIso8601String(),
                 'completed_at' => $f->completed_at?->toIso8601String(),
+            ])->all(),
+            // Issued financial documents this customer appears on — the
+            // immutable snapshot fields belong to the transaction record,
+            // not the live Customer, so they're read here, never altered.
+            'sales_documents' => $customer->salesDocuments->map(fn ($d) => [
+                'document_number' => $d->document_number,
+                'type' => $d->type,
+                'status' => $d->status,
+                'issued_at' => $d->issued_at?->toIso8601String(),
+                'due_date' => $d->due_date?->toIso8601String(),
+                'currency' => $d->currency,
+                'subtotal' => $d->subtotal,
+                'vat_total' => $d->vat_total,
+                'total' => $d->total,
+                'customer_snapshot' => $d->customer_snapshot,
+                'line_items_snapshot' => $d->line_items_snapshot,
             ])->all(),
         ];
 

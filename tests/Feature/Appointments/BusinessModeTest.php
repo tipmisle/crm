@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Appointment;
+use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Order;
 
@@ -19,7 +20,7 @@ test('an order-only workspace inbox page does not offer booking an appointment',
     [$workspace, $user] = createWorkspaceWithUser();
 
     $channel = createMetaChannel($workspace, 'instagram', 'ig_bloom');
-    $conversation = \App\Models\Conversation::create([
+    $conversation = Conversation::create([
         'workspace_id' => $workspace->id,
         'channel_id' => $channel->id,
         'external_conversation_id' => 'sender_1',

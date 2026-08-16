@@ -147,9 +147,62 @@ test('completing onboarding sends the user to Today', function () {
 test('an incomplete workspace is redirected to onboarding instead of entering normal product pages', function () {
     [, $owner] = createWorkspaceWithUser(onboardingCompleted: false);
 
-    foreach (['dashboard', 'inbox.index', 'customers.index', 'orders.index', 'catalog.index', 'analytics.index'] as $routeName) {
+    foreach (['dashboard', 'inbox.index', 'customers.index', 'orders.index', 'analytics.index'] as $routeName) {
         $this->actingAs($owner)->get(route($routeName))->assertRedirect(route('onboarding.show'));
     }
+});
+
+test('catalog.index stays reachable during incomplete onboarding so step 2 is not a dead end', function () {
+    [, $owner] = createWorkspaceWithUser(onboardingCompleted: false);
+
+    $this->actingAs($owner)->get(route('catalog.index'))->assertOk();
+});
+
+test('onboarding -> Catalog -> add product -> onboarding marks the catalog step done', function () {
+    [$workspace, $owner] = createWorkspaceWithUser(onboardingCompleted: false);
+    $workspace->update(['orders_enabled' => true, 'appointments_enabled' => false]);
+
+    $response = $this->actingAs($owner)->get(route('onboarding.show'));
+    $response->assertInertia(fn ($page) => $page->where('hasCatalogItems', false));
+
+    $this->actingAs($owner)->get(route('catalog.index'))->assertOk();
+
+    $this->actingAs($owner)->post(route('products.store'), [
+        'name' => 'Torta',
+        'default_price' => 25,
+    ])->assertRedirect();
+
+    $response = $this->actingAs($owner)->get(route('onboarding.show'));
+    $response->assertInertia(fn ($page) => $page->where('hasCatalogItems', true));
+});
+
+test('onboarding -> Catalog -> add service -> onboarding marks the catalog step done', function () {
+    [$workspace, $owner] = createWorkspaceWithUser(onboardingCompleted: false);
+    $workspace->update(['orders_enabled' => false, 'appointments_enabled' => true]);
+
+    $response = $this->actingAs($owner)->get(route('onboarding.show'));
+    $response->assertInertia(fn ($page) => $page->where('hasCatalogItems', false));
+
+    $this->actingAs($owner)->get(route('catalog.index'))->assertOk();
+
+    $this->actingAs($owner)->post(route('services.store'), [
+        'name' => 'Striženje',
+        'default_price' => 20,
+        'default_duration_minutes' => 30,
+    ])->assertRedirect();
+
+    $response = $this->actingAs($owner)->get(route('onboarding.show'));
+    $response->assertInertia(fn ($page) => $page->where('hasCatalogItems', true));
+});
+
+test('product create still blocked when orders is disabled during incomplete onboarding', function () {
+    [$workspace, $owner] = createWorkspaceWithUser(onboardingCompleted: false);
+    $workspace->update(['orders_enabled' => false, 'appointments_enabled' => true]);
+
+    $this->actingAs($owner)->post(route('products.store'), [
+        'name' => 'Torta',
+        'default_price' => 25,
+    ])->assertNotFound();
 });
 
 test('billing, settings, and privacy stay reachable while onboarding is incomplete', function () {

@@ -1,13 +1,16 @@
 <?php
 
 use App\Models\Appointment;
+use App\Models\Customer;
+use App\Models\Order;
 use App\Models\SalesDocument;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(fn () => Storage::fake('local'));
 
-function overviewIssueInvoice(\App\Models\Order $order, array $overrides = []): SalesDocument
+function overviewIssueInvoice(Order $order, array $overrides = []): SalesDocument
 {
     test()->post(route('orders.documents.store', $order), array_merge([
         'type' => 'invoice',
@@ -241,7 +244,7 @@ test('external documents display correctly in the overview', function () {
     $this->actingAs($user);
 
     Storage::fake('local');
-    $file = \Illuminate\Http\UploadedFile::fake()->create('racun.pdf', 100, 'application/pdf');
+    $file = UploadedFile::fake()->create('racun.pdf', 100, 'application/pdf');
     $this->post(route('orders.documents.external.store', $order), [
         'file' => $file,
         'type' => 'invoice',
@@ -276,11 +279,11 @@ test('workspace isolation: a user only ever sees their own workspace documents',
     // Issuing a document only needs a Customer + Order, not a conversation.
     [$workspaceB, $userB] = createWorkspaceWithUser();
     configureInvoicing($workspaceB);
-    $customerB = \App\Models\Customer::create([
+    $customerB = Customer::create([
         'workspace_id' => $workspaceB->id,
         'full_name' => 'Workspace B stranka',
     ]);
-    $orderB = \App\Models\Order::create([
+    $orderB = Order::create([
         'workspace_id' => $workspaceB->id,
         'customer_id' => $customerB->id,
         'title' => 'Naročilo B',

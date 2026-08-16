@@ -82,87 +82,110 @@ class SalesDocumentCorrectionController extends Controller
             'notes' => "Storno računa {$document->document_number} z dne {$document->issued_at->format('d.m.Y')}. Razlog: {$data['reason']}",
         ];
 
-        $correction = DB::transaction(function () use ($document, $settings, $numbering, $reversedLineItems, $paymentSnapshot, $data, $request) {
-            // Re-lock and re-check under the transaction: the unique index
-            // on corrects_document_id is the hard backstop, but this closes
-            // the race window before it ever reaches the DB.
-            /** @var SalesDocument $locked */
-            $locked = SalesDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
-            abort_unless($locked->canBeStornoed(), 422, 'Ta račun ni mogoče stornirati.');
+        $writtenPdfPath = null;
 
-            $issued = $numbering->issueNumber($settings, 'storno');
+        try {
+            $correction = DB::transaction(function () use (
+                $document, $workspace, $settings, $numbering, $pdfService,
+                $reversedLineItems, $paymentSnapshot, $data, $request, &$writtenPdfPath,
+            ) {
+                // Re-lock and re-check under the transaction: the unique index
+                // on corrects_document_id is the hard backstop, but this closes
+                // the race window before it ever reaches the DB.
+                /** @var SalesDocument $locked */
+                $locked = SalesDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
+                abort_unless($locked->canBeStornoed(), 422, 'Ta račun ni mogoče stornirati.');
 
-            $subtotal = -1 * (float) $locked->subtotal;
-            $vatTotal = -1 * (float) $locked->vat_total;
-            $total = -1 * (float) $locked->total;
+                $issued = $numbering->issueNumber($settings, 'storno');
 
-            $storno = SalesDocument::create([
-                'workspace_id' => $locked->workspace_id,
-                'order_id' => $locked->order_id,
-                'appointment_id' => $locked->appointment_id,
-                'customer_id' => $locked->customer_id,
-                'corrects_document_id' => $locked->id,
-                'type' => 'storno',
-                'source' => 'issued',
-                'status' => 'issued',
-                'prefix' => $issued['prefix'],
-                'sequence_number' => $issued['number'],
-                'document_number' => $issued['prefix'].$issued['number'],
-                'issued_at' => now(),
-                'currency' => $locked->currency,
-                'vat_registered' => $locked->vat_registered,
-                'subtotal' => $subtotal,
-                'vat_total' => $vatTotal,
-                'total' => $total,
-                'seller_snapshot' => $locked->seller_snapshot,
-                'customer_snapshot' => $locked->customer_snapshot,
-                'line_items_snapshot' => $reversedLineItems,
-                'payment_snapshot' => $paymentSnapshot,
-                'cancellation_reason' => $data['reason'],
-                'created_by' => $request->user()->id,
-            ]);
+                $subtotal = -1 * (float) $locked->subtotal;
+                $vatTotal = -1 * (float) $locked->vat_total;
+                $total = -1 * (float) $locked->total;
 
-            $locked->update(['status' => 'reversed', 'cancelled_at' => now()]);
+                $storno = SalesDocument::create([
+                    'workspace_id' => $locked->workspace_id,
+                    'order_id' => $locked->order_id,
+                    'appointment_id' => $locked->appointment_id,
+                    'customer_id' => $locked->customer_id,
+                    'corrects_document_id' => $locked->id,
+                    'type' => 'storno',
+                    'source' => 'issued',
+                    'status' => 'issued',
+                    'prefix' => $issued['prefix'],
+                    'sequence_number' => $issued['number'],
+                    'document_number' => $issued['prefix'].$issued['number'],
+                    'issued_at' => now(),
+                    'currency' => $locked->currency,
+                    'vat_registered' => $locked->vat_registered,
+                    'subtotal' => $subtotal,
+                    'vat_total' => $vatTotal,
+                    'total' => $total,
+                    'seller_snapshot' => $locked->seller_snapshot,
+                    'customer_snapshot' => $locked->customer_snapshot,
+                    'line_items_snapshot' => $reversedLineItems,
+                    'payment_snapshot' => $paymentSnapshot,
+                    'cancellation_reason' => $data['reason'],
+                    'created_by' => $request->user()->id,
+                ]);
 
-            return $storno;
-        });
+                // Render+store the storno PDF inside the same transaction
+                // that creates the correction and marks the original
+                // reversed — a render/storage failure rolls back all three,
+                // so the original can never end up marked reversed without
+                // its correction's PDF existing.
+                $sellerSnapshot = $storno->seller_snapshot;
 
-        $sellerSnapshot = $correction->seller_snapshot;
+                $bytes = $pdfService->render([
+                    'type' => $storno->type,
+                    'type_label' => $storno->typeLabel(),
+                    'document_number' => $storno->document_number,
+                    'issued_at' => $storno->issued_at->format('d.m.Y'),
+                    'service_date' => null,
+                    'due_date' => null,
+                    'currency' => $storno->currency,
+                    'vat_registered' => $storno->vat_registered,
+                    'prices_include_vat' => $settings->prices_include_vat,
+                    'vat_exempt_note' => $settings->vat_exempt_note,
+                    'seller' => array_merge($sellerSnapshot, [
+                        'logo_url' => $sellerSnapshot['logo_path'] ? Storage::disk('public')->url($sellerSnapshot['logo_path']) : null,
+                    ]),
+                    'customer' => $storno->customer_snapshot,
+                    'line_items' => $storno->line_items_snapshot,
+                    'tax_breakdown' => [],
+                    'subtotal' => $storno->subtotal,
+                    'vat_total' => $storno->vat_total,
+                    'total' => $storno->total,
+                    'payment' => [
+                        'iban' => $storno->payment_snapshot['iban'] ?? null,
+                        'purpose' => "Storno računa {$locked->document_number}",
+                    ],
+                    'qr_data_uri' => null,
+                    'is_correction' => true,
+                    'corrects_document_number' => $locked->document_number,
+                    'corrects_issued_at' => $locked->issued_at->format('d.m.Y'),
+                    'correction_reason' => $data['reason'],
+                ]);
 
-        $bytes = $pdfService->render([
-            'type' => $correction->type,
-            'type_label' => $correction->typeLabel(),
-            'document_number' => $correction->document_number,
-            'issued_at' => $correction->issued_at->format('d.m.Y'),
-            'service_date' => null,
-            'due_date' => null,
-            'currency' => $correction->currency,
-            'vat_registered' => $correction->vat_registered,
-            'prices_include_vat' => $settings->prices_include_vat,
-            'vat_exempt_note' => $settings->vat_exempt_note,
-            'seller' => array_merge($sellerSnapshot, [
-                'logo_url' => $sellerSnapshot['logo_path'] ? Storage::disk('public')->url($sellerSnapshot['logo_path']) : null,
-            ]),
-            'customer' => $correction->customer_snapshot,
-            'line_items' => $correction->line_items_snapshot,
-            'tax_breakdown' => [],
-            'subtotal' => $correction->subtotal,
-            'vat_total' => $correction->vat_total,
-            'total' => $correction->total,
-            'payment' => [
-                'iban' => $correction->payment_snapshot['iban'] ?? null,
-                'purpose' => "Storno računa {$document->document_number}",
-            ],
-            'qr_data_uri' => null,
-            'is_correction' => true,
-            'corrects_document_number' => $document->document_number,
-            'corrects_issued_at' => $document->issued_at->format('d.m.Y'),
-            'correction_reason' => $data['reason'],
-        ]);
+                $pdfPath = "invoices/{$workspace->id}/".Str::random(40).'.pdf';
 
-        $pdfPath = "invoices/{$workspace->id}/".Str::random(40).'.pdf';
-        Storage::disk('local')->put($pdfPath, $bytes);
-        $correction->update(['pdf_path' => $pdfPath]);
+                if (! Storage::disk('local')->put($pdfPath, $bytes)) {
+                    throw new \RuntimeException('Failed to store storno PDF.');
+                }
+
+                $writtenPdfPath = $pdfPath;
+                $storno->update(['pdf_path' => $pdfPath]);
+
+                $locked->update(['status' => 'reversed', 'cancelled_at' => now()]);
+
+                return $storno;
+            });
+        } catch (\Throwable $e) {
+            if ($writtenPdfPath !== null) {
+                Storage::disk('local')->delete($writtenPdfPath);
+            }
+
+            throw $e;
+        }
 
         $document->loadMissing(['order', 'appointment']);
         $subject = $document->order ?? $document->appointment;

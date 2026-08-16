@@ -5,6 +5,7 @@ namespace App\Services\Messaging;
 use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\Integration;
+use App\Services\Messaging\DTOs\DiscoveredAccount;
 use App\Services\Messaging\DTOs\NormalizedIncomingMessage;
 use App\Services\Messaging\DTOs\OutboundAttachment;
 use App\Services\Messaging\DTOs\SendMessageResult;
@@ -31,7 +32,7 @@ interface MessagingProviderInterface
      * List the accounts/pages this integration's token can access, so the
      * user can choose which ones to turn into Channels.
      *
-     * @return \App\Services\Messaging\DTOs\DiscoveredAccount[]
+     * @return DiscoveredAccount[]
      */
     public function listConnectableAccounts(Integration $integration): array;
 

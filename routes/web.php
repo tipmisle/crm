@@ -12,10 +12,10 @@ use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\AttachmentController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
+use App\Http\Controllers\Invoicing\DocumentsController;
 use App\Http\Controllers\Invoicing\ExternalDocumentController;
 use App\Http\Controllers\Invoicing\SalesDocumentController;
 use App\Http\Controllers\Invoicing\SalesDocumentCorrectionController;
-use App\Http\Controllers\Invoicing\DocumentsController;
 use App\Http\Controllers\Invoicing\SalesDocumentDownloadController;
 use App\Http\Controllers\Invoicing\SalesDocumentReminderController;
 use App\Http\Controllers\Invoicing\SalesDocumentSendController;
@@ -134,7 +134,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/inbox/{conversation}/notes', [ConversationController::class, 'addNote'])->name('inbox.notes.store');
         Route::get('/inbox/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
 
-        Route::resource('customers', CustomerController::class)->except(['edit']);
+        // No customers.destroy: deleting a Customer would cascade-delete
+        // Orders/Appointments (cascadeOnDelete FKs). GDPR removal is
+        // customers.privacy.erase (anonymization), which preserves
+        // operational/financial history. See CustomerController.
+        Route::resource('customers', CustomerController::class)->except(['edit', 'destroy']);
         Route::middleware('orders.enabled')->group(function () {
             Route::resource('orders', OrderController::class)->except(['edit']);
             Route::get('/orders-export', [OrderController::class, 'exportCsv'])->name('orders.export');

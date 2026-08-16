@@ -2,13 +2,14 @@
 
 use App\Models\Appointment;
 use App\Models\Message;
+use App\Models\Order;
 use App\Models\SalesDocument;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(fn () => Storage::fake('local'));
 
-function issueInvoice(\App\Models\Order $order, array $lineItems = null): SalesDocument
+function issueInvoice(Order $order, ?array $lineItems = null): SalesDocument
 {
     $lineItems ??= [
         ['description' => 'Torta', 'quantity' => 1, 'unit' => 'kos', 'unit_price' => 80, 'vat_rate' => 22],
@@ -25,7 +26,7 @@ function issueInvoice(\App\Models\Order $order, array $lineItems = null): SalesD
     return SalesDocument::where('order_id', $order->id)->where('type', 'invoice')->firstOrFail();
 }
 
-function issueProforma(\App\Models\Order $order): SalesDocument
+function issueProforma(Order $order): SalesDocument
 {
     test()->post(route('orders.documents.store', $order), [
         'type' => 'proforma',
@@ -51,9 +52,9 @@ test('an issued invoice cannot be edited or deleted at the model layer', functio
     // the in-memory model dirty (the SQL never runs, so the DB row itself
     // is untouched, but the object's own attributes would otherwise carry
     // the rejected change into the next call).
-    expect(fn () => $document->fresh()->update(['total' => 999]))->toThrow(\LogicException::class);
-    expect(fn () => $document->fresh()->update(['line_items_snapshot' => []]))->toThrow(\LogicException::class);
-    expect(fn () => $document->fresh()->delete())->toThrow(\LogicException::class);
+    expect(fn () => $document->fresh()->update(['total' => 999]))->toThrow(LogicException::class);
+    expect(fn () => $document->fresh()->update(['line_items_snapshot' => []]))->toThrow(LogicException::class);
+    expect(fn () => $document->fresh()->delete())->toThrow(LogicException::class);
 
     expect((string) $document->fresh()->total)->not->toBe('999.00');
 

@@ -205,11 +205,4 @@ class CustomerController extends Controller
 
         return back()->with('success', 'Stranka posodobljena.');
     }
-
-    public function destroy(Customer $customer): RedirectResponse
-    {
-        $customer->delete();
-
-        return redirect()->route('customers.index');
-    }
 }

@@ -1,11 +1,12 @@
 <?php
 
-use App\Models\Customer;
 use App\Models\Appointment;
+use App\Models\Customer;
 use App\Models\PaymentStatus;
 use App\Models\Service;
+use Illuminate\Testing\TestResponse;
 
-function appointmentsCsvRows(\Illuminate\Testing\TestResponse $response): array
+function appointmentsCsvRows(TestResponse $response): array
 {
     $content = $response->streamedContent();
     $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);

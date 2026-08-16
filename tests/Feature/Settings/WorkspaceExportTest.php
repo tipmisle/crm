@@ -47,6 +47,44 @@ test('owner can request an export and it excludes secrets while decrypting conte
     expect(AuditLog::where('event', 'privacy.workspace.export_requested')->exists())->toBeTrue();
 });
 
+test('an export with orders and appointments does not fatal on the plain-string Order status and includes billing/payment fields', function () {
+    Storage::fake('local');
+
+    [$workspace, $owner] = createWorkspaceWithUser(['current_workspace_id' => null]);
+    $workspace->update(['appointments_enabled' => true]);
+    $owner->update(['current_workspace_id' => $workspace->id]);
+
+    Customer::create([
+        'workspace_id' => $workspace->id,
+        'full_name' => 'Jane Doe',
+        'address_line' => 'Testna cesta 1',
+        'postal_code' => '1000',
+        'city' => 'Ljubljana',
+        'country' => 'Slovenija',
+        'tax_number' => 'SI12345678',
+    ]);
+
+    [$order] = createOrderWithConversation($workspace);
+
+    actingAsConfirmedOwner($this, $owner)
+        ->post(route('settings.privacy.export.store'))
+        ->assertRedirect();
+
+    $export = WorkspaceExport::first();
+    expect($export)->not->toBeNull();
+
+    $zipPath = Storage::disk('local')->path($export->disk_path);
+    $zip = new ZipArchive;
+    $zip->open($zipPath);
+    $customersCsv = $zip->getFromName('customers.csv');
+    $ordersCsv = $zip->getFromName('orders.csv');
+    $zip->close();
+
+    expect($customersCsv)->toContain('Testna cesta 1', '1000', 'Ljubljana', 'Slovenija', 'SI12345678');
+    expect($ordersCsv)->toContain($order->status);
+    expect($ordersCsv)->toContain('payment_status');
+});
+
 test('non-owner member cannot request an export', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
     $member = User::factory()->create(['current_workspace_id' => $workspace->id]);

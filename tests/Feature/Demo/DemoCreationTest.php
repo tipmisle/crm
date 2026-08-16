@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Customer;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\Workspace;
 
@@ -62,8 +64,8 @@ test('two demo visitors never share a workspace or its data', function () {
     expect($userA->id)->not->toBe($userB->id);
     expect($workspaceA->slug)->not->toBe($workspaceB->slug);
 
-    $customersA = \App\Models\Customer::withoutGlobalScopes()->where('workspace_id', $workspaceA->id)->pluck('id');
-    $customersB = \App\Models\Customer::withoutGlobalScopes()->where('workspace_id', $workspaceB->id)->pluck('id');
+    $customersA = Customer::withoutGlobalScopes()->where('workspace_id', $workspaceA->id)->pluck('id');
+    $customersB = Customer::withoutGlobalScopes()->where('workspace_id', $workspaceB->id)->pluck('id');
 
     expect($customersA)->not->toBeEmpty();
     expect($customersB)->not->toBeEmpty();
@@ -96,8 +98,8 @@ test('starting a new demo while already logged into a previous demo session does
     expect($workspace->demo_variant)->toBe('orders');
     expect($workspace->orders()->count())->toBeGreaterThan(0);
 
-    $orderCustomerIds = \App\Models\Order::withoutGlobalScopes()->where('workspace_id', $workspace->id)->pluck('customer_id');
-    $validCustomerIds = \App\Models\Customer::withoutGlobalScopes()->where('workspace_id', $workspace->id)->pluck('id');
+    $orderCustomerIds = Order::withoutGlobalScopes()->where('workspace_id', $workspace->id)->pluck('customer_id');
+    $validCustomerIds = Customer::withoutGlobalScopes()->where('workspace_id', $workspace->id)->pluck('id');
 
     expect($orderCustomerIds->every(fn ($id) => $id !== null && $validCustomerIds->contains($id)))->toBeTrue();
 });

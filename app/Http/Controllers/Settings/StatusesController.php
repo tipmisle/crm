@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\PaymentStatus;
 use Illuminate\Http\Request;
@@ -30,7 +31,7 @@ class StatusesController extends Controller
 
         $paymentStatuses = PaymentStatus::query()->ordered()->get()
             ->map(function (PaymentStatus $status) {
-                $inUse = \App\Models\Order::where('payment_status', $status->key)->exists()
+                $inUse = Order::where('payment_status', $status->key)->exists()
                     || Appointment::where('payment_status', $status->key)->exists();
 
                 return [

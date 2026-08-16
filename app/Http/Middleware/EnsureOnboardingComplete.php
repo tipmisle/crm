@@ -26,6 +26,12 @@ class EnsureOnboardingComplete
         'integrations.meta.store',
         'integrations.meta.cancel',
         'integrations.meta.disconnect',
+        // Onboarding step 2 links here so the user can add their first
+        // product/service before finishing onboarding; capability gates
+        // (orders.enabled/appointments.enabled) still apply behind these.
+        'catalog.index',
+        'products.store',
+        'services.store',
     ];
 
     public function handle(Request $request, Closure $next): Response

@@ -6,6 +6,8 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
 use App\Models\Message;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 function makeCustomerWithConversation(int $workspaceId, string $name = 'Jane Doe'): array
 {
@@ -104,6 +106,72 @@ test('customer erasure anonymizes only that customer', function () {
 
     $auditLog = AuditLog::where('event', 'privacy.customer.erased')->first();
     expect(json_encode($auditLog->metadata))->not->toContain('private note');
+});
+
+test('customer export with orders does not fatal on the plain-string Order status and includes billing fields', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    [$customer] = makeCustomerWithConversation($workspace->id, 'Customer A');
+    $customer->update([
+        'address_line' => 'Testna cesta 1',
+        'postal_code' => '1000',
+        'city' => 'Ljubljana',
+        'country' => 'Slovenija',
+        'tax_number' => 'SI12345678',
+    ]);
+
+    [$order] = createOrderWithConversation($workspace);
+    $order->update(['customer_id' => $customer->id]);
+
+    $response = $this->actingAs($owner)->post(route('customers.privacy.export', $customer->id));
+    $response->assertOk();
+
+    $zipBytes = $response->streamedContent();
+    $tmpZip = tempnam(sys_get_temp_dir(), 'test-export-').'.zip';
+    file_put_contents($tmpZip, $zipBytes);
+
+    $zip = new ZipArchive;
+    $zip->open($tmpZip);
+    $content = $zip->getFromName('customer.json');
+    $zip->close();
+    unlink($tmpZip);
+
+    expect($content)->toContain('Testna cesta 1');
+    expect($content)->toContain($order->status);
+});
+
+test('customer erasure clears billing/address fields and deletes local message attachments', function () {
+    Storage::fake('local');
+
+    [$workspace, $owner] = createWorkspaceWithUser();
+    [$customerA, $conversationA, $messageA] = makeCustomerWithConversation($workspace->id, 'Customer A');
+
+    $customerA->update([
+        'address_line' => 'Testna cesta 1',
+        'postal_code' => '1000',
+        'city' => 'Ljubljana',
+        'country' => 'Slovenija',
+        'tax_number' => 'SI12345678',
+    ]);
+
+    $attachmentPath = "attachments/{$workspace->id}/".Str::random(20).'.jpg';
+    Storage::disk('local')->put($attachmentPath, 'fake-bytes');
+    $messageA->update(['metadata' => ['attachments' => [
+        ['source' => 'local', 'path' => $attachmentPath, 'type' => 'image'],
+    ]]]);
+
+    $this->actingAs($owner)
+        ->post(route('customers.privacy.erase', $customerA->id), ['confirm' => true])
+        ->assertRedirect();
+
+    $customerA->refresh();
+    expect($customerA->address_line)->toBeNull();
+    expect($customerA->postal_code)->toBeNull();
+    expect($customerA->city)->toBeNull();
+    expect($customerA->country)->toBeNull();
+    expect($customerA->tax_number)->toBeNull();
+    expect($messageA->fresh()->metadata)->toBeNull();
+
+    Storage::disk('local')->assertMissing($attachmentPath);
 });
 
 test('erasure requires explicit confirmation', function () {

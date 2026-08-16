@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CatalogItem;
 use App\Models\Message;
+use App\Models\SalesDocument;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceExport;
@@ -46,6 +47,11 @@ class ExportWorkspaceDataService
                     'full_name' => $c->full_name,
                     'email' => $c->email,
                     'phone' => $c->phone,
+                    'address_line' => $c->address_line,
+                    'postal_code' => $c->postal_code,
+                    'city' => $c->city,
+                    'country' => $c->country,
+                    'tax_number' => $c->tax_number,
                     'notes' => $c->notes,
                     'tags' => $c->tags ? implode(', ', $c->tags) : null,
                     'first_contacted_at' => $c->first_contacted_at?->toIso8601String(),
@@ -89,8 +95,12 @@ class ExportWorkspaceDataService
                     'description' => $o->description,
                     'due_date' => $o->due_date,
                     'price' => $o->price,
+                    'deposit_amount' => $o->deposit_amount,
                     'amount_paid' => $o->amount_paid,
-                    'status' => $o->status?->value,
+                    'payment_status' => $o->payment_status,
+                    // Order.status is a plain string (per-workspace-
+                    // configurable status key), not an enum — no ?->value.
+                    'status' => $o->status,
                     'internal_notes' => $o->internal_notes,
                     'customer_notes' => $o->customer_notes,
                 ];
@@ -104,7 +114,9 @@ class ExportWorkspaceDataService
                     'start_time' => $a->start_time,
                     'description' => $a->description,
                     'price' => $a->price,
+                    'deposit_amount' => $a->deposit_amount,
                     'amount_paid' => $a->amount_paid,
+                    'payment_status' => $a->payment_status,
                     'status' => $a->status?->value,
                     'internal_notes' => $a->internal_notes,
                     'customer_notes' => $a->customer_notes,
@@ -130,6 +142,27 @@ class ExportWorkspaceDataService
                     'description' => $c->description,
                     'default_price' => $c->default_price,
                     'active' => $c->active ? 1 : 0,
+                ];
+            });
+
+            // Issued financial documents belong to the workspace owner's
+            // own data, not a secret/credential — the immutable snapshot
+            // fields are read here, never altered.
+            $this->writeCsv($tmpDir.'/sales-documents.csv', SalesDocument::where('workspace_id', $workspace->id)->get(), function ($d) {
+                return [
+                    'id' => $d->id,
+                    'document_number' => $d->document_number,
+                    'type' => $d->type,
+                    'status' => $d->status,
+                    'customer_id' => $d->customer_id,
+                    'order_id' => $d->order_id,
+                    'appointment_id' => $d->appointment_id,
+                    'issued_at' => $d->issued_at?->toIso8601String(),
+                    'due_date' => $d->due_date?->toIso8601String(),
+                    'currency' => $d->currency,
+                    'subtotal' => $d->subtotal,
+                    'vat_total' => $d->vat_total,
+                    'total' => $d->total,
                 ];
             });
 

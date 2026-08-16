@@ -169,85 +169,111 @@ class SalesDocumentController extends Controller
             'notes' => $data['notes'] ?? null,
         ];
 
-        $document = DB::transaction(function () use (
-            $data, $order, $workspace, $settings, $customer,
-            $sellerSnapshot, $customerSnapshot, $lineItems, $paymentSnapshot,
-            $subtotal, $vatTotal, $total, $request,
-        ) {
-            $numbering = app(SalesDocumentNumberingService::class);
-            $issued = $numbering->issueNumber($settings, $data['type']);
-
-            return SalesDocument::create([
-                'workspace_id' => $workspace->id,
-                'order_id' => $this->appointment ? null : $order->id,
-                'appointment_id' => $this->appointment?->id,
-                'customer_id' => $customer?->id,
-                'type' => $data['type'],
-                'source' => 'issued',
-                'prefix' => $issued['prefix'],
-                'sequence_number' => $issued['number'],
-                'document_number' => $issued['prefix'].$issued['number'],
-                'issued_at' => $data['issued_at'],
-                'service_date' => $data['service_date'] ?? null,
-                'due_date' => $data['due_date'] ?? null,
-                'currency' => $workspace->currency ?? 'EUR',
-                'vat_registered' => $settings->vat_registered,
-                'subtotal' => $subtotal,
-                'vat_total' => $vatTotal,
-                'total' => $total,
-                'seller_snapshot' => $sellerSnapshot,
-                'customer_snapshot' => $customerSnapshot,
-                'line_items_snapshot' => $lineItems,
-                'payment_snapshot' => $paymentSnapshot,
-                'created_by' => $request->user()->id,
-            ]);
-        });
-
         $pdfService = app(SalesDocumentPdfService::class);
+        $writtenPdfPath = null;
 
-        $qrDataUri = $document->payment_snapshot['iban'] ?? null
-            ? $pdfService->renderUpnQr([
-                'recipient_iban' => $document->payment_snapshot['iban'],
-                'recipient_city' => $sellerSnapshot['city'] ?? '',
-                'recipient_name' => $sellerSnapshot['company_name'] ?? null,
-                'recipient_street_address' => $sellerSnapshot['address_line'] ?? null,
-                'recipient_reference' => null,
-                'amount' => $total,
-                'payment_purpose' => "Plačilo po {$document->document_number}",
-                'payment_due_date' => $document->due_date?->format('Y-m-d'),
-            ])
-            : null;
+        try {
+            $document = DB::transaction(function () use (
+                $data, $order, $workspace, $settings, $customer,
+                $sellerSnapshot, $customerSnapshot, $lineItems, $paymentSnapshot,
+                $subtotal, $vatTotal, $total, $request, $calculation, $pdfService, &$writtenPdfPath,
+            ) {
+                $numbering = app(SalesDocumentNumberingService::class);
+                $issued = $numbering->issueNumber($settings, $data['type']);
 
-        $bytes = $pdfService->render([
-            'type' => $document->type,
-            'type_label' => $document->typeLabel(),
-            'document_number' => $document->document_number,
-            'issued_at' => $document->issued_at->format('d.m.Y'),
-            'service_date' => $document->service_date?->format('d.m.Y'),
-            'due_date' => $document->due_date?->format('d.m.Y'),
-            'currency' => $document->currency,
-            'vat_registered' => $document->vat_registered,
-            'prices_include_vat' => $settings->prices_include_vat,
-            'vat_exempt_note' => $settings->vat_exempt_note,
-            'seller' => array_merge($sellerSnapshot, [
-                'logo_url' => $sellerSnapshot['logo_path'] ? Storage::disk('public')->url($sellerSnapshot['logo_path']) : null,
-            ]),
-            'customer' => $customerSnapshot,
-            'line_items' => $lineItems,
-            'tax_breakdown' => $calculation['tax_breakdown'],
-            'subtotal' => $subtotal,
-            'vat_total' => $vatTotal,
-            'total' => $total,
-            'payment' => [
-                'iban' => $paymentSnapshot['iban'],
-                'purpose' => "Plačilo po {$document->document_number}",
-            ],
-            'qr_data_uri' => $qrDataUri,
-        ]);
+                $document = SalesDocument::create([
+                    'workspace_id' => $workspace->id,
+                    'order_id' => $this->appointment ? null : $order->id,
+                    'appointment_id' => $this->appointment?->id,
+                    'customer_id' => $customer?->id,
+                    'type' => $data['type'],
+                    'source' => 'issued',
+                    'prefix' => $issued['prefix'],
+                    'sequence_number' => $issued['number'],
+                    'document_number' => $issued['prefix'].$issued['number'],
+                    'issued_at' => $data['issued_at'],
+                    'service_date' => $data['service_date'] ?? null,
+                    'due_date' => $data['due_date'] ?? null,
+                    'currency' => $workspace->currency ?? 'EUR',
+                    'vat_registered' => $settings->vat_registered,
+                    'subtotal' => $subtotal,
+                    'vat_total' => $vatTotal,
+                    'total' => $total,
+                    'seller_snapshot' => $sellerSnapshot,
+                    'customer_snapshot' => $customerSnapshot,
+                    'line_items_snapshot' => $lineItems,
+                    'payment_snapshot' => $paymentSnapshot,
+                    'created_by' => $request->user()->id,
+                ]);
 
-        $pdfPath = "invoices/{$workspace->id}/".Str::random(40).'.pdf';
-        Storage::disk('local')->put($pdfPath, $bytes);
-        $document->update(['pdf_path' => $pdfPath]);
+                // PDF render + storage happen inside the same transaction as
+                // the number allocation and document row, so a render or
+                // storage failure rolls back the number/row too — a document
+                // is never left committed without its immutable PDF. See
+                // App\Models\SalesDocument docblock on why pdf_path can only
+                // be known/set after create() (it embeds document_number).
+                $qrDataUri = $document->payment_snapshot['iban'] ?? null
+                    ? $pdfService->renderUpnQr([
+                        'recipient_iban' => $document->payment_snapshot['iban'],
+                        'recipient_city' => $sellerSnapshot['city'] ?? '',
+                        'recipient_name' => $sellerSnapshot['company_name'] ?? null,
+                        'recipient_street_address' => $sellerSnapshot['address_line'] ?? null,
+                        'recipient_reference' => null,
+                        'amount' => $total,
+                        'payment_purpose' => "Plačilo po {$document->document_number}",
+                        'payment_due_date' => $document->due_date?->format('Y-m-d'),
+                    ])
+                    : null;
+
+                $bytes = $pdfService->render([
+                    'type' => $document->type,
+                    'type_label' => $document->typeLabel(),
+                    'document_number' => $document->document_number,
+                    'issued_at' => $document->issued_at->format('d.m.Y'),
+                    'service_date' => $document->service_date?->format('d.m.Y'),
+                    'due_date' => $document->due_date?->format('d.m.Y'),
+                    'currency' => $document->currency,
+                    'vat_registered' => $document->vat_registered,
+                    'prices_include_vat' => $settings->prices_include_vat,
+                    'vat_exempt_note' => $settings->vat_exempt_note,
+                    'seller' => array_merge($sellerSnapshot, [
+                        'logo_url' => $sellerSnapshot['logo_path'] ? Storage::disk('public')->url($sellerSnapshot['logo_path']) : null,
+                    ]),
+                    'customer' => $customerSnapshot,
+                    'line_items' => $lineItems,
+                    'tax_breakdown' => $calculation['tax_breakdown'],
+                    'subtotal' => $subtotal,
+                    'vat_total' => $vatTotal,
+                    'total' => $total,
+                    'payment' => [
+                        'iban' => $paymentSnapshot['iban'],
+                        'purpose' => "Plačilo po {$document->document_number}",
+                    ],
+                    'qr_data_uri' => $qrDataUri,
+                ]);
+
+                $pdfPath = "invoices/{$workspace->id}/".Str::random(40).'.pdf';
+
+                if (! Storage::disk('local')->put($pdfPath, $bytes)) {
+                    throw new \RuntimeException('Failed to store sales document PDF.');
+                }
+
+                $writtenPdfPath = $pdfPath;
+                $document->update(['pdf_path' => $pdfPath]);
+
+                return $document;
+            });
+        } catch (\Throwable $e) {
+            // The DB transaction above has already rolled back (number
+            // allocation + document row included). If the file made it to
+            // disk before a later failure, it's now an orphan — remove it
+            // so no local PDF survives a rolled-back issuance.
+            if ($writtenPdfPath !== null) {
+                Storage::disk('local')->delete($writtenPdfPath);
+            }
+
+            throw $e;
+        }
 
         $subject = $this->appointment ?? $order;
         $subjectLabel = $this->appointment

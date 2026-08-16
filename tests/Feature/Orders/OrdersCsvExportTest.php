@@ -4,8 +4,9 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\Product;
+use Illuminate\Testing\TestResponse;
 
-function ordersCsvRows(\Illuminate\Testing\TestResponse $response): array
+function ordersCsvRows(TestResponse $response): array
 {
     $content = $response->streamedContent();
     // Strip the UTF-8 BOM before parsing so str_getcsv doesn't fold it
@@ -113,7 +114,7 @@ test('cell values are escaped and spreadsheet formula injection is neutralized',
     $customer = Customer::create(['workspace_id' => $workspace->id, 'full_name' => '=cmd|"/c calc"!A1']);
     Order::create([
         'workspace_id' => $workspace->id, 'customer_id' => $customer->id,
-        'title' => "Naročilo; z \"narekovaji\" in podpičjem", 'price' => 10, 'status' => 'new',
+        'title' => 'Naročilo; z "narekovaji" in podpičjem', 'price' => 10, 'status' => 'new',
         'delivery_method' => '+1234', 'tracking_number' => '-danger',
     ]);
 

@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Enums\ChannelType;
+use App\Models\InvoiceSettings;
 use App\Models\Workspace;
 use App\Models\WorkspaceExport;
 use App\Services\Concerns\CollectsLocalAttachmentPaths;
 use App\Services\Messaging\MetaMessagingProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -57,12 +59,17 @@ class WorkspaceDeletionService
         // confirmed gone.
         $attachmentPaths = $this->localAttachmentPaths($workspace->id);
         $exportPaths = WorkspaceExport::where('workspace_id', $workspace->id)->pluck('disk_path')->all();
+        $invoicePdfPaths = $this->salesDocumentPdfPaths($workspace->id);
+        $invoiceLogoPath = InvoiceSettings::withoutGlobalScopes()
+            ->where('workspace_id', $workspace->id)
+            ->value('logo_path');
 
         DB::transaction(function () use ($workspace) {
             // Cascades Channels, Integrations, Customers (+identities),
             // Conversations (+Messages), Orders (+OrderNotes), Appointments,
             // CatalogItems, FollowUps, ActivityLogs, WorkspaceMembers,
-            // SupportAccessGrants (+SupportSessions), WorkspaceExports.
+            // SupportAccessGrants (+SupportSessions), WorkspaceExports,
+            // InvoiceSettings, SalesDocuments.
             // Any remaining member's users.current_workspace_id is
             // nullOnDelete, not cascade — the app tolerates that null.
             $workspace->delete();
@@ -70,6 +77,11 @@ class WorkspaceDeletionService
 
         $this->deleteAttachmentFiles($attachmentPaths, 'workspace.purge');
         $this->deleteAttachmentFiles($exportPaths, 'workspace.purge.export');
+        $this->deleteAttachmentFiles($invoicePdfPaths, 'workspace.purge.invoice');
+
+        if ($invoiceLogoPath) {
+            Storage::disk('public')->delete($invoiceLogoPath);
+        }
     }
 
     private function cancelStripeSubscription(Workspace $workspace): void

@@ -364,6 +364,11 @@ class OrderController extends Controller
 
     public function destroy(Order $order): RedirectResponse
     {
+        // sales_documents.order_id is nullOnDelete, not cascade — deleting
+        // an order with issued financial documents would silently orphan
+        // them (severing the audit trail) instead of blocking outright.
+        abort_if($order->salesDocuments()->exists(), 422, 'Naročila z izdanimi dokumenti ni mogoče izbrisati.');
+
         $order->delete();
 
         return redirect()->route('orders.index')->with('success', 'Naročilo izbrisano.');
