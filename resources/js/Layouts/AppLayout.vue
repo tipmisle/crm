@@ -107,6 +107,8 @@ onUnmounted(stopNavigateListener);
                 <button
                     type="button"
                     class="rounded-md p-1 text-neutral-400 hover:bg-white/10 hover:text-white lg:hidden"
+                    title="Zapri meni"
+                    aria-label="Zapri meni"
                     @click="sidebarOpen = false"
                 >
                     <X :size="16" />
@@ -189,6 +191,8 @@ onUnmounted(stopNavigateListener);
                     <button
                         type="button"
                         class="-ml-1 shrink-0 rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 lg:hidden"
+                        title="Odpri meni"
+                        aria-label="Odpri meni"
                         @click="sidebarOpen = true"
                     >
                         <Menu :size="18" />
@@ -201,6 +205,8 @@ onUnmounted(stopNavigateListener);
                 <button
                     type="button"
                     class="flex shrink-0 items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 sm:px-3"
+                    title="Iskanje"
+                    aria-label="Iskanje"
                     @click="searchOpen = true"
                 >
                     <Search :size="14" />
@@ -234,7 +240,13 @@ onUnmounted(stopNavigateListener);
                 "
             >
                 <span class="flex-1">{{ toast.message }}</span>
-                <button type="button" class="text-current/70 hover:text-current" @click="toast = null">
+                <button
+                    type="button"
+                    class="text-current/70 hover:text-current"
+                    title="Zapri obvestilo"
+                    aria-label="Zapri obvestilo"
+                    @click="toast = null"
+                >
                     <X :size="14" />
                 </button>
             </div>

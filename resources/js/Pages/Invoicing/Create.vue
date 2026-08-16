@@ -142,7 +142,8 @@ const showRoute = computed(() =>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="sm:col-span-2">
                         <label class="block text-xs text-neutral-500">Ime / naziv</label>
-                        <input v-model="form.recipient.name" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                        <input v-model="form.recipient.name" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" :class="form.errors['recipient.name'] && 'border-red-300'" />
+                        <p v-if="form.errors['recipient.name']" class="mt-1 text-xs text-red-600">{{ form.errors['recipient.name'] }}</p>
                     </div>
                     <div>
                         <label class="block text-xs text-neutral-500">E-pošta</label>
@@ -204,6 +205,8 @@ const showRoute = computed(() =>
                     <button type="button" class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-500)] hover:underline" @click="addLine">
                         <Plus :size="14" /> Dodaj postavko
                     </button>
+
+                    <p v-if="form.errors.line_items" class="text-xs text-red-600">{{ form.errors.line_items }}</p>
                 </div>
 
                 <div class="mt-5 ml-auto w-full max-w-xs space-y-1.5 text-sm">
@@ -222,6 +225,10 @@ const showRoute = computed(() =>
             <SectionCard title="Opombe (neobvezno)">
                 <textarea v-model="form.notes" rows="2" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
             </SectionCard>
+
+            <p v-if="Object.keys(form.errors).length" class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                Preveri vnesene podatke — nekaj polj ni veljavnih.
+            </p>
 
             <div class="flex items-center gap-3">
                 <button

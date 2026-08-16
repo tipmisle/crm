@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAppointmentsEnabled;
+use App\Http\Middleware\EnsureOrdersEnabled;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureWorkspaceHasActiveSubscription;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'appointments.enabled' => EnsureAppointmentsEnabled::class,
+            'orders.enabled' => EnsureOrdersEnabled::class,
             'platform.admin' => EnsurePlatformAdmin::class,
             'subscription.active' => EnsureWorkspaceHasActiveSubscription::class,
         ]);

@@ -118,8 +118,8 @@ function subjectLabel(doc: SalesDocument): string | null {
                 <input v-model="issuedTo" type="date" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none" />
             </div>
 
-            <div v-if="documents.data.length" class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
-                <table class="w-full text-sm">
+            <div v-if="documents.data.length" class="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
+                <table class="w-full min-w-[860px] text-sm">
                     <thead class="border-b border-neutral-100 bg-neutral-50 text-left text-xs font-medium text-neutral-500">
                         <tr>
                             <th class="px-4 py-2.5">Dokument</th>
@@ -138,6 +138,7 @@ function subjectLabel(doc: SalesDocument): string | null {
                                 <a
                                     :href="route('documents.download', doc.id)"
                                     target="_blank"
+                                    rel="noopener"
                                     class="flex items-center gap-1.5 font-medium text-neutral-800 hover:text-[var(--color-accent-600)] hover:underline"
                                     title="Odpri / prenesi dokument"
                                 >

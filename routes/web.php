@@ -127,14 +127,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/inbox/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
 
         Route::resource('customers', CustomerController::class)->except(['edit']);
-        Route::resource('orders', OrderController::class)->except(['edit']);
-        Route::get('/orders-export', [OrderController::class, 'exportCsv'])->name('orders.export');
-        Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
-        Route::post('/orders/{order}/notify', [OrderNotificationController::class, 'store'])->name('orders.notify.store');
+        Route::middleware('orders.enabled')->group(function () {
+            Route::resource('orders', OrderController::class)->except(['edit']);
+            Route::get('/orders-export', [OrderController::class, 'exportCsv'])->name('orders.export');
+            Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
+            Route::post('/orders/{order}/notify', [OrderNotificationController::class, 'store'])->name('orders.notify.store');
 
-        Route::get('/orders/{order}/documents/create', [SalesDocumentController::class, 'create'])->name('orders.documents.create');
-        Route::post('/orders/{order}/documents', [SalesDocumentController::class, 'store'])->name('orders.documents.store');
-        Route::post('/orders/{order}/documents/external', [ExternalDocumentController::class, 'store'])->name('orders.documents.external.store');
+            Route::get('/orders/{order}/documents/create', [SalesDocumentController::class, 'create'])->name('orders.documents.create');
+            Route::post('/orders/{order}/documents', [SalesDocumentController::class, 'store'])->name('orders.documents.store');
+            Route::post('/orders/{order}/documents/external', [ExternalDocumentController::class, 'store'])->name('orders.documents.external.store');
+            Route::resource('products', ProductController::class)->only(['store', 'update', 'destroy']);
+        });
+
         Route::get('/documents/{document}/download', [SalesDocumentDownloadController::class, 'show'])->name('documents.download');
         Route::post('/documents/{document}/send', [SalesDocumentSendController::class, 'store'])->name('documents.send');
         Route::post('/documents/{document}/remind', [SalesDocumentReminderController::class, 'store'])->name('documents.remind');
@@ -146,7 +150,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/analitika', [AnalyticsController::class, 'index'])->name('analytics.index');
 
         Route::get('/ponudba', [CatalogController::class, 'index'])->name('catalog.index');
-        Route::resource('products', ProductController::class)->only(['store', 'update', 'destroy']);
 
         Route::middleware('appointments.enabled')->group(function () {
             Route::resource('appointments', AppointmentController::class)->except(['edit']);

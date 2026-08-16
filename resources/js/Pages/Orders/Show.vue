@@ -148,9 +148,18 @@ function openStornoModal(document: SalesDocument) {
     stornoModal.value = { open: true, document };
 }
 
+const cancellingProformaId = ref<number | null>(null);
+
 function cancelProforma(document: SalesDocument) {
+    if (cancellingProformaId.value !== null) return;
     if (!confirm(`Prekličeš predračun ${document.document_number}? Predračuna po tem ne bo več mogoče poslati kot aktivno plačilno zahtevo.`)) return;
-    router.post(route('documents.cancel', document.id), {}, { preserveScroll: true });
+    cancellingProformaId.value = document.id;
+    router.post(route('documents.cancel', document.id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            cancellingProformaId.value = null;
+        },
+    });
 }
 
 function openReminderModal(document: SalesDocument) {
@@ -189,12 +198,12 @@ const notifyModalOpen = ref(false);
         </template>
 
         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-            <div class="mb-6 flex items-start justify-between">
+            <div class="mb-6 flex flex-wrap items-start justify-between gap-y-3">
                 <div>
                     <h1 class="text-2xl font-semibold text-neutral-900">{{ order.title }}</h1>
                     <p class="mt-1 text-sm text-neutral-500">{{ order.order_number }} · Ustvarjeno {{ formatDate(order.created_at) }}</p>
                 </div>
-                <div class="flex items-stretch gap-2">
+                <div class="flex flex-wrap items-stretch gap-2">
                     <Link
                         :href="route('settings.statuses.edit')"
                         title="Nastavitve statusov"
@@ -332,6 +341,7 @@ const notifyModalOpen = ref(false);
                                         <a
                                             :href="route('documents.download', doc.id)"
                                             target="_blank"
+                                            rel="noopener"
                                             class="text-sm font-medium text-neutral-800 hover:text-[var(--color-accent-600)] hover:underline"
                                             title="Odpri / prenesi dokument"
                                         >
@@ -368,7 +378,7 @@ const notifyModalOpen = ref(false);
                                     <button v-if="order.conversation && doc.sent_at && doc.status === 'issued'" type="button" class="text-xs font-medium text-neutral-500 hover:underline" @click="openReminderModal(doc)">
                                         Opomnik
                                     </button>
-                                    <button v-if="doc.can_be_cancelled" type="button" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline" @click="cancelProforma(doc)">
+                                    <button v-if="doc.can_be_cancelled" type="button" :disabled="cancellingProformaId === doc.id" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline disabled:opacity-50" @click="cancelProforma(doc)">
                                         Prekliči predračun
                                     </button>
                                     <button v-if="doc.can_be_stornoed" type="button" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline" @click="openStornoModal(doc)">

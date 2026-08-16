@@ -206,9 +206,16 @@ function updateStatus(status: string) {
     router.patch(route('inbox.update', props.conversation.id), { status }, { preserveScroll: true });
 }
 
+const creatingCustomer = ref(false);
+
 function createCustomer() {
-    if (!props.conversation) return;
-    router.post(route('inbox.create-customer', props.conversation.id));
+    if (!props.conversation || creatingCustomer.value) return;
+    creatingCustomer.value = true;
+    router.post(route('inbox.create-customer', props.conversation.id), {}, {
+        onFinish: () => {
+            creatingCustomer.value = false;
+        },
+    });
 }
 
 const followUpOpen = ref(false);
@@ -378,6 +385,9 @@ const activeChannelFilterLabel = computed(() =>
                                 <X :size="14" />
                             </button>
                         </div>
+
+                        <p v-if="messageForm.errors.body" class="mb-1.5 text-xs text-red-600">{{ messageForm.errors.body }}</p>
+                        <p v-if="attachmentForm.errors.attachment" class="mb-1.5 text-xs text-red-600">{{ attachmentForm.errors.attachment }}</p>
 
                         <div class="flex items-center gap-2">
                         <input
@@ -603,7 +613,8 @@ const activeChannelFilterLabel = computed(() =>
 
                     <button
                         type="button"
-                        class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
+                        :disabled="creatingCustomer"
+                        class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                         @click="createCustomer"
                     >
                         <Plus :size="14" /> Ustvari stranko

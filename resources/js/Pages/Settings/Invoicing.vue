@@ -240,6 +240,7 @@ function removeLogo() {
                 <a
                     :href="route('settings.invoicing.preview', { type: 'invoice' })"
                     target="_blank"
+                    rel="noopener"
                     class="text-sm font-medium text-[var(--color-accent-500)] hover:underline"
                 >
                     Predogled vzorčnega računa →
@@ -247,6 +248,7 @@ function removeLogo() {
                 <a
                     :href="route('settings.invoicing.preview', { type: 'proforma' })"
                     target="_blank"
+                    rel="noopener"
                     class="text-sm font-medium text-[var(--color-accent-500)] hover:underline"
                 >
                     Predogled vzorčnega predračuna →

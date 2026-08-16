@@ -90,8 +90,8 @@ function totalValue(customer: CustomerRow): number {
                 />
             </div>
 
-            <div v-if="customers.data.length" class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
-                <table class="w-full text-sm">
+            <div v-if="customers.data.length" class="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
+                <table class="w-full min-w-[700px] text-sm">
                     <thead class="border-b border-neutral-100 bg-neutral-50 text-left text-xs font-medium text-neutral-500">
                         <tr>
                             <th class="px-4 py-2.5">Stranka</th>

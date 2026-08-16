@@ -118,7 +118,7 @@ function completeFollowUp(id: number) {
         </template>
 
         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-            <div class="mb-6 flex items-start justify-between">
+            <div class="mb-6 flex flex-wrap items-start justify-between gap-y-3">
                 <div class="flex items-center gap-4">
                     <Avatar :name="customer.full_name" size="lg" />
                     <div>
@@ -128,7 +128,7 @@ function completeFollowUp(id: number) {
                         </p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <Link
                         v-if="ordersEnabled"
                         :href="route('orders.create', { customer_id: customer.id })"

@@ -27,7 +27,7 @@ function submit() {
         onSuccess: () => {
             form.reset();
             emit('close');
-            window.open(googleCalendarUrl(note, dueAt), '_blank');
+            window.open(googleCalendarUrl(note, dueAt), '_blank', 'noopener');
         },
     });
 }

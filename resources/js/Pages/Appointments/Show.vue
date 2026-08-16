@@ -179,14 +179,14 @@ const externalDocumentOpen = ref(false);
         </template>
 
         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-            <div class="mb-6 flex items-start justify-between">
+            <div class="mb-6 flex flex-wrap items-start justify-between gap-y-3">
                 <div>
                     <h1 class="text-2xl font-semibold text-neutral-900">{{ appointment.service_name }}</h1>
                     <p class="mt-1 text-sm text-neutral-500">
                         {{ appointment.appointment_number }} · {{ formatDate(appointment.appointment_date) }} ob {{ appointment.start_time.slice(0, 5) }}
                     </p>
                 </div>
-                <div class="flex items-stretch gap-2">
+                <div class="flex flex-wrap items-stretch gap-2">
                     <Link
                         :href="route('settings.statuses.edit')"
                         title="Nastavitve statusov"
@@ -298,6 +298,7 @@ const externalDocumentOpen = ref(false);
                                         <a
                                             :href="route('documents.download', doc.id)"
                                             target="_blank"
+                                            rel="noopener"
                                             class="text-sm font-medium text-neutral-800 hover:text-[var(--color-accent-600)] hover:underline"
                                             title="Odpri / prenesi dokument"
                                         >
