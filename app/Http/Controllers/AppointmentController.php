@@ -11,18 +11,31 @@ use App\Models\CustomerIdentity;
 use App\Models\InvoiceSettings;
 use App\Models\PaymentStatus;
 use App\Models\Service;
+use App\Support\Csv;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AppointmentController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $query = Appointment::query()->with(['customer', 'channel', 'service']);
+    /** See OrderController::FILTER_KEYS for why this list is centralized. */
+    private const FILTER_KEYS = [
+        'search', 'status', 'payment', 'due', 'payment_scope', 'deposit',
+        'customer_id', 'service_id', 'channel_type',
+        'created_from', 'created_to',
+    ];
 
+    /**
+     * The exact filter logic index() applies — also reused verbatim by
+     * exportCsv() so the CSV can never drift from what's on screen. See
+     * OrderController::applyFilters() for the same pattern.
+     */
+    private function applyFilters(Builder $query, Request $request): Builder
+    {
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('appointment_number', 'like', "%{$search}%")
@@ -32,11 +45,40 @@ class AppointmentController extends Controller
         }
 
         if ($status = $request->get('status')) {
-            $query->where('status', $status);
+            // Supports a comma-separated list (e.g. "requested,confirmed")
+            // so a link can target the same active-status set the Today
+            // attention counts use, without a single-status constraint.
+            $query->whereIn('status', explode(',', $status));
         }
 
-        if ($payment = $request->get('payment')) {
+        if ($request->get('payment_scope') === 'outstanding') {
+            $query->whereIn('payment_status', PaymentStatus::outstandingKeys());
+        } elseif ($payment = $request->get('payment')) {
             $query->where('payment_status', $payment);
+        }
+
+        if ($request->get('deposit') === 'unpaid') {
+            $query->where('deposit_amount', '>', 0);
+        }
+
+        if ($customerId = $request->get('customer_id')) {
+            $query->where('customer_id', $customerId);
+        }
+
+        if ($serviceId = $request->get('service_id')) {
+            $query->where('service_id', $serviceId);
+        }
+
+        if ($channelType = $request->get('channel_type')) {
+            $query->whereHas('channel', fn ($q) => $q->where('type', $channelType));
+        }
+
+        if ($createdFrom = $request->get('created_from')) {
+            $query->whereDate('created_at', '>=', $createdFrom);
+        }
+
+        if ($createdTo = $request->get('created_to')) {
+            $query->whereDate('created_at', '<=', $createdTo);
         }
 
         $due = $request->get('due');
@@ -49,6 +91,13 @@ class AppointmentController extends Controller
                 ->whereNotIn('status', [AppointmentStatus::Completed->value, AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value]);
         }
 
+        return $query;
+    }
+
+    public function index(Request $request): Response
+    {
+        $query = $this->applyFilters(Appointment::query()->with(['customer', 'channel', 'service']), $request);
+
         $view = $request->get('view', 'list');
 
         if ($view === 'list') {
@@ -56,7 +105,7 @@ class AppointmentController extends Controller
 
             return Inertia::render('Appointments/Index', [
                 'appointments' => $appointments,
-                'filters' => $request->only(['search', 'status', 'payment', 'due']),
+                'filters' => $request->only(self::FILTER_KEYS),
             ]);
         }
 
@@ -74,20 +123,62 @@ class AppointmentController extends Controller
         return Inertia::render('Appointments/Calendar', [
             'appointmentsByDate' => $appointmentsByDate,
             'weekStart' => $weekStart->format('Y-m-d'),
-            'filters' => $request->only(['search', 'status', 'payment', 'due']),
+            'filters' => $request->only(self::FILTER_KEYS),
         ]);
+    }
+
+    /**
+     * "Izvozi CSV" — see OrderController::exportCsv() for the same
+     * pattern: same applyFilters() as index(), exports every matching
+     * row (not just the current page), streamed via lazy().
+     */
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $query = $this->applyFilters(
+            Appointment::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'service:id,name']),
+            $request
+        )->orderByDesc('appointment_date')->orderByDesc('start_time');
+
+        $paymentStatusLabels = PaymentStatus::query()->pluck('label', 'key');
+
+        $headers = [
+            'Št. termina', 'Datum termina', 'Ura', 'Trajanje', 'Stranka', 'Email', 'Telefon',
+            'Storitev', 'Status', 'Status plačila', 'Cena', 'Ara', 'Plačano', 'Preostanek', 'Vir/kanal',
+        ];
+
+        $rows = $query->lazy(200)->map(fn (Appointment $appointment) => [
+            $appointment->appointment_number,
+            $appointment->appointment_date?->format('Y-m-d'),
+            $appointment->start_time,
+            $appointment->duration_minutes,
+            $appointment->customer?->full_name,
+            $appointment->customer?->email,
+            $appointment->customer?->phone,
+            $appointment->service?->name ?? $appointment->service_name,
+            $appointment->status->label(),
+            $paymentStatusLabels[$appointment->payment_status] ?? $appointment->payment_status,
+            $appointment->price,
+            $appointment->deposit_amount,
+            $appointment->amount_paid,
+            $appointment->remainingBalance(),
+            $appointment->channel?->type,
+        ]);
+
+        return Csv::streamDownload('termini-'.now()->format('Y-m-d').'.csv', $headers, $rows);
     }
 
     public function create(Request $request): Response
     {
         $customer = $request->get('customer_id') ? Customer::find($request->get('customer_id')) : null;
         $conversation = $request->get('conversation_id') ? Conversation::with(['customer', 'channel'])->find($request->get('conversation_id')) : null;
+        $service = $request->get('service_id') ? Service::find($request->get('service_id')) : null;
 
         return Inertia::render('Appointments/Create', [
             'customer' => $customer,
             'conversation' => $conversation,
             'services' => Service::where('active', true)->orderBy('name')->get(),
             'customers' => $customer || $conversation ? [] : Customer::orderBy('full_name')->get(),
+            'selectedServiceId' => $service?->id,
         ]);
     }
 
@@ -178,7 +269,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): Response
     {
-        $appointment->load(['customer.appointments', 'customer.primaryChannel', 'conversation.channel', 'channel', 'service', 'salesDocuments', 'workspace']);
+        $appointment->load(['customer.appointments', 'customer.primaryChannel', 'conversation.channel', 'channel', 'service', 'salesDocuments.correctsDocument:id,document_number,issued_at,type', 'salesDocuments.correction:id,document_number,corrects_document_id,type', 'workspace']);
 
         $mockNotificationsEnabled = app()->isLocal() || $appointment->workspace?->is_demo;
         $appointment->setAttribute('can_notify_customer', (bool) $appointment->conversation

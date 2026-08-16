@@ -6,8 +6,11 @@ use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Order;
-use Illuminate\Http\Request;
+use App\Models\Product;
+use App\Models\SalesDocument;
+use App\Models\Service;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
@@ -73,6 +76,66 @@ class SearchController extends Controller
                     ]);
                 });
         }
+
+        if ($workspace->orders_enabled) {
+            Product::where('name', 'like', "%{$query}%")
+                ->limit(5)
+                ->get()
+                ->each(function (Product $product) use ($results) {
+                    $results->push([
+                        'type' => 'product',
+                        'id' => $product->id,
+                        'title' => $product->name,
+                        'subtitle' => 'Produkt',
+                        'href' => route('catalog.index'),
+                    ]);
+                });
+        }
+
+        if ($workspace->appointments_enabled) {
+            Service::where('name', 'like', "%{$query}%")
+                ->limit(5)
+                ->get()
+                ->each(function (Service $service) use ($results) {
+                    $results->push([
+                        'type' => 'service',
+                        'id' => $service->id,
+                        'title' => $service->name,
+                        'subtitle' => 'Storitev',
+                        'href' => route('catalog.index'),
+                    ]);
+                });
+        }
+
+        SalesDocument::query()
+            ->where('document_number', 'like', "%{$query}%")
+            ->orWhere('external_document_number', 'like', "%{$query}%")
+            ->limit(5)
+            ->get()
+            ->each(function (SalesDocument $document) use ($results) {
+                $href = match (true) {
+                    (bool) $document->order_id => route('orders.show', $document->order_id),
+                    (bool) $document->appointment_id => route('appointments.show', $document->appointment_id),
+                    default => '#',
+                };
+
+                $sourceLabel = $document->isExternal() ? 'zunanji dokument' : 'izdan';
+                $subjectLabel = match (true) {
+                    (bool) $document->order_id => 'naročilo',
+                    (bool) $document->appointment_id => 'termin',
+                    default => null,
+                };
+
+                $results->push([
+                    'type' => 'sales_document',
+                    'id' => $document->id,
+                    'title' => $document->displayNumber(),
+                    'subtitle' => $subjectLabel
+                        ? "{$document->typeLabel()} · {$sourceLabel} · {$subjectLabel}"
+                        : "{$document->typeLabel()} · {$sourceLabel}",
+                    'href' => $href,
+                ]);
+            });
 
         Conversation::query()
             ->with('customer')

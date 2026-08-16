@@ -28,6 +28,7 @@ class InvoiceSettings extends Model
         'country',
         'tax_number',
         'vat_registered',
+        'prices_include_vat',
         'email',
         'phone',
         'iban',
@@ -41,15 +42,19 @@ class InvoiceSettings extends Model
         'invoice_next_number',
         'proforma_prefix',
         'proforma_next_number',
+        'storno_prefix',
+        'storno_next_number',
     ];
 
     protected function casts(): array
     {
         return [
             'vat_registered' => 'boolean',
+            'prices_include_vat' => 'boolean',
             'default_payment_deadline_days' => 'integer',
             'invoice_next_number' => 'integer',
             'proforma_next_number' => 'integer',
+            'storno_next_number' => 'integer',
         ];
     }
 
@@ -68,7 +73,10 @@ class InvoiceSettings extends Model
             'invoice_next_number' => 1,
             'proforma_prefix' => 'P-'.Carbon::now()->format('Y').'-',
             'proforma_next_number' => 1,
+            'storno_prefix' => 'S-'.Carbon::now()->format('Y').'-',
+            'storno_next_number' => 1,
             'default_payment_deadline_days' => 8,
+            'prices_include_vat' => true,
         ]);
     }
 
@@ -86,8 +94,10 @@ class InvoiceSettings extends Model
      */
     public function nextNumberPreview(string $type): string
     {
-        return $type === 'proforma'
-            ? $this->proforma_prefix.$this->proforma_next_number
-            : $this->invoice_prefix.$this->invoice_next_number;
+        return match ($type) {
+            'proforma' => $this->proforma_prefix.$this->proforma_next_number,
+            'storno' => $this->storno_prefix.$this->storno_next_number,
+            default => $this->invoice_prefix.$this->invoice_next_number,
+        };
     }
 }

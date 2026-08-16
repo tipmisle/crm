@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import type { PageProps } from '@/types';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
@@ -13,7 +13,7 @@ import CustomerContactCard from '@/Components/CustomerContactCard.vue';
 import Modal from '@/Components/Modal.vue';
 import { formatMoney, formatDate, formatDateTime, relativeTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
-import { Plus } from 'lucide-vue-next';
+import { Plus, Check, CalendarPlus } from 'lucide-vue-next';
 import type { ActivityLogEntry, Appointment, Conversation, CustomerIdentity, FollowUp, Order } from '@/types/models';
 
 interface CustomerDetail {
@@ -24,6 +24,8 @@ interface CustomerDetail {
     address_line: string | null;
     postal_code: string | null;
     city: string | null;
+    country: string | null;
+    tax_number: string | null;
     notes: string | null;
     tags: string[] | null;
     primary_channel_id: number | null;
@@ -64,9 +66,24 @@ const lastInteractionLabel = computed(() => {
     return relativeTime(date > now ? now.toISOString() : value);
 });
 
-const openOrders = computed(() => props.customer.orders.filter((o) => !['completed', 'cancelled'].includes(o.status)));
+// Order statuses are workspace-customizable — "open" is determined by the
+// is_completed/is_cancelled flags on the shared orderStatuses prop, never
+// by a literal status key. See OrderStatus model docs.
+const orderStatuses = computed(() => page.props.orderStatuses ?? []);
+const closedOrderKeys = computed(
+    () => new Set(orderStatuses.value.filter((s) => s.is_completed || s.is_cancelled).map((s) => s.key)),
+);
+const openOrders = computed(() => props.customer.orders.filter((o) => !closedOrderKeys.value.has(o.status)));
+// "Zgodovina naročil" must not repeat what's already shown as current —
+// only closed orders appear here.
+const closedOrders = computed(() => props.customer.orders.filter((o) => closedOrderKeys.value.has(o.status)));
+
 const upcomingAppointments = computed(() =>
     props.customer.appointments.filter((a) => ['requested', 'confirmed'].includes(a.status)),
+);
+// "Zgodovina terminov" must not repeat what's already shown as upcoming.
+const pastAppointments = computed(() =>
+    props.customer.appointments.filter((a) => !['requested', 'confirmed'].includes(a.status)),
 );
 const confirmingErasure = ref(false);
 const eraseForm = useForm({ confirm: false });
@@ -81,6 +98,10 @@ function eraseCustomerData() {
         preserveScroll: true,
         onSuccess: () => (confirmingErasure.value = false),
     });
+}
+
+function completeFollowUp(id: number) {
+    router.patch(route('follow-ups.complete', id), {}, { preserveScroll: true });
 }
 </script>
 
@@ -107,13 +128,22 @@ function eraseCustomerData() {
                         </p>
                     </div>
                 </div>
-                <Link
-                    v-if="ordersEnabled"
-                    :href="route('orders.create', { customer_id: customer.id })"
-                    class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                >
-                    <Plus :size="14" /> Novo naročilo
-                </Link>
+                <div class="flex items-center gap-2">
+                    <Link
+                        v-if="ordersEnabled"
+                        :href="route('orders.create', { customer_id: customer.id })"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <Plus :size="14" /> Novo naročilo
+                    </Link>
+                    <Link
+                        v-if="appointmentsEnabled"
+                        :href="route('appointments.create', { customer_id: customer.id })"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <CalendarPlus :size="14" /> Nov termin
+                    </Link>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -125,10 +155,10 @@ function eraseCustomerData() {
                         </div>
                     </section>
 
-                    <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                    <section id="order-history" v-if="ordersEnabled && (closedOrders.length || !customer.orders.length)" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-800 uppercase">Zgodovina naročil</h3>
-                        <div v-if="customer.orders.length" class="mt-3 space-y-2">
-                            <OrderCard v-for="order in customer.orders" :key="order.id" :order="order" />
+                        <div v-if="closedOrders.length" class="mt-3 space-y-2">
+                            <OrderCard v-for="order in closedOrders" :key="order.id" :order="order" />
                         </div>
                         <EmptyState v-else title="Še ni naročil" description="Ustvari prvo naročilo za to stranko.">
                             <template #action>
@@ -157,10 +187,10 @@ function eraseCustomerData() {
                         </div>
                     </section>
 
-                    <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                    <section id="appointment-history" v-if="appointmentsEnabled && (pastAppointments.length || !customer.appointments.length)" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-800 uppercase">Zgodovina terminov</h3>
-                        <div v-if="customer.appointments.length" class="mt-3 space-y-2">
-                            <AppointmentCard v-for="appointment in customer.appointments" :key="appointment.id" :appointment="appointment" />
+                        <div v-if="pastAppointments.length" class="mt-3 space-y-2">
+                            <AppointmentCard v-for="appointment in pastAppointments" :key="appointment.id" :appointment="appointment" />
                         </div>
                         <EmptyState v-else title="Še ni terminov" description="Rezerviraj prvi termin za to stranko.">
                             <template #action>
@@ -258,9 +288,22 @@ function eraseCustomerData() {
                     <section v-if="followUps.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-800 uppercase">Opomniki</h3>
                         <div class="mt-2 space-y-2">
-                            <div v-for="f in followUps" :key="f.id" class="text-sm">
-                                <p class="text-neutral-700">{{ f.note }}</p>
-                                <p class="text-xs text-neutral-400">Rok {{ formatDateTime(f.due_at) }}</p>
+                            <div v-for="f in followUps" :key="f.id" class="flex items-start gap-2 text-sm">
+                                <button
+                                    v-if="!f.completed_at"
+                                    type="button"
+                                    class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-400 hover:border-emerald-500 hover:text-emerald-600"
+                                    title="Označi kot zaključeno"
+                                    @click="completeFollowUp(f.id)"
+                                >
+                                    <Check :size="10" />
+                                </button>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-neutral-700" :class="f.completed_at && 'line-through text-neutral-400'">{{ f.note }}</p>
+                                    <p class="text-xs text-neutral-400">
+                                        {{ f.completed_at ? 'Zaključeno' : 'Rok' }} {{ formatDateTime(f.completed_at ?? f.due_at) }}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </section>

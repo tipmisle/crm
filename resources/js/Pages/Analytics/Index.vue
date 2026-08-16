@@ -15,11 +15,13 @@ interface ChannelBar {
     label: string;
     color: string;
     value: number;
+    href: string | null;
 }
 
 interface TopItem {
     name: string;
     revenue: number;
+    href: string | null;
 }
 
 interface CompareInfo {
@@ -58,13 +60,13 @@ function setCompare(event: Event) {
     router.get(route('analytics.index', { ...props.range, compare }), {}, { preserveScroll: true, preserveState: true });
 }
 
-const topProductBars = () => props.topProducts.map((item) => ({ label: item.name, value: item.revenue }));
-const topServiceBars = () => props.topServices.map((item) => ({ label: item.name, value: item.revenue }));
+const topProductBars = () => props.topProducts.map((item) => ({ label: item.name, value: item.revenue, href: item.href }));
+const topServiceBars = () => props.topServices.map((item) => ({ label: item.name, value: item.revenue, href: item.href }));
 
 const channelInquiryBars = () =>
-    props.channelInquiries.map((c) => ({ label: c.label, value: c.value, color: c.color, channelType: c.type }));
+    props.channelInquiries.map((c) => ({ label: c.label, value: c.value, color: c.color, channelType: c.type, href: c.href }));
 const channelRevenueBars = () =>
-    props.channelRevenue.map((c) => ({ label: c.label, value: c.value, color: c.color, channelType: c.type }));
+    props.channelRevenue.map((c) => ({ label: c.label, value: c.value, color: c.color, channelType: c.type, href: c.href }));
 </script>
 
 <template>

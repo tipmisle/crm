@@ -56,6 +56,7 @@ class AnalyticsController extends Controller
             'channelInquiries' => $this->channelBreakdown(
                 Conversation::whereBetween('created_at', [$start, $end])->with('channel')->get(),
                 fn () => 1,
+                fn (string $type) => route('inbox.index', ['channel_type' => $type]),
             ),
             'channelRevenue' => $this->channelRevenueBreakdown($workspace, $start, $end),
             'topProducts' => $workspace->orders_enabled ? $this->topProducts($start, $end) : [],
@@ -157,10 +158,11 @@ class AnalyticsController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, mixed>  $models
-     * @return array<int, array{type: string, label: string, color: string, value: float}>
+     * @param  Collection<int, mixed>  $models
+     * @param  ?callable(string): ?string  $hrefFor  Drill-down link builder, given the channel type key.
+     * @return array<int, array{type: string, label: string, color: string, value: float, href: ?string}>
      */
-    private function channelBreakdown(Collection $models, callable $valueFor): array
+    private function channelBreakdown(Collection $models, callable $valueFor, ?callable $hrefFor = null): array
     {
         $totals = [];
         foreach ($models as $model) {
@@ -171,12 +173,13 @@ class AnalyticsController extends Controller
             $totals[$type->value] = ($totals[$type->value] ?? 0) + $valueFor($model);
         }
 
-        return $this->presentChannelTotals($totals);
+        return $this->presentChannelTotals($totals, $hrefFor);
     }
 
     private function channelRevenueBreakdown($workspace, Carbon $start, Carbon $end): array
     {
-        $totals = [];
+        $orderTotals = [];
+        $appointmentTotals = [];
 
         if ($workspace->orders_enabled) {
             foreach (Order::whereBetween('created_at', [$start, $end])
@@ -186,7 +189,7 @@ class AnalyticsController extends Controller
                 if (! in_array($type, self::SOCIAL_CHANNELS, true)) {
                     continue;
                 }
-                $totals[$type->value] = ($totals[$type->value] ?? 0) + (float) $order->price;
+                $orderTotals[$type->value] = ($orderTotals[$type->value] ?? 0) + (float) $order->price;
             }
         }
 
@@ -198,14 +201,52 @@ class AnalyticsController extends Controller
                 if (! in_array($type, self::SOCIAL_CHANNELS, true)) {
                     continue;
                 }
-                $totals[$type->value] = ($totals[$type->value] ?? 0) + (float) ($appointment->price ?? 0);
+                $appointmentTotals[$type->value] = ($appointmentTotals[$type->value] ?? 0) + (float) ($appointment->price ?? 0);
             }
         }
 
-        return $this->presentChannelTotals($totals);
+        $totals = [];
+        foreach ([$orderTotals, $appointmentTotals] as $set) {
+            foreach ($set as $type => $value) {
+                $totals[$type] = ($totals[$type] ?? 0) + $value;
+            }
+        }
+
+        $createdFrom = $start->format('Y-m-d');
+        $createdTo = $end->format('Y-m-d');
+
+        // A channel's revenue bar can be fed by orders, appointments, or
+        // both. Only link out when exactly one module contributed — a
+        // mixed total has no single list view that reproduces it exactly.
+        $hrefFor = function (string $type) use ($orderTotals, $appointmentTotals, $createdFrom, $createdTo) {
+            $inOrders = array_key_exists($type, $orderTotals);
+            $inAppointments = array_key_exists($type, $appointmentTotals);
+
+            if ($inOrders && ! $inAppointments) {
+                return route('orders.index', [
+                    'channel_type' => $type,
+                    'status_scope' => 'not_cancelled',
+                    'created_from' => $createdFrom,
+                    'created_to' => $createdTo,
+                ]);
+            }
+
+            if ($inAppointments && ! $inOrders) {
+                return route('appointments.index', [
+                    'channel_type' => $type,
+                    'status' => 'requested,confirmed,completed',
+                    'created_from' => $createdFrom,
+                    'created_to' => $createdTo,
+                ]);
+            }
+
+            return null;
+        };
+
+        return $this->presentChannelTotals($totals, $hrefFor);
     }
 
-    private function presentChannelTotals(array $totals): array
+    private function presentChannelTotals(array $totals, ?callable $hrefFor = null): array
     {
         arsort($totals);
 
@@ -215,6 +256,7 @@ class AnalyticsController extends Controller
                 'label' => ChannelType::from($type)->label(),
                 'color' => ChannelType::from($type)->color(),
                 'value' => round((float) $value, 2),
+                'href' => $hrefFor ? $hrefFor($type) : null,
             ])
             ->values()
             ->all();
@@ -222,37 +264,63 @@ class AnalyticsController extends Controller
 
     private function topProducts(Carbon $start, Carbon $end): array
     {
-        $totals = [];
+        $rows = [];
 
         foreach (Order::whereBetween('created_at', [$start, $end])
             ->whereNotIn('status', OrderStatus::cancelledKeys())
+            ->with('product')
             ->get() as $order) {
-            $totals[$order->title] = ($totals[$order->title] ?? 0) + (float) $order->price;
+            // Group by the linked catalog product when there is one — that's
+            // what makes an exact "Orders for this product" drill-down
+            // possible. Orders with no catalog link (one-off titles) are
+            // grouped by title text instead and stay non-clickable.
+            $key = $order->catalog_item_id ? "product:{$order->catalog_item_id}" : "title:{$order->title}";
+            $rows[$key] ??= ['name' => $order->product?->name ?? $order->title, 'revenue' => 0.0, 'product_id' => $order->catalog_item_id];
+            $rows[$key]['revenue'] += (float) $order->price;
         }
 
-        return $this->presentTopItems($totals);
+        return $this->presentTopItems($rows, 'product_id', fn ($id) => route('orders.index', [
+            'catalog_item_id' => $id,
+            'status_scope' => 'not_cancelled',
+            'created_from' => $start->format('Y-m-d'),
+            'created_to' => $end->format('Y-m-d'),
+        ]));
     }
 
     private function topServices(Carbon $start, Carbon $end): array
     {
-        $totals = [];
+        $rows = [];
 
         foreach (Appointment::whereBetween('created_at', [$start, $end])
             ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
+            ->with('service')
             ->get() as $appointment) {
-            $totals[$appointment->service_name] = ($totals[$appointment->service_name] ?? 0) + (float) ($appointment->price ?? 0);
+            $key = $appointment->service_id ? "service:{$appointment->service_id}" : "title:{$appointment->service_name}";
+            $rows[$key] ??= ['name' => $appointment->service?->name ?? $appointment->service_name, 'revenue' => 0.0, 'service_id' => $appointment->service_id];
+            $rows[$key]['revenue'] += (float) ($appointment->price ?? 0);
         }
 
-        return $this->presentTopItems($totals);
+        return $this->presentTopItems($rows, 'service_id', fn ($id) => route('appointments.index', [
+            'service_id' => $id,
+            'status' => 'requested,confirmed,completed',
+            'created_from' => $start->format('Y-m-d'),
+            'created_to' => $end->format('Y-m-d'),
+        ]));
     }
 
-    private function presentTopItems(array $totals): array
+    /**
+     * @param  array<string, array{name: string, revenue: float, ...}>  $rows
+     */
+    private function presentTopItems(array $rows, string $idField, callable $hrefFor): array
     {
-        arsort($totals);
-
-        return collect($totals)
+        return collect($rows)
+            ->sortByDesc('revenue')
             ->take(6)
-            ->map(fn ($revenue, $name) => ['name' => $name, 'revenue' => round((float) $revenue, 2)])
+            ->map(fn ($row) => [
+                'name' => $row['name'],
+                'revenue' => round($row['revenue'], 2),
+                'href' => $row[$idField] ? $hrefFor($row[$idField]) : null,
+            ])
             ->values()
             ->all();
     }

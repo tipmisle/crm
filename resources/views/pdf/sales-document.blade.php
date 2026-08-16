@@ -27,9 +27,21 @@
     .qr { width: 140px; height: 140px; }
     .footer { margin-top: 26px; font-size: 9px; color: #6b7280; }
     .vat-note { margin-top: 8px; font-size: 9px; color: #6b7280; }
+    .correction-banner { margin-bottom: 14px; padding: 10px 14px; border: 1px solid #b91c1c; border-radius: 4px; background: #fef2f2; color: #7f1d1d; font-size: 10px; }
+    .correction-banner strong { display: block; font-size: 11px; margin-bottom: 2px; }
 </style>
 </head>
 <body>
+
+@if(!empty($is_correction))
+    <div class="correction-banner">
+        <strong>Ta dokument je DOBROPIS / STORNO računa {{ $corrects_document_number ?? '' }} z dne {{ $corrects_issued_at ?? '' }}.</strong>
+        Vsi zneski v tem dokumentu obrnejo prvotno izdani račun in ga v celoti razveljavijo.
+        @if(!empty($correction_reason))
+            Razlog: {{ $correction_reason }}
+        @endif
+    </div>
+@endif
 
 <table class="header-table">
     <tr>
@@ -94,7 +106,7 @@
         <th>Postavka</th>
         <th class="num">Količina</th>
         <th class="num">Enota</th>
-        <th class="num">Cena/enoto</th>
+        <th class="num">Cena/enoto {{ ($vat_registered && ($prices_include_vat ?? true)) ? '(z DDV)' : (($vat_registered) ? '(brez DDV)' : '') }}</th>
         @if($vat_registered)
             <th class="num">DDV</th>
         @endif
@@ -116,6 +128,29 @@
     @endforeach
     </tbody>
 </table>
+
+@if($vat_registered && !empty($tax_breakdown) && count($tax_breakdown) > 1)
+    <table class="items-table" style="margin-top: 14px;">
+        <thead>
+        <tr>
+            <th>Stopnja DDV</th>
+            <th class="num">Osnova</th>
+            <th class="num">DDV</th>
+            <th class="num">Skupaj</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach($tax_breakdown as $row)
+            <tr>
+                <td>{{ $row['vat_rate'] }}%</td>
+                <td class="num">{{ number_format((float) $row['net'], 2, ',', '.') }} {{ $currency }}</td>
+                <td class="num">{{ number_format((float) $row['vat'], 2, ',', '.') }} {{ $currency }}</td>
+                <td class="num">{{ number_format((float) $row['gross'], 2, ',', '.') }} {{ $currency }}</td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
+@endif
 
 <table class="totals-table">
     @if($vat_registered)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
 use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\FollowUp;
 use App\Models\Order;
 use App\Models\OrderStatus;
@@ -51,11 +52,6 @@ class TodayController extends Controller
                 ->orderBy('due_time')
                 ->get();
 
-            // Tied to the seeded default key rather than a new semantic
-            // flag — degrades to 0 if a workspace renames/removes it, works
-            // identically for everyone else. See docs on this decision.
-            $quotesWaitingCount = Order::query()->where('status', 'quote_sent')->count();
-
             $depositsUnpaidCount = Order::query()
                 ->whereIn('status', $openStatuses)
                 ->whereIn('payment_status', PaymentStatus::outstandingKeys())
@@ -75,15 +71,7 @@ class TodayController extends Controller
                         ? '1 naročilo zapade danes'
                         : "{$todaysOrders->count()} naročil zapade danes",
                     'count' => $todaysOrders->count(),
-                    'href' => route('orders.index', ['due' => 'today']),
-                ],
-                [
-                    'key' => 'quotes_waiting',
-                    'label' => $quotesWaitingCount === 1
-                        ? '1 ponudba čaka na potrditev'
-                        : "{$quotesWaitingCount} ponudb čaka na potrditev",
-                    'count' => $quotesWaitingCount,
-                    'href' => route('orders.index', ['status' => 'quote_sent']),
+                    'href' => route('orders.index', ['due' => 'today', 'status_scope' => 'open']),
                 ],
                 [
                     'key' => 'deposits_unpaid',
@@ -91,7 +79,11 @@ class TodayController extends Controller
                         ? '1 ara še ni plačana'
                         : "{$depositsUnpaidCount} ar še ni plačanih",
                     'count' => $depositsUnpaidCount,
-                    'href' => route('orders.index', ['payment' => 'deposit_due']),
+                    'href' => route('orders.index', [
+                        'status_scope' => 'open',
+                        'payment_scope' => 'outstanding',
+                        'deposit' => 'unpaid',
+                    ]),
                 ],
                 [
                     'key' => 'overdue',
@@ -141,7 +133,11 @@ class TodayController extends Controller
                         ? '1 termin danes'
                         : "{$todaysAppointments->count()} terminov danes",
                     'count' => $todaysAppointments->count(),
-                    'href' => route('appointments.index', ['view' => 'list', 'filter' => 'today']),
+                    'href' => route('appointments.index', [
+                        'view' => 'list',
+                        'due' => 'today',
+                        'status' => implode(',', $activeStatuses),
+                    ]),
                 ],
                 [
                     'key' => 'awaiting_confirmation',
@@ -149,7 +145,10 @@ class TodayController extends Controller
                         ? '1 termin čaka na potrditev'
                         : "{$awaitingConfirmationCount} terminov čaka na potrditev",
                     'count' => $awaitingConfirmationCount,
-                    'href' => route('appointments.index', ['view' => 'list']),
+                    'href' => route('appointments.index', [
+                        'view' => 'list',
+                        'status' => AppointmentStatus::Requested->value,
+                    ]),
                 ],
                 [
                     'key' => 'appointment_deposits_unpaid',
@@ -157,7 +156,12 @@ class TodayController extends Controller
                         ? '1 ara za termin še ni plačana'
                         : "{$appointmentDepositsUnpaidCount} ar za termine še ni plačanih",
                     'count' => $appointmentDepositsUnpaidCount,
-                    'href' => route('appointments.index', ['view' => 'list']),
+                    'href' => route('appointments.index', [
+                        'view' => 'list',
+                        'status' => implode(',', $activeStatuses),
+                        'payment_scope' => 'outstanding',
+                        'deposit' => 'unpaid',
+                    ]),
                 ],
             );
 
@@ -220,10 +224,10 @@ class TodayController extends Controller
     {
         $followable = $followUp->followable;
         $href = match (true) {
-            $followable instanceof \App\Models\Customer => route('customers.show', $followable),
-            $followable instanceof \App\Models\Order => route('orders.show', $followable),
-            $followable instanceof \App\Models\Appointment => route('appointments.show', $followable),
-            $followable instanceof \App\Models\Conversation => route('inbox.show', $followable),
+            $followable instanceof Customer => route('customers.show', $followable),
+            $followable instanceof Order => route('orders.show', $followable),
+            $followable instanceof Appointment => route('appointments.show', $followable),
+            $followable instanceof Conversation => route('inbox.show', $followable),
             default => '#',
         };
 

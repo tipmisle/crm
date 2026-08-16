@@ -17,6 +17,7 @@ import {
     Menu,
     BarChart3,
     ShieldCheck,
+    FileText,
 } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
 import Avatar from '@/Components/Avatar.vue';
@@ -55,6 +56,9 @@ const nav = computed(() => [
         ? [{ name: 'Ponudba', href: () => route('catalog.index'), icon: Sparkles, current: () => route().current('catalog.*') }]
         : []),
     { name: 'Stranke', href: () => route('customers.index'), icon: Users, current: () => route().current('customers.*') },
+    ...(page.props.workspace?.orders_enabled || page.props.workspace?.appointments_enabled
+        ? [{ name: 'Dokumenti', href: () => route('documents.index'), icon: FileText, current: () => route().current('documents.index') }]
+        : []),
     { name: 'Analitika', href: () => route('analytics.index'), icon: BarChart3, current: () => route().current('analytics.*') },
     { name: 'Nastavitve', href: () => route('settings.edit'), icon: Settings, current: () => route().current('settings.*') },
 ]);

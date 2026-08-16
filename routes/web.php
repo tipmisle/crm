@@ -14,6 +14,8 @@ use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
 use App\Http\Controllers\Invoicing\ExternalDocumentController;
 use App\Http\Controllers\Invoicing\SalesDocumentController;
+use App\Http\Controllers\Invoicing\SalesDocumentCorrectionController;
+use App\Http\Controllers\Invoicing\DocumentsController;
 use App\Http\Controllers\Invoicing\SalesDocumentDownloadController;
 use App\Http\Controllers\Invoicing\SalesDocumentReminderController;
 use App\Http\Controllers\Invoicing\SalesDocumentSendController;
@@ -126,6 +128,7 @@ Route::middleware('auth')->group(function () {
 
         Route::resource('customers', CustomerController::class)->except(['edit']);
         Route::resource('orders', OrderController::class)->except(['edit']);
+        Route::get('/orders-export', [OrderController::class, 'exportCsv'])->name('orders.export');
         Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
         Route::post('/orders/{order}/notify', [OrderNotificationController::class, 'store'])->name('orders.notify.store');
 
@@ -135,6 +138,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/documents/{document}/download', [SalesDocumentDownloadController::class, 'show'])->name('documents.download');
         Route::post('/documents/{document}/send', [SalesDocumentSendController::class, 'store'])->name('documents.send');
         Route::post('/documents/{document}/remind', [SalesDocumentReminderController::class, 'store'])->name('documents.remind');
+        Route::post('/documents/{document}/cancel', [SalesDocumentCorrectionController::class, 'cancelProforma'])->name('documents.cancel');
+        Route::post('/documents/{document}/storno', [SalesDocumentCorrectionController::class, 'storno'])->name('documents.storno');
+
+        Route::get('/dokumenti', [DocumentsController::class, 'index'])->name('documents.index');
 
         Route::get('/analitika', [AnalyticsController::class, 'index'])->name('analytics.index');
 
@@ -143,6 +150,7 @@ Route::middleware('auth')->group(function () {
 
         Route::middleware('appointments.enabled')->group(function () {
             Route::resource('appointments', AppointmentController::class)->except(['edit']);
+            Route::get('/appointments-export', [AppointmentController::class, 'exportCsv'])->name('appointments.export');
             Route::post('/appointments/{appointment}/notify', [AppointmentNotificationController::class, 'store'])->name('appointments.notify.store');
             Route::get('/appointments/{appointment}/documents/create', [SalesDocumentController::class, 'createForAppointment'])->name('appointments.documents.create');
             Route::post('/appointments/{appointment}/documents', [SalesDocumentController::class, 'storeForAppointment'])->name('appointments.documents.store');

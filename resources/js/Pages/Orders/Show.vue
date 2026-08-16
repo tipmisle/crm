@@ -6,6 +6,7 @@ import Badge from '@/Components/Badge.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
 import SendDocumentModal from '@/Components/SendDocumentModal.vue';
+import StornoDocumentModal from '@/Components/StornoDocumentModal.vue';
 import ExternalDocumentModal from '@/Components/ExternalDocumentModal.vue';
 import NotifyCustomerModal from '@/Components/NotifyCustomerModal.vue';
 import CustomerContactCard from '@/Components/CustomerContactCard.vue';
@@ -13,7 +14,7 @@ import DateInput from '@/Components/DateInput.vue';
 import { formatMoney, formatDate, formatDateTime, formatTime, normalizeMoneyInput } from '@/lib/format';
 import type { ActivityLogEntry, FollowUp, Order, SalesDocument } from '@/types/models';
 import type { PageProps } from '@/types';
-import { CalendarClock, MessageSquare, Bell, Check, Ban, Settings, FileText, Paperclip, Send } from 'lucide-vue-next';
+import { CalendarClock, MessageSquare, Bell, Check, Ban, Settings, FileText, Paperclip, Send, Package } from 'lucide-vue-next';
 
 const props = defineProps<{
     order: Order;
@@ -32,14 +33,23 @@ const statusMeta = computed(() => orderStatuses.value.find((s) => s.key === prop
 const paymentMeta = computed(
     () => paymentStatuses.value.find((s) => s.key === props.order.payment_status) ?? { ...fallbackStatus, label: props.order.payment_status },
 );
+// Order statuses are workspace-customizable — "cancelled" is whichever
+// status is flagged is_cancelled, not a literal 'cancelled' key.
+const cancelledStatusKey = computed(() => orderStatuses.value.find((s) => s.is_cancelled)?.key);
+const isCancelled = computed(() => 'is_cancelled' in statusMeta.value && statusMeta.value.is_cancelled === true);
 
 function updateStatus(status: string) {
     router.patch(route('orders.update', props.order.id), { status }, { preserveScroll: true });
 }
 
 function cancelOrder() {
+    if (!cancelledStatusKey.value) return;
     if (!confirm(`Prekličeš naročilo ${props.order.order_number}?`)) return;
-    updateStatus('cancelled');
+    updateStatus(cancelledStatusKey.value);
+}
+
+function completeFollowUp(id: number) {
+    router.patch(route('follow-ups.complete', id), {}, { preserveScroll: true });
 }
 
 function updatePayment(payment_status: string) {
@@ -98,11 +108,12 @@ const followUpOpen = ref(false);
 const customerName = computed(() => props.order.customer?.full_name ?? 'tam');
 const balanceDue = computed(() => Math.max(0, Number(props.order.price) - Number(props.order.amount_paid)));
 
-function documentsOfType(type: 'proforma' | 'invoice') {
+function documentsOfType(type: 'proforma' | 'invoice' | 'storno') {
     return (props.order.sales_documents ?? []).filter((d) => d.type === type);
 }
 const proformaDocuments = computed(() => documentsOfType('proforma'));
 const invoiceDocuments = computed(() => documentsOfType('invoice'));
+const stornoDocuments = computed(() => documentsOfType('storno'));
 const otherDocuments = computed(() => (props.order.sales_documents ?? []).filter((d) => d.type === 'other'));
 
 const sendModal = ref<{ open: boolean; document: SalesDocument | null; title: string; submitLabel: string; body: string }>({
@@ -114,11 +125,13 @@ const sendModal = ref<{ open: boolean; document: SalesDocument | null; title: st
 });
 
 function openSendModal(document: SalesDocument) {
-    const typeLabel = document.type === 'proforma' ? 'predračun' : 'račun';
+    const typeLabel = document.type === 'proforma' ? 'predračun' : document.type === 'storno' ? 'popravek/storno računa' : 'račun';
     const body =
         document.type === 'proforma'
             ? `Živjo ${customerName.value} 😊 Pošiljam ti predračun za naročilo. Podatke za nakazilo najdeš v priponki.`
-            : `Živjo ${customerName.value} 😊 Pošiljam ti račun za naročilo. Hvala!`;
+            : document.type === 'storno'
+              ? `Živjo ${customerName.value}, pošiljam ${typeLabel} ${document.corrects_document?.document_number ?? ''}. Dokument je v priponki.`
+              : `Živjo ${customerName.value} 😊 Pošiljam ti račun za naročilo. Hvala!`;
 
     sendModal.value = {
         open: true,
@@ -127,6 +140,17 @@ function openSendModal(document: SalesDocument) {
         submitLabel: 'Pošlji',
         body,
     };
+}
+
+const stornoModal = ref<{ open: boolean; document: SalesDocument | null }>({ open: false, document: null });
+
+function openStornoModal(document: SalesDocument) {
+    stornoModal.value = { open: true, document };
+}
+
+function cancelProforma(document: SalesDocument) {
+    if (!confirm(`Prekličeš predračun ${document.document_number}? Predračuna po tem ne bo več mogoče poslati kot aktivno plačilno zahtevo.`)) return;
+    router.post(route('documents.cancel', document.id), {}, { preserveScroll: true });
 }
 
 function openReminderModal(document: SalesDocument) {
@@ -179,7 +203,7 @@ const notifyModalOpen = ref(false);
                         <Settings :size="14" />
                     </Link>
                     <button
-                        v-if="order.status !== 'cancelled'"
+                        v-if="!isCancelled && cancelledStatusKey"
                         type="button"
                         class="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
                         @click="cancelOrder"
@@ -197,6 +221,14 @@ const notifyModalOpen = ref(false);
                             <Badge :color="statusMeta.color" :bg="statusMeta.bg">{{ statusMeta.label }}</Badge>
                         </div>
                         <p class="mt-2 text-sm text-neutral-700">{{ order.description || 'Opis ni dodan.' }}</p>
+
+                        <p v-if="order.product" class="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
+                            <Package :size="12" />
+                            Produkt:
+                            <Link :href="route('catalog.index')" class="font-medium text-[var(--color-accent-600)] hover:underline">
+                                {{ order.product.name }}
+                            </Link>
+                        </p>
 
                         <div class="mt-4">
                             <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
@@ -293,31 +325,54 @@ const notifyModalOpen = ref(false);
                         </p>
 
                         <div class="mt-3 space-y-3">
-                            <div v-for="doc in [...proformaDocuments, ...invoiceDocuments, ...otherDocuments]" :key="doc.id" class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5">
+                            <div v-for="doc in [...proformaDocuments, ...invoiceDocuments, ...stornoDocuments, ...otherDocuments]" :id="`doc-${doc.id}`" :key="doc.id" class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5">
                                 <div class="flex items-center gap-2.5">
                                     <FileText :size="16" class="text-neutral-400" />
                                     <div>
-                                        <p class="text-sm font-medium text-neutral-800">
-                                            {{ doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : 'Drugo' }}
-                                            {{ doc.document_number ?? doc.external_document_number }}
+                                        <a
+                                            :href="route('documents.download', doc.id)"
+                                            target="_blank"
+                                            class="text-sm font-medium text-neutral-800 hover:text-[var(--color-accent-600)] hover:underline"
+                                            title="Odpri / prenesi dokument"
+                                        >
+                                            <template v-if="doc.type === 'storno'">
+                                                Storno računa {{ doc.corrects_document?.document_number }}
+                                                <span class="font-normal text-neutral-400">({{ doc.document_number }})</span>
+                                            </template>
+                                            <template v-else>
+                                                {{ doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : 'Drugo' }}
+                                                {{ doc.document_number ?? doc.external_document_number }}
+                                            </template>
                                             <span v-if="doc.source === 'external'" class="ml-1 text-xs font-normal text-neutral-400">(zunanji)</span>
-                                        </p>
+                                        </a>
+                                        <span
+                                            v-if="doc.status_label"
+                                            class="ml-2 inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700"
+                                        >
+                                            {{ doc.status_label }}
+                                        </span>
                                         <p class="text-xs text-neutral-400">
                                             Izdano {{ formatDate(doc.issued_at) }}
                                             <span v-if="doc.sent_at"> · Poslano {{ formatDate(doc.sent_at) }}</span>
-                                            <span v-else> · Ni še poslano</span>
+                                            <span v-else-if="doc.status === 'issued'"> · Ni še poslano</span>
+                                            <template v-if="doc.status === 'reversed' && doc.correction">
+                                                · <a :href="`#doc-${doc.correction.id}`" class="font-medium text-red-700 hover:underline">→ Storno {{ doc.correction.document_number }}</a>
+                                            </template>
                                         </p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <a :href="route('documents.download', doc.id)" target="_blank" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline">
-                                        Odpri
-                                    </a>
-                                    <button v-if="order.conversation" type="button" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline" @click="openSendModal(doc)">
+                                    <button v-if="order.conversation && doc.status === 'issued'" type="button" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline" @click="openSendModal(doc)">
                                         {{ doc.sent_at ? 'Pošlji znova' : 'Pošlji stranki' }}
                                     </button>
-                                    <button v-if="order.conversation && doc.sent_at" type="button" class="text-xs font-medium text-neutral-500 hover:underline" @click="openReminderModal(doc)">
+                                    <button v-if="order.conversation && doc.sent_at && doc.status === 'issued'" type="button" class="text-xs font-medium text-neutral-500 hover:underline" @click="openReminderModal(doc)">
                                         Opomnik
+                                    </button>
+                                    <button v-if="doc.can_be_cancelled" type="button" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline" @click="cancelProforma(doc)">
+                                        Prekliči predračun
+                                    </button>
+                                    <button v-if="doc.can_be_stornoed" type="button" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline" @click="openStornoModal(doc)">
+                                        Storniraj račun
                                     </button>
                                 </div>
                             </div>
@@ -381,14 +436,22 @@ const notifyModalOpen = ref(false);
                                 </div>
                             </div>
 
-                            <div v-for="followUp in followUps" :key="`f-${followUp.id}`" class="flex gap-2.5 text-sm">
-                                <Bell :size="13" class="mt-0.5 shrink-0 text-amber-500" />
-                                <div>
+                            <div v-for="followUp in followUps" :key="`f-${followUp.id}`" class="flex items-start gap-2.5 text-sm">
+                                <Bell :size="13" class="mt-1 shrink-0 text-amber-500" />
+                                <div class="min-w-0 flex-1">
                                     <p class="text-neutral-700">{{ followUp.note }}</p>
                                     <p class="text-xs text-neutral-400">
                                         Opomnik {{ followUp.completed_at ? 'zaključen' : 'zapade' }} {{ formatDateTime(followUp.due_at) }}
                                     </p>
                                 </div>
+                                <button
+                                    v-if="!followUp.completed_at"
+                                    type="button"
+                                    class="flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-500 hover:text-emerald-600"
+                                    @click="completeFollowUp(followUp.id)"
+                                >
+                                    <Check :size="12" /> Zaključi
+                                </button>
                             </div>
 
                             <p v-if="!activity.length && !followUps.length" class="text-sm text-neutral-400">Še ni aktivnosti.</p>
@@ -521,6 +584,13 @@ const notifyModalOpen = ref(false);
         />
 
         <ExternalDocumentModal :show="externalDocumentOpen" :documentable-id="order.id" @close="externalDocumentOpen = false" />
+
+        <StornoDocumentModal
+            :show="stornoModal.open"
+            :document-number="stornoModal.document?.document_number ?? ''"
+            :action="stornoModal.document ? route('documents.storno', stornoModal.document.id) : ''"
+            @close="stornoModal.open = false"
+        />
 
         <NotifyCustomerModal
             :show="notifyModalOpen"

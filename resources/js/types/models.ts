@@ -193,8 +193,10 @@ export interface SalesDocument {
     order_id: number | null;
     appointment_id: number | null;
     customer_id: number | null;
-    type: 'proforma' | 'invoice' | 'other';
+    corrects_document_id: number | null;
+    type: 'proforma' | 'invoice' | 'storno' | 'other';
     source: 'issued' | 'external';
+    status: 'issued' | 'cancelled' | 'reversed';
     document_number: string | null;
     external_document_number: string | null;
     issued_at: string;
@@ -202,7 +204,17 @@ export interface SalesDocument {
     currency: string;
     total: string | number;
     sent_at: string | null;
+    cancelled_at: string | null;
+    cancellation_reason: string | null;
     created_at: string;
+    can_be_cancelled: boolean;
+    can_be_stornoed: boolean;
+    status_label: string | null;
+    corrects_document?: Pick<SalesDocument, 'id' | 'document_number' | 'issued_at' | 'type'> | null;
+    correction?: Pick<SalesDocument, 'id' | 'document_number' | 'corrects_document_id' | 'type'> | null;
+    customer?: { id: number; full_name: string } | null;
+    order?: { id: number; order_number: string; title: string } | null;
+    appointment?: { id: number; appointment_number: string; service_name: string } | null;
 }
 
 export interface FollowUp {

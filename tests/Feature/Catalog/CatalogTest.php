@@ -315,3 +315,53 @@ test('the Ponudba catalog page only exposes services for an appointment-only wor
         ->has('services', 1)
     );
 });
+
+test('opening the order create page from a product preselects it', function () {
+    [, $user] = createWorkspaceWithUser();
+    $this->actingAs($user);
+
+    $product = Product::create(['name' => 'Rojstnodnevna torta', 'default_price' => 85, 'active' => true]);
+
+    $this->get(route('orders.create', ['product_id' => $product->id]))
+        ->assertInertia(fn ($page) => $page
+            ->component('Orders/Create')
+            ->where('selectedProductId', $product->id)
+        );
+});
+
+test('opening the appointment create page from a service preselects it', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    $workspace->update(['appointments_enabled' => true]);
+    $this->actingAs($user);
+
+    $service = Service::create(['name' => 'Gel manikura', 'default_duration_minutes' => 60, 'active' => true]);
+
+    $this->get(route('appointments.create', ['service_id' => $service->id]))
+        ->assertInertia(fn ($page) => $page
+            ->component('Appointments/Create')
+            ->where('selectedServiceId', $service->id)
+        );
+});
+
+test('an order linked to a catalog product exposes it for the "Produkt" link on the order detail page', function () {
+    [, $user] = createWorkspaceWithUser();
+    $this->actingAs($user);
+
+    $customer = Customer::create([
+        'full_name' => 'Ana Novak',
+        'first_contacted_at' => now(),
+        'last_interaction_at' => now(),
+    ]);
+    $product = Product::create(['name' => 'Rojstnodnevna torta', 'default_price' => 85, 'active' => true]);
+
+    $order = Order::create([
+        'customer_id' => $customer->id,
+        'catalog_item_id' => $product->id,
+        'title' => $product->name,
+        'price' => 85,
+        'status' => 'confirmed',
+    ]);
+
+    $this->get(route('orders.show', $order))
+        ->assertInertia(fn ($page) => $page->where('order.product.id', $product->id));
+});

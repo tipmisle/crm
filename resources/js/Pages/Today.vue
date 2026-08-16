@@ -96,10 +96,14 @@ const markedDates = computed<string[]>(() => {
     return [...dates];
 });
 
-const calendarHref = computed(() => {
-    if (appointmentsEnabled.value) return route('appointments.index', { view: 'calendar' });
-    if (ordersEnabled.value) return route('orders.index', { view: 'calendar' });
-    return undefined;
+// With both modules enabled, offer both destinations explicitly rather than
+// silently picking one — clicking through must never hide the other module's
+// calendar. A single-module workspace goes straight to its own calendar.
+const calendarLinks = computed(() => {
+    const links: { label: string; href: string }[] = [];
+    if (ordersEnabled.value) links.push({ label: 'Naročila', href: route('orders.index', { view: 'calendar' }) });
+    if (appointmentsEnabled.value) links.push({ label: 'Termini', href: route('appointments.index', { view: 'calendar' }) });
+    return links;
 });
 
 const today = new Date();
@@ -271,7 +275,7 @@ function completeFollowUp(id: number) {
         </div>
 
         <aside class="space-y-4 lg:sticky lg:top-6">
-            <MiniCalendar :marked-dates="markedDates" :calendar-href="calendarHref" />
+            <MiniCalendar :marked-dates="markedDates" :calendar-links="calendarLinks" />
 
             <div class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-4">
                 <div class="mb-3 flex items-center justify-between">

@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\InvoiceSettings;
 use App\Models\Order;
 use App\Models\SalesDocument;
+use App\Services\Invoicing\SalesDocumentCalculationService;
 use App\Services\Invoicing\SalesDocumentNumberingService;
 use App\Services\Invoicing\SalesDocumentPdfService;
 use Illuminate\Http\RedirectResponse;
@@ -60,6 +61,7 @@ class SalesDocumentController extends Controller
             'settingsConfigured' => $settings->isConfigured(),
             'nextNumberPreview' => $settings->nextNumberPreview($type),
             'vatRegistered' => $settings->vat_registered,
+            'pricesIncludeVat' => $settings->prices_include_vat,
             'defaultDueDate' => now()->addDays($settings->default_payment_deadline_days)->format('Y-m-d'),
             'recipient' => [
                 'name' => $customer?->full_name,
@@ -123,27 +125,16 @@ class SalesDocumentController extends Controller
             ]);
         }
 
-        $lineItems = collect($data['line_items'])->map(function (array $item) use ($settings) {
-            $quantity = (float) $item['quantity'];
-            $unitPrice = (float) $item['unit_price'];
-            $vatRate = $settings->vat_registered ? (float) ($item['vat_rate'] ?? 0) : 0.0;
-            $lineTotal = round($quantity * $unitPrice, 2);
+        $calculation = app(SalesDocumentCalculationService::class)->calculate(
+            $data['line_items'],
+            $settings->vat_registered,
+            $settings->prices_include_vat,
+        );
 
-            return [
-                'description' => $item['description'],
-                'quantity' => $quantity,
-                'unit' => $item['unit'] ?? null,
-                'unit_price' => $unitPrice,
-                'vat_rate' => $vatRate,
-                'line_total' => $lineTotal,
-            ];
-        })->all();
-
-        $subtotal = round(array_sum(array_column($lineItems, 'line_total')), 2);
-        $vatTotal = $settings->vat_registered
-            ? round(array_sum(array_map(fn ($i) => $i['line_total'] * $i['vat_rate'] / 100, $lineItems)), 2)
-            : 0.0;
-        $total = round($subtotal + $vatTotal, 2);
+        $lineItems = $calculation['lines'];
+        $subtotal = $calculation['subtotal'];
+        $vatTotal = $calculation['vat_total'];
+        $total = $calculation['total'];
 
         $sellerSnapshot = [
             'company_name' => $settings->company_name,
@@ -236,12 +227,14 @@ class SalesDocumentController extends Controller
             'due_date' => $document->due_date?->format('d.m.Y'),
             'currency' => $document->currency,
             'vat_registered' => $document->vat_registered,
+            'prices_include_vat' => $settings->prices_include_vat,
             'vat_exempt_note' => $settings->vat_exempt_note,
             'seller' => array_merge($sellerSnapshot, [
                 'logo_url' => $sellerSnapshot['logo_path'] ? Storage::disk('public')->url($sellerSnapshot['logo_path']) : null,
             ]),
             'customer' => $customerSnapshot,
             'line_items' => $lineItems,
+            'tax_breakdown' => $calculation['tax_breakdown'],
             'subtotal' => $subtotal,
             'vat_total' => $vatTotal,
             'total' => $total,

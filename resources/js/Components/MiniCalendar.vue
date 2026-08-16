@@ -17,9 +17,17 @@ import {
 } from 'date-fns';
 import { sl } from 'date-fns/locale';
 
+interface CalendarLink {
+    label: string;
+    href: string;
+}
+
 const props = defineProps<{
     markedDates?: string[];
-    calendarHref?: string;
+    // A single destination opens directly; when both Orders and
+    // Appointments calendars exist, pass both so the click can't silently
+    // land on just one of them — see Today.vue's calendarLinks computed.
+    calendarLinks?: CalendarLink[];
 }>();
 
 const cursor = ref(new Date());
@@ -106,13 +114,16 @@ function goToday() {
             >
                 Danes
             </button>
-            <Link
-                v-if="calendarHref"
-                :href="calendarHref"
-                class="text-xs font-medium text-[var(--color-accent-600)] hover:text-[var(--color-accent-700)]"
-            >
-                Odpri koledar
-            </Link>
+            <div v-if="calendarLinks?.length" class="flex items-center gap-3">
+                <Link
+                    v-for="link in calendarLinks"
+                    :key="link.href"
+                    :href="link.href"
+                    class="text-xs font-medium text-[var(--color-accent-600)] hover:text-[var(--color-accent-700)]"
+                >
+                    {{ calendarLinks.length > 1 ? link.label : 'Odpri koledar' }}
+                </Link>
+            </div>
         </div>
     </div>
 </template>

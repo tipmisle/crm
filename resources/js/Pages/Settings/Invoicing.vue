@@ -13,6 +13,7 @@ interface InvoiceSettingsData {
     country: string | null;
     tax_number: string | null;
     vat_registered: boolean;
+    prices_include_vat: boolean;
     email: string | null;
     phone: string | null;
     iban: string | null;
@@ -43,6 +44,7 @@ const form = useForm({
     country: props.settings.country ?? '',
     tax_number: props.settings.tax_number ?? '',
     vat_registered: props.settings.vat_registered,
+    prices_include_vat: props.settings.prices_include_vat,
     email: props.settings.email ?? '',
     phone: props.settings.phone ?? '',
     iban: props.settings.iban ?? '',
@@ -139,6 +141,22 @@ function removeLogo() {
                     <div v-if="!form.vat_registered" class="sm:col-span-2">
                         <label class="block text-xs text-neutral-500">Opomba o neobdavčitvi z DDV</label>
                         <textarea v-model="form.vat_exempt_note" :disabled="!isOwner" rows="2" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none disabled:bg-neutral-50" />
+                    </div>
+                    <div v-if="form.vat_registered" class="sm:col-span-2 rounded-md border border-neutral-200 px-3 py-2.5">
+                        <div class="flex items-start gap-2">
+                            <input id="prices_include_vat" v-model="form.prices_include_vat" :disabled="!isOwner" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-neutral-300" />
+                            <div>
+                                <label for="prices_include_vat" class="text-sm text-neutral-700">Vnesene cene vključujejo DDV</label>
+                                <p class="mt-0.5 text-xs text-neutral-500">
+                                    Če vpišeš 80 €, bo končni znesek računa 80 € — DDV se izračuna iz vpisanega
+                                    zneska, ne prišteje zraven.
+                                </p>
+                                <p v-if="!form.prices_include_vat" class="mt-1 text-xs text-amber-700">
+                                    Izklopljeno: vpisana cena je osnova brez DDV, DDV se prišteje zraven, zato bo
+                                    končni znesek računa višji od vpisane cene.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </SectionCard>

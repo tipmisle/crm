@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import CatalogItemModal from '@/Components/CatalogItemModal.vue';
 import { formatMoney } from '@/lib/format';
-import { Plus, Pencil, Trash2 } from 'lucide-vue-next';
+import { Plus, Pencil, Trash2, ShoppingCart, CalendarPlus } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
 import type { Product, Service } from '@/types/models';
 
@@ -114,6 +114,12 @@ function destroy(kind: 'product' | 'service', item: Product | Service) {
                             </p>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
+                            <Link
+                                :href="route('orders.create', { product_id: product.id })"
+                                class="flex items-center gap-1 text-xs font-medium text-[var(--color-accent-600)] hover:underline"
+                            >
+                                <ShoppingCart :size="12" /> Ustvari naročilo
+                            </Link>
                             <button type="button" class="text-neutral-400 hover:text-neutral-700" @click="openEdit('product', product)">
                                 <Pencil :size="14" />
                             </button>
@@ -167,6 +173,12 @@ function destroy(kind: 'product' | 'service', item: Product | Service) {
                             </p>
                         </div>
                         <div class="flex shrink-0 items-center gap-3">
+                            <Link
+                                :href="route('appointments.create', { service_id: service.id })"
+                                class="flex items-center gap-1 text-xs font-medium text-[var(--color-accent-600)] hover:underline"
+                            >
+                                <CalendarPlus :size="12" /> Rezerviraj termin
+                            </Link>
                             <button type="button" class="text-neutral-400 hover:text-neutral-700" @click="openEdit('service', service)">
                                 <Pencil :size="14" />
                             </button>

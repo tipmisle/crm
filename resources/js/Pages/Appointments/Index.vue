@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import AppointmentCard from '@/Components/AppointmentCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
-import { Search, Plus, CalendarDays, List } from 'lucide-vue-next';
+import { Search, Plus, CalendarDays, List, Download } from 'lucide-vue-next';
 import { format } from 'date-fns';
 import type { Appointment } from '@/types/models';
 import type { PageProps } from '@/types';
@@ -24,6 +24,14 @@ const payment = ref(props.filters.payment ?? '');
 const due = ref(props.filters.due ?? '');
 const calendarHref = computed(() =>
     route('appointments.index', { ...props.filters, view: 'calendar', week: format(new Date(), 'yyyy-MM-dd') }),
+);
+const exportHref = computed(() =>
+    route('appointments.export', {
+        search: search.value || undefined,
+        status: status.value || undefined,
+        payment: payment.value || undefined,
+        due: due.value || undefined,
+    }),
 );
 
 function applyFilters() {
@@ -65,6 +73,12 @@ watch([status, payment, due], applyFilters);
                     >
                         <CalendarDays :size="14" /> Koledar
                     </Link>
+                    <a
+                        :href="exportHref"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <Download :size="14" /> Izvozi CSV
+                    </a>
                     <Link
                         :href="route('appointments.create')"
                         class="flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"

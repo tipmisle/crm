@@ -10,9 +10,11 @@ import ChannelIcon from '@/Components/ChannelIcon.vue';
 import MessageBubble from '@/Components/MessageBubble.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
+import EditCustomerModal from '@/Components/EditCustomerModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { relativeTime, formatMoney, formatDate, formatTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
+import { channelMeta } from '@/lib/channels';
 import {
     Send,
     Plus,
@@ -27,8 +29,9 @@ import {
     CalendarPlus,
     ArrowLeft,
     Info,
+    Pencil,
 } from 'lucide-vue-next';
-import type { Channel, ConversationStatus, Message } from '@/types/models';
+import type { Channel, ChannelType, ConversationStatus, Message } from '@/types/models';
 
 interface ConversationListItem {
     id: number;
@@ -47,6 +50,11 @@ interface CustomerContext {
     full_name: string;
     email: string | null;
     phone: string | null;
+    address_line: string | null;
+    postal_code: string | null;
+    city: string | null;
+    country: string | null;
+    tax_number: string | null;
     notes: string | null;
     identities: { channel_type: string; username: string | null }[];
     total_orders_count: number;
@@ -78,6 +86,7 @@ interface ConversationDetail {
 const props = defineProps<{
     conversations: ConversationListItem[];
     conversation: ConversationDetail | null;
+    filters?: { channel_type?: string };
 }>();
 
 const messageForm = useForm({ body: '' });
@@ -203,6 +212,7 @@ function createCustomer() {
 }
 
 const followUpOpen = ref(false);
+const editCustomerOpen = ref(false);
 const noteModalOpen = ref(false);
 const noteForm = useForm({ note: '' });
 
@@ -228,6 +238,11 @@ const followableId = computed(() => props.conversation?.customer?.id ?? props.co
 const followableType = computed(() =>
     props.conversation?.customer ? 'App\\Models\\Customer' : 'App\\Models\\Conversation',
 );
+
+const activeChannelFilter = computed(() => props.filters?.channel_type as ChannelType | undefined);
+const activeChannelFilterLabel = computed(() =>
+    activeChannelFilter.value ? channelMeta(activeChannelFilter.value).label : null,
+);
 </script>
 
 <template>
@@ -243,6 +258,14 @@ const followableType = computed(() =>
                 class="w-full shrink-0 overflow-y-auto border-r border-neutral-200 bg-white lg:w-80"
                 :class="conversation ? 'hidden lg:block' : 'block'"
             >
+                <div
+                    v-if="activeChannelFilterLabel"
+                    class="flex items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-4 py-2 text-xs"
+                >
+                    <span class="text-neutral-500">Filtrirano po kanalu: <span class="font-medium text-neutral-700">{{ activeChannelFilterLabel }}</span></span>
+                    <Link :href="route('inbox.index')" class="font-medium text-[var(--color-accent-600)] hover:underline">Prikaži vse</Link>
+                </div>
+
                 <Link
                     v-for="c in conversations"
                     :key="c.id"
@@ -439,17 +462,30 @@ const followableType = computed(() =>
                 </button>
 
                 <template v-if="conversation.customer">
-                    <div class="flex items-center gap-3">
-                        <Avatar :name="conversation.customer.full_name" :src="conversation.avatar_url" size="lg" />
-                        <div class="min-w-0">
-                            <p class="truncate text-sm font-semibold text-neutral-900">{{ conversation.customer.full_name }}</p>
-                            <p class="truncate text-xs text-neutral-500">{{ conversation.customer_username }}</p>
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex min-w-0 items-center gap-3">
+                            <Avatar :name="conversation.customer.full_name" :src="conversation.avatar_url" size="lg" />
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-semibold text-neutral-900">{{ conversation.customer.full_name }}</p>
+                                <p class="truncate text-xs text-neutral-500">{{ conversation.customer_username }}</p>
+                            </div>
                         </div>
+                        <button
+                            type="button"
+                            class="flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-700"
+                            @click="editCustomerOpen = true"
+                        >
+                            <Pencil :size="12" /> Uredi
+                        </button>
                     </div>
 
                     <div class="mt-4 space-y-1.5 text-sm">
                         <p class="text-neutral-700"><span class="text-neutral-400">E-pošta: </span>{{ conversation.customer.email ?? '—' }}</p>
                         <p class="text-neutral-700"><span class="text-neutral-400">Telefon: </span>{{ conversation.customer.phone ?? '—' }}</p>
+                        <p v-if="conversation.customer.address_line || conversation.customer.city" class="text-neutral-700">
+                            <span class="text-neutral-400">Naslov: </span
+                            >{{ [conversation.customer.address_line, [conversation.customer.postal_code, conversation.customer.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') }}
+                        </p>
                     </div>
 
                     <div v-if="conversation.customer.notes" class="mt-3 rounded-md bg-neutral-50 p-2.5 text-xs text-neutral-600">
@@ -459,7 +495,17 @@ const followableType = computed(() =>
                     <div v-if="ordersEnabled" class="mt-5 rounded-lg border border-neutral-200 p-3">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Poslovni podatki</h3>
                         <div class="mt-2 space-y-1.5 text-sm text-neutral-700">
-                            <p>Prejšnjih naročil: {{ conversation.customer.total_orders_count }}</p>
+                            <p>
+                                Prejšnjih naročil:
+                                <Link
+                                    v-if="conversation.customer.total_orders_count"
+                                    :href="`${route('customers.show', conversation.customer.id)}#order-history`"
+                                    class="text-[var(--color-accent-600)] hover:underline"
+                                >
+                                    {{ conversation.customer.total_orders_count }}
+                                </Link>
+                                <span v-else>{{ conversation.customer.total_orders_count }}</span>
+                            </p>
                             <p>Skupno porabljeno: {{ formatMoney(conversation.customer.lifetime_spend) }}</p>
                             <p v-if="conversation.customer.current_open_order">
                                 Odprto naročilo:
@@ -474,7 +520,17 @@ const followableType = computed(() =>
                     <div v-if="appointmentsEnabled" class="mt-5 rounded-lg border border-neutral-200 p-3">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Termini</h3>
                         <div class="mt-2 space-y-1.5 text-sm text-neutral-700">
-                            <p>Prejšnjih terminov: {{ conversation.customer.previous_appointments_count }}</p>
+                            <p>
+                                Prejšnjih terminov:
+                                <Link
+                                    v-if="conversation.customer.previous_appointments_count"
+                                    :href="`${route('customers.show', conversation.customer.id)}#appointment-history`"
+                                    class="text-[var(--color-accent-600)] hover:underline"
+                                >
+                                    {{ conversation.customer.previous_appointments_count }}
+                                </Link>
+                                <span v-else>{{ conversation.customer.previous_appointments_count }}</span>
+                            </p>
                             <p>Skupno porabljeno: {{ formatMoney(conversation.customer.appointments_lifetime_spend) }}</p>
                             <p v-if="conversation.customer.no_show_appointments_count">Ni se zglasil/a: {{ conversation.customer.no_show_appointments_count }}×</p>
                             <p v-if="conversation.customer.upcoming_appointment">
@@ -578,6 +634,14 @@ const followableType = computed(() =>
             :followable-id="followableId"
             :default-note="`Opomnik za ${conversation.customer?.full_name ?? conversation.customer_display_name}`"
             @close="followUpOpen = false"
+        />
+
+        <EditCustomerModal
+            v-if="conversation?.customer"
+            :show="editCustomerOpen"
+            :customer="conversation.customer"
+            show-name
+            @close="editCustomerOpen = false"
         />
 
         <Modal :show="noteModalOpen" max-width="sm" @close="noteModalOpen = false">

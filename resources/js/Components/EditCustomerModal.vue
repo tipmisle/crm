@@ -2,12 +2,27 @@
 import { watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
-import type { Customer } from '@/types/models';
+
+// Only the fields this form actually edits — kept narrower than the full
+// Customer type so it also accepts lighter customer shapes (e.g. Inbox's
+// conversation.customer context object) without a structural mismatch.
+interface EditableCustomer {
+    id: number;
+    full_name: string;
+    email: string | null;
+    phone: string | null;
+    address_line?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    country?: string | null;
+    tax_number?: string | null;
+    notes: string | null;
+}
 
 const props = withDefaults(
     defineProps<{
         show: boolean;
-        customer: Customer;
+        customer: EditableCustomer;
         showName?: boolean;
         showNotes?: boolean;
     }>(),
@@ -26,6 +41,8 @@ const form = useForm({
     address_line: props.customer.address_line ?? '',
     postal_code: props.customer.postal_code ?? '',
     city: props.customer.city ?? '',
+    country: props.customer.country ?? '',
+    tax_number: props.customer.tax_number ?? '',
     notes: props.customer.notes ?? '',
 });
 
@@ -39,6 +56,8 @@ watch(
         form.address_line = props.customer.address_line ?? '';
         form.postal_code = props.customer.postal_code ?? '';
         form.city = props.customer.city ?? '';
+        form.country = props.customer.country ?? '';
+        form.tax_number = props.customer.tax_number ?? '';
         form.notes = props.customer.notes ?? '';
         form.clearErrors();
     },
@@ -116,6 +135,27 @@ function submit() {
                             class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                         />
                         <p v-if="form.errors.city" class="mt-1 text-xs text-red-500">{{ form.errors.city }}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Država</label>
+                        <input
+                            v-model="form.country"
+                            type="text"
+                            class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                        />
+                        <p v-if="form.errors.country" class="mt-1 text-xs text-red-500">{{ form.errors.country }}</p>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Davčna številka</label>
+                        <input
+                            v-model="form.tax_number"
+                            type="text"
+                            class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                        />
+                        <p v-if="form.errors.tax_number" class="mt-1 text-xs text-red-500">{{ form.errors.tax_number }}</p>
                     </div>
                 </div>
 

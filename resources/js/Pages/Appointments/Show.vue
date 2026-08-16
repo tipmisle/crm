@@ -8,12 +8,13 @@ import CustomerContactCard from '@/Components/CustomerContactCard.vue';
 import ExternalDocumentModal from '@/Components/ExternalDocumentModal.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
 import SendDocumentModal from '@/Components/SendDocumentModal.vue';
+import StornoDocumentModal from '@/Components/StornoDocumentModal.vue';
 import DateInput from '@/Components/DateInput.vue';
 import { formatMoney, formatDate, formatDateTime, normalizeMoneyInput } from '@/lib/format';
 import { APPOINTMENT_STATUS_ORDER, APPOINTMENT_STATUS_META } from '@/lib/statuses';
 import type { ActivityLogEntry, Appointment, AppointmentStatus, FollowUp, SalesDocument } from '@/types/models';
 import type { PageProps } from '@/types';
-import { MessageSquare, Bell, FileText, Paperclip, Settings, Ban, Send } from 'lucide-vue-next';
+import { MessageSquare, Bell, FileText, Paperclip, Settings, Ban, Send, Check, Tag } from 'lucide-vue-next';
 
 const props = defineProps<{
     appointment: Appointment;
@@ -52,6 +53,10 @@ function cancelAppointment() {
 
 function updatePayment(payment_status: string) {
     router.patch(route('appointments.update', props.appointment.id), { payment_status }, { preserveScroll: true });
+}
+
+function completeFollowUp(id: number) {
+    router.patch(route('follow-ups.complete', id), {}, { preserveScroll: true });
 }
 
 const paymentForm = useForm({
@@ -96,12 +101,13 @@ const appointmentReminderBody = computed(
         `${formatDate(props.appointment.appointment_date, { year: 'numeric' })} ob ${props.appointment.start_time.slice(0, 5)}.`,
 );
 
-function documentsOfType(type: 'proforma' | 'invoice') {
+function documentsOfType(type: 'proforma' | 'invoice' | 'storno') {
     return (props.appointment.sales_documents ?? []).filter((document) => document.type === type);
 }
 
 const proformaDocuments = computed(() => documentsOfType('proforma'));
 const invoiceDocuments = computed(() => documentsOfType('invoice'));
+const stornoDocuments = computed(() => documentsOfType('storno'));
 const otherDocuments = computed(() => (props.appointment.sales_documents ?? []).filter((document) => document.type === 'other'));
 const customerName = computed(() => props.appointment.customer?.full_name ?? 'tam');
 
@@ -114,14 +120,30 @@ const sendModal = ref<{ open: boolean; document: SalesDocument | null; title: st
 });
 
 function openSendModal(document: SalesDocument) {
-    const typeLabel = document.type === 'proforma' ? 'predračun' : 'račun';
+    const typeLabel = document.type === 'proforma' ? 'predračun' : document.type === 'storno' ? 'popravek/storno računa' : 'račun';
+    const body =
+        document.type === 'storno'
+            ? `Živjo ${customerName.value}, pošiljam ${typeLabel} ${document.corrects_document?.document_number ?? ''}. Dokument je v priponki.`
+            : `Živjo ${customerName.value} 😊 Pošiljam ti ${typeLabel} za termin. Podatke najdeš v priponki.`;
+
     sendModal.value = {
         open: true,
         document,
         title: document.sent_at ? `Pošlji ${typeLabel} znova` : `Pošlji ${typeLabel} stranki`,
         submitLabel: 'Pošlji',
-        body: `Živjo ${customerName.value} 😊 Pošiljam ti ${typeLabel} za termin. Podatke najdeš v priponki.`,
+        body,
     };
+}
+
+const stornoModal = ref<{ open: boolean; document: SalesDocument | null }>({ open: false, document: null });
+
+function openStornoModal(document: SalesDocument) {
+    stornoModal.value = { open: true, document };
+}
+
+function cancelProforma(document: SalesDocument) {
+    if (!confirm(`Prekličeš predračun ${document.document_number}? Predračuna po tem ne bo več mogoče poslati kot aktivno plačilno zahtevo.`)) return;
+    router.post(route('documents.cancel', document.id), {}, { preserveScroll: true });
 }
 
 function openReminderModal(document: SalesDocument) {
@@ -192,6 +214,14 @@ const externalDocumentOpen = ref(false);
                         </div>
                         <p class="mt-2 text-sm text-neutral-700">{{ appointment.description || 'Opis ni dodan.' }}</p>
 
+                        <p v-if="appointment.service" class="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
+                            <Tag :size="12" />
+                            Storitev:
+                            <Link :href="route('catalog.index')" class="font-medium text-[var(--color-accent-600)] hover:underline">
+                                {{ appointment.service.name }}
+                            </Link>
+                        </p>
+
                         <div class="mt-4">
                             <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
                             <p class="mt-1 text-sm text-neutral-700">{{ appointment.customer_notes || '—' }}</p>
@@ -261,28 +291,53 @@ const externalDocumentOpen = ref(false);
                             <Link :href="route('settings.invoicing.edit')" class="font-medium text-[var(--color-accent-500)] hover:underline">podatke o računih</Link>.
                         </p>
                         <div class="mt-3 space-y-3">
-                            <div v-for="doc in [...proformaDocuments, ...invoiceDocuments, ...otherDocuments]" :key="doc.id" class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5">
+                            <div v-for="doc in [...proformaDocuments, ...invoiceDocuments, ...stornoDocuments, ...otherDocuments]" :id="`doc-${doc.id}`" :key="doc.id" class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5">
                                 <div class="flex items-center gap-2.5">
                                     <FileText :size="16" class="text-neutral-400" />
                                     <div>
-                                        <p class="text-sm font-medium text-neutral-800">
-                                            {{ doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : 'Drugo' }}
-                                            {{ doc.document_number ?? doc.external_document_number }}
+                                        <a
+                                            :href="route('documents.download', doc.id)"
+                                            target="_blank"
+                                            class="text-sm font-medium text-neutral-800 hover:text-[var(--color-accent-600)] hover:underline"
+                                            title="Odpri / prenesi dokument"
+                                        >
+                                            <template v-if="doc.type === 'storno'">
+                                                Storno računa {{ doc.corrects_document?.document_number }}
+                                                <span class="font-normal text-neutral-400">({{ doc.document_number }})</span>
+                                            </template>
+                                            <template v-else>
+                                                {{ doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : 'Drugo' }}
+                                                {{ doc.document_number ?? doc.external_document_number }}
+                                            </template>
                                             <span v-if="doc.source === 'external'" class="ml-1 text-xs font-normal text-neutral-400">(zunanji)</span>
-                                        </p>
+                                        </a>
+                                        <span
+                                            v-if="doc.status_label"
+                                            class="ml-2 inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-700"
+                                        >
+                                            {{ doc.status_label }}
+                                        </span>
                                         <p class="text-xs text-neutral-400">
                                             Izdano {{ formatDate(doc.issued_at) }}
                                             <span v-if="doc.sent_at"> · Poslano {{ formatDate(doc.sent_at) }}</span>
-                                            <span v-else> · Ni še poslano</span>
+                                            <span v-else-if="doc.status === 'issued'"> · Ni še poslano</span>
+                                            <template v-if="doc.status === 'reversed' && doc.correction">
+                                                · <a :href="`#doc-${doc.correction.id}`" class="font-medium text-red-700 hover:underline">→ Storno {{ doc.correction.document_number }}</a>
+                                            </template>
                                         </p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <a :href="route('documents.download', doc.id)" target="_blank" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline">Odpri</a>
-                                    <button v-if="appointment.conversation" type="button" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline" @click="openSendModal(doc)">
+                                    <button v-if="appointment.conversation && doc.status === 'issued'" type="button" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline" @click="openSendModal(doc)">
                                         {{ doc.sent_at ? 'Pošlji znova' : 'Pošlji stranki' }}
                                     </button>
-                                    <button v-if="appointment.conversation && doc.sent_at" type="button" class="text-xs font-medium text-neutral-500 hover:underline" @click="openReminderModal(doc)">Opomnik</button>
+                                    <button v-if="appointment.conversation && doc.sent_at && doc.status === 'issued'" type="button" class="text-xs font-medium text-neutral-500 hover:underline" @click="openReminderModal(doc)">Opomnik</button>
+                                    <button v-if="doc.can_be_cancelled" type="button" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline" @click="cancelProforma(doc)">
+                                        Prekliči predračun
+                                    </button>
+                                    <button v-if="doc.can_be_stornoed" type="button" class="text-xs font-medium text-neutral-500 hover:text-red-600 hover:underline" @click="openStornoModal(doc)">
+                                        Storniraj račun
+                                    </button>
                                 </div>
                             </div>
                             <p v-if="!(appointment.sales_documents ?? []).length" class="text-sm text-neutral-400">Še ni dokumentov.</p>
@@ -324,14 +379,22 @@ const externalDocumentOpen = ref(false);
                                 </div>
                             </div>
 
-                            <div v-for="followUp in followUps" :key="`f-${followUp.id}`" class="flex gap-2.5 text-sm">
-                                <Bell :size="13" class="mt-0.5 shrink-0 text-amber-500" />
-                                <div>
+                            <div v-for="followUp in followUps" :key="`f-${followUp.id}`" class="flex items-start gap-2.5 text-sm">
+                                <Bell :size="13" class="mt-1 shrink-0 text-amber-500" />
+                                <div class="min-w-0 flex-1">
                                     <p class="text-neutral-700">{{ followUp.note }}</p>
                                     <p class="text-xs text-neutral-400">
                                         Opomnik {{ followUp.completed_at ? 'zaključen' : 'zapade' }} {{ formatDateTime(followUp.due_at) }}
                                     </p>
                                 </div>
+                                <button
+                                    v-if="!followUp.completed_at"
+                                    type="button"
+                                    class="flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-500 hover:text-emerald-600"
+                                    @click="completeFollowUp(followUp.id)"
+                                >
+                                    <Check :size="12" /> Zaključi
+                                </button>
                             </div>
 
                             <p v-if="!activity.length && !followUps.length" class="text-sm text-neutral-400">Še ni aktivnosti.</p>
@@ -423,6 +486,13 @@ const externalDocumentOpen = ref(false);
             :documentable-id="appointment.id"
             documentable-type="appointment"
             @close="externalDocumentOpen = false"
+        />
+
+        <StornoDocumentModal
+            :show="stornoModal.open"
+            :document-number="stornoModal.document?.document_number ?? ''"
+            :action="stornoModal.document ? route('documents.storno', stornoModal.document.id) : ''"
+            @close="stornoModal.open = false"
         />
     </AppLayout>
 </template>

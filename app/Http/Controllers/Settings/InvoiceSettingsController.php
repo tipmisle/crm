@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Models\InvoiceSettings;
 use App\Models\WorkspaceMember;
+use App\Services\Invoicing\SalesDocumentCalculationService;
 use App\Services\Invoicing\SalesDocumentPdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class InvoiceSettingsController extends Controller
             'country' => 'nullable|string|max:120',
             'tax_number' => 'nullable|string|max:60',
             'vat_registered' => 'boolean',
+            'prices_include_vat' => 'boolean',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:60',
             'iban' => 'nullable|string|max:40',
@@ -127,7 +129,7 @@ class InvoiceSettingsController extends Controller
      * invoice_next_number/proforma_next_number and is never persisted to
      * disk or the database, only streamed directly.
      */
-    public function preview(Request $request, SalesDocumentPdfService $pdf): HttpResponse
+    public function preview(Request $request, SalesDocumentPdfService $pdf, SalesDocumentCalculationService $calculationService): HttpResponse
     {
         $workspace = $request->user()->currentWorkspace;
         abort_unless(WorkspaceMember::isOwnerOf($request->user(), $workspace->id), 403);
@@ -135,13 +137,15 @@ class InvoiceSettingsController extends Controller
         $settings = InvoiceSettings::forWorkspace($workspace->id);
         $type = $request->get('type') === 'proforma' ? 'proforma' : 'invoice';
 
-        $lineItems = [
-            ['description' => 'Svetovalna ura', 'quantity' => 2, 'unit' => 'h', 'unit_price' => 45, 'vat_rate' => 22, 'line_total' => 90],
-            ['description' => 'Materiali', 'quantity' => 1, 'unit' => 'kos', 'unit_price' => 15, 'vat_rate' => 22, 'line_total' => 15],
-        ];
-        $subtotal = 105.0;
-        $vatTotal = $settings->vat_registered ? round($subtotal * 0.22, 2) : 0.0;
-        $total = $subtotal + $vatTotal;
+        $calculation = $calculationService->calculate([
+            ['description' => 'Svetovalna ura', 'quantity' => 2, 'unit' => 'h', 'unit_price' => 45, 'vat_rate' => 22],
+            ['description' => 'Materiali', 'quantity' => 1, 'unit' => 'kos', 'unit_price' => 15, 'vat_rate' => 22],
+        ], $settings->vat_registered, $settings->prices_include_vat);
+
+        $lineItems = $calculation['lines'];
+        $subtotal = $calculation['subtotal'];
+        $vatTotal = $calculation['vat_total'];
+        $total = $calculation['total'];
 
         $seller = [
             'company_name' => $settings->company_name ?: 'Vaše podjetje d.o.o.',
@@ -182,6 +186,7 @@ class InvoiceSettingsController extends Controller
             'due_date' => $dueDate,
             'currency' => 'EUR',
             'vat_registered' => $settings->vat_registered,
+            'prices_include_vat' => $settings->prices_include_vat,
             'vat_exempt_note' => $settings->vat_exempt_note,
             'seller' => $seller,
             'customer' => [
@@ -192,6 +197,7 @@ class InvoiceSettingsController extends Controller
                 'tax_number' => null,
             ],
             'line_items' => $lineItems,
+            'tax_breakdown' => $calculation['tax_breakdown'],
             'subtotal' => $subtotal,
             'vat_total' => $vatTotal,
             'total' => $total,

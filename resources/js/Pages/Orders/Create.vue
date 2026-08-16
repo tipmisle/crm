@@ -13,6 +13,7 @@ const props = defineProps<{
     conversation: Conversation | null;
     products: Product[];
     customers: Customer[];
+    selectedProductId?: number | null;
 }>();
 
 const contactName =
@@ -24,7 +25,7 @@ const contactName =
 const needsCustomerPicker = !props.customer && !props.conversation;
 
 const form = useForm({
-    catalog_item_id: null as number | null,
+    catalog_item_id: props.selectedProductId ?? (null as number | null),
     title: '',
     description: '',
     customer_id: props.customer?.id ?? props.conversation?.customer?.id ?? null,
@@ -39,7 +40,7 @@ const form = useForm({
 });
 
 const NEW_PRODUCT = '__new__';
-const productSelect = ref<number | string | null>(null);
+const productSelect = ref<number | string | null>(form.catalog_item_id);
 const quickAddOpen = ref(false);
 
 watch(productSelect, (value) => {
@@ -68,6 +69,7 @@ watch(
         if (product.default_deposit_amount !== null) form.deposit_amount = String(product.default_deposit_amount);
         if (product.description) form.description = product.description;
     },
+    { immediate: true },
 );
 
 function onProductSaved(item: Product | Service) {

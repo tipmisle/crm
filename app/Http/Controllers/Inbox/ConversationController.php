@@ -12,6 +12,7 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
 use App\Models\Message;
+use App\Models\OrderStatus;
 use App\Services\Messaging\DTOs\OutboundAttachment;
 use App\Services\Messaging\MessagingProviderInterface;
 use App\Services\Messaging\MessagingProviderManager;
@@ -30,15 +31,16 @@ class ConversationController extends Controller
         private readonly OutboundMessageService $outboundMessages,
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         return Inertia::render('Inbox/Index', [
-            'conversations' => $this->conversationList(),
+            'conversations' => $this->conversationList($request),
             'conversation' => null,
+            'filters' => $request->only(['channel_type']),
         ]);
     }
 
-    public function show(Conversation $conversation): Response
+    public function show(Request $request, Conversation $conversation): Response
     {
         $conversation->load(['channel', 'customer.orders', 'customer.appointments', 'customer.identities', 'messages.senderUser']);
 
@@ -47,8 +49,9 @@ class ConversationController extends Controller
         }
 
         return Inertia::render('Inbox/Index', [
-            'conversations' => $this->conversationList(),
+            'conversations' => $this->conversationList($request),
             'conversation' => $this->presentConversation($conversation),
+            'filters' => $request->only(['channel_type']),
         ]);
     }
 
@@ -201,12 +204,20 @@ class ConversationController extends Controller
         return back();
     }
 
-    private function conversationList()
+    private function conversationList(Request $request)
     {
         $avatars = $this->avatarMap();
 
-        return Conversation::query()
-            ->with(['channel', 'customer'])
+        $query = Conversation::query()->with(['channel', 'customer']);
+
+        // Lightweight drill-down target for Analytics' "channel inquiries"
+        // breakdown — matches on channel *type*, not a single channel row,
+        // since a workspace can have more than one channel of the same type.
+        if ($channelType = $request->get('channel_type')) {
+            $query->whereHas('channel', fn ($q) => $q->where('type', $channelType));
+        }
+
+        return $query
             ->orderByDesc('last_message_at')
             ->get()
             ->map(fn (Conversation $c) => [
@@ -271,13 +282,18 @@ class ConversationController extends Controller
                 'full_name' => $customer->full_name,
                 'email' => $customer->email,
                 'phone' => $customer->phone,
+                'address_line' => $customer->address_line,
+                'postal_code' => $customer->postal_code,
+                'city' => $customer->city,
+                'country' => $customer->country,
+                'tax_number' => $customer->tax_number,
                 'notes' => $customer->notes,
                 'identities' => $customer->identities,
                 'total_orders_count' => $customer->orders->count(),
                 'lifetime_spend' => $customer->lifetimeSpend(),
                 'open_orders_count' => $customer->openOrdersCount(),
                 'current_open_order' => $customer->orders
-                    ->filter(fn ($o) => ! in_array($o->status, ['completed', 'cancelled'], true))
+                    ->filter(fn ($o) => ! in_array($o->status, OrderStatus::openExclusionKeys(), true))
                     ->sortByDesc('created_at')
                     ->first(),
                 'last_order_date' => $customer->orders->max('created_at'),

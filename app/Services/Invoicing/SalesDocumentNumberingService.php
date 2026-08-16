@@ -28,8 +28,16 @@ class SalesDocumentNumberingService
             /** @var InvoiceSettings $locked */
             $locked = InvoiceSettings::query()->whereKey($settings->id)->lockForUpdate()->firstOrFail();
 
-            $column = $type === 'proforma' ? 'proforma_next_number' : 'invoice_next_number';
-            $prefixColumn = $type === 'proforma' ? 'proforma_prefix' : 'invoice_prefix';
+            $column = match ($type) {
+                'proforma' => 'proforma_next_number',
+                'storno' => 'storno_next_number',
+                default => 'invoice_next_number',
+            };
+            $prefixColumn = match ($type) {
+                'proforma' => 'proforma_prefix',
+                'storno' => 'storno_prefix',
+                default => 'invoice_prefix',
+            };
 
             $number = $locked->$column;
 

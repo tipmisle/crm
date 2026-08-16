@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { Search, User, Package, MessageSquare, CalendarDays } from 'lucide-vue-next';
+import { Search, User, Package, MessageSquare, CalendarDays, Tag, FileText } from 'lucide-vue-next';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ 'update:open': [boolean] }>();
 
 interface SearchResult {
-    type: 'customer' | 'order' | 'conversation' | 'appointment';
+    type: 'customer' | 'order' | 'conversation' | 'appointment' | 'product' | 'service' | 'sales_document';
     id: number;
     title: string;
     subtitle: string;
@@ -77,7 +77,15 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => document.addEventListener('keydown', onKeydown));
 onUnmounted(() => document.removeEventListener('keydown', onKeydown));
 
-const iconFor = { customer: User, order: Package, conversation: MessageSquare, appointment: CalendarDays };
+const iconFor = {
+    customer: User,
+    order: Package,
+    conversation: MessageSquare,
+    appointment: CalendarDays,
+    product: Package,
+    service: Tag,
+    sales_document: FileText,
+};
 </script>
 
 <template>

@@ -31,6 +31,7 @@ class SalesDocumentSendController extends Controller
         OutboundMessageService $outboundMessages,
     ): RedirectResponse {
         abort_unless($document->workspace_id === $request->user()->current_workspace_id, 404);
+        abort_unless($document->isActive(), 422, 'Ta dokument ni več aktiven in ga ni mogoče poslati kot zahtevo za plačilo.');
 
         $data = $request->validate([
             'body' => 'required|string|max:2000',

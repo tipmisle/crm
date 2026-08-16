@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import OrderCard from '@/Components/OrderCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
-import { Search, Plus, LayoutGrid, List, CalendarDays } from 'lucide-vue-next';
+import { Search, Plus, LayoutGrid, List, CalendarDays, Download } from 'lucide-vue-next';
 import type { Order } from '@/types/models';
 import type { PageProps } from '@/types';
 
@@ -22,6 +22,15 @@ const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
 const payment = ref(props.filters.payment ?? '');
 const due = ref(props.filters.due ?? '');
+
+const exportHref = computed(() =>
+    route('orders.export', {
+        search: search.value || undefined,
+        status: status.value || undefined,
+        payment: payment.value || undefined,
+        due: due.value || undefined,
+    }),
+);
 
 function applyFilters() {
     router.get(
@@ -68,6 +77,12 @@ watch([status, payment, due], applyFilters);
                     >
                         <CalendarDays :size="14" /> Koledar
                     </Link>
+                    <a
+                        :href="exportHref"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <Download :size="14" /> Izvozi CSV
+                    </a>
                     <Link
                         :href="route('orders.create')"
                         class="flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"

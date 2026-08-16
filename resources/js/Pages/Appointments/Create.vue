@@ -13,6 +13,7 @@ const props = defineProps<{
     conversation: Conversation | null;
     services: Service[];
     customers: Customer[];
+    selectedServiceId?: number | null;
 }>();
 
 const contactName =
@@ -24,7 +25,7 @@ const contactName =
 const needsCustomerPicker = !props.customer && !props.conversation;
 
 const form = useForm({
-    service_id: null as number | null,
+    service_id: props.selectedServiceId ?? (null as number | null),
     service_name: '',
     description: '',
     customer_id: props.customer?.id ?? props.conversation?.customer?.id ?? null,
@@ -66,6 +67,7 @@ watch(
         if (service.default_price !== null) form.price = String(service.default_price);
         if (service.default_deposit_amount !== null) form.deposit_amount = String(service.default_deposit_amount);
     },
+    { immediate: true },
 );
 
 function onServiceSaved(item: Product | Service) {

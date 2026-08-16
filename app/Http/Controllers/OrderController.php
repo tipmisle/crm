@@ -11,18 +11,37 @@ use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\PaymentStatus;
 use App\Models\Product;
+use App\Support\Csv;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $query = Order::query()->with(['customer', 'channel', 'salesDocuments:id,order_id,type']);
+    /**
+     * Every filter key recognized by index() — kept in one place and reused
+     * for every view's `filters` prop so switching between list/calendar/
+     * kanban never silently drops an active filter, and so cross-page links
+     * (Today, Customer, Catalog, Analytics, Inbox) stay consistent.
+     */
+    private const FILTER_KEYS = [
+        'search', 'status', 'payment', 'due',
+        'status_scope', 'payment_scope', 'deposit',
+        'customer_id', 'catalog_item_id', 'channel_type',
+        'created_from', 'created_to',
+    ];
 
+    /**
+     * The exact filter logic index() (and every view it renders) applies —
+     * also reused verbatim by exportCsv() so the CSV can never drift from
+     * whatever the user is currently looking at in the UI.
+     */
+    private function applyFilters(Builder $query, Request $request): Builder
+    {
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
@@ -31,16 +50,45 @@ class OrderController extends Controller
             });
         }
 
-        if ($status = $request->get('status')) {
+        if ($request->get('status_scope') === 'open') {
+            $query->whereNotIn('status', OrderStatus::openExclusionKeys());
+        } elseif ($request->get('status_scope') === 'not_cancelled') {
+            // Matches the exclusion Analytics uses for revenue math (only
+            // cancelled orders drop out — completed ones still count) so a
+            // drill-down link from a revenue figure shows the same set.
+            $query->whereNotIn('status', OrderStatus::cancelledKeys());
+        } elseif ($status = $request->get('status')) {
             $query->where('status', $status);
         }
 
-        if ($payment = $request->get('payment')) {
+        if ($request->get('payment_scope') === 'outstanding') {
+            $query->whereIn('payment_status', PaymentStatus::outstandingKeys());
+        } elseif ($payment = $request->get('payment')) {
             $query->where('payment_status', $payment);
+        }
+
+        if ($request->get('deposit') === 'unpaid') {
+            $query->where('deposit_amount', '>', 0);
         }
 
         if ($customerId = $request->get('customer_id')) {
             $query->where('customer_id', $customerId);
+        }
+
+        if ($catalogItemId = $request->get('catalog_item_id')) {
+            $query->where('catalog_item_id', $catalogItemId);
+        }
+
+        if ($channelType = $request->get('channel_type')) {
+            $query->whereHas('channel', fn ($q) => $q->where('type', $channelType));
+        }
+
+        if ($createdFrom = $request->get('created_from')) {
+            $query->whereDate('created_at', '>=', $createdFrom);
+        }
+
+        if ($createdTo = $request->get('created_to')) {
+            $query->whereDate('created_at', '<=', $createdTo);
         }
 
         $due = $request->get('due');
@@ -52,6 +100,16 @@ class OrderController extends Controller
         } elseif ($due === 'week') {
             $query->whereBetween('due_date', [Carbon::today(), Carbon::today()->addDays(7)]);
         }
+
+        return $query;
+    }
+
+    public function index(Request $request): Response
+    {
+        $query = $this->applyFilters(
+            Order::query()->with(['customer', 'channel', 'salesDocuments:id,order_id,type']),
+            $request
+        );
 
         $view = $request->get('view', 'list');
 
@@ -69,7 +127,7 @@ class OrderController extends Controller
             return Inertia::render('Orders/Calendar', [
                 'ordersByDate' => $ordersByDate,
                 'month' => $month->format('Y-m'),
-                'filters' => $request->only(['search', 'status', 'payment', 'due']),
+                'filters' => $request->only(self::FILTER_KEYS),
             ]);
         }
 
@@ -82,7 +140,7 @@ class OrderController extends Controller
 
             return Inertia::render('Orders/Kanban', [
                 'board' => $board,
-                'filters' => $request->only(['search', 'status', 'payment', 'due']),
+                'filters' => $request->only(self::FILTER_KEYS),
             ]);
         }
 
@@ -90,20 +148,69 @@ class OrderController extends Controller
 
         return Inertia::render('Orders/Index', [
             'orders' => $orders,
-            'filters' => $request->only(['search', 'status', 'payment', 'due']),
+            'filters' => $request->only(self::FILTER_KEYS),
         ]);
+    }
+
+    /**
+     * "Izvozi CSV" — exports every Order matching the CURRENT filters (via
+     * the same applyFilters() index() uses, so the two can never drift),
+     * not just the current pagination page. Streams row-by-row via
+     * lazy() (chunked reads, eager loads still apply — unlike cursor())
+     * so a large export never holds the full result set in memory.
+     */
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $query = $this->applyFilters(
+            Order::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'product:id,name']),
+            $request
+        )->orderByDesc('created_at');
+
+        $orderStatusLabels = OrderStatus::query()->pluck('label', 'key');
+        $paymentStatusLabels = PaymentStatus::query()->pluck('label', 'key');
+
+        $headers = [
+            'Št. naročila', 'Datum ustvarjanja', 'Stranka', 'Email', 'Telefon', 'Produkt',
+            'Naslov naročila', 'Status', 'Status plačila', 'Rok', 'Ura', 'Cena', 'Ara',
+            'Plačano', 'Preostanek', 'Način dostave', 'Tracking številka', 'Vir/kanal',
+        ];
+
+        $rows = $query->lazy(200)->map(fn (Order $order) => [
+            $order->order_number,
+            $order->created_at?->format('Y-m-d H:i'),
+            $order->customer?->full_name,
+            $order->customer?->email,
+            $order->customer?->phone,
+            $order->product?->name,
+            $order->title,
+            $orderStatusLabels[$order->status] ?? $order->status,
+            $paymentStatusLabels[$order->payment_status] ?? $order->payment_status,
+            $order->due_date?->format('Y-m-d'),
+            $order->due_time,
+            $order->price,
+            $order->deposit_amount,
+            $order->amount_paid,
+            $order->balanceDue(),
+            $order->delivery_method,
+            $order->tracking_number,
+            $order->channel?->type,
+        ]);
+
+        return Csv::streamDownload('narocila-'.now()->format('Y-m-d').'.csv', $headers, $rows);
     }
 
     public function create(Request $request): Response
     {
         $customer = $request->get('customer_id') ? Customer::find($request->get('customer_id')) : null;
         $conversation = $request->get('conversation_id') ? Conversation::with('customer')->find($request->get('conversation_id')) : null;
+        $product = $request->get('product_id') ? Product::find($request->get('product_id')) : null;
 
         return Inertia::render('Orders/Create', [
             'customer' => $customer,
             'conversation' => $conversation,
             'products' => Product::where('active', true)->orderBy('name')->get(),
             'customers' => $customer || $conversation ? [] : Customer::orderBy('full_name')->get(),
+            'selectedProductId' => $product?->id,
         ]);
     }
 
@@ -190,7 +297,7 @@ class OrderController extends Controller
 
     public function show(Order $order): Response
     {
-        $order->load(['customer.orders', 'customer.primaryChannel', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments', 'workspace']);
+        $order->load(['customer.orders', 'customer.primaryChannel', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments.correctsDocument:id,document_number,issued_at,type', 'salesDocuments.correction:id,document_number,corrects_document_id,type', 'workspace', 'product']);
 
         $mockNotificationsEnabled = app()->isLocal() || $order->workspace?->is_demo;
         $order->setAttribute('can_notify_customer', (bool) $order->conversation

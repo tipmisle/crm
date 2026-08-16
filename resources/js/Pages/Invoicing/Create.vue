@@ -14,6 +14,7 @@ const props = defineProps<{
     settingsConfigured: boolean;
     nextNumberPreview: string;
     vatRegistered: boolean;
+    pricesIncludeVat: boolean;
     defaultDueDate: string;
     recipient: {
         name: string | null;
@@ -56,13 +57,40 @@ function removeLine(index: number) {
     form.line_items.splice(index, 1);
 }
 
-const subtotal = computed(() => form.line_items.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.unit_price || 0), 0));
-const vatTotal = computed(() =>
-    props.vatRegistered
-        ? form.line_items.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.unit_price || 0) * (Number(i.vat_rate || 0) / 100), 0)
-        : 0,
+/**
+ * Mirrors App\Services\Invoicing\SalesDocumentCalculationService exactly
+ * (same gross-first extraction when pricesIncludeVat) so the on-screen
+ * total never disagrees with what issuing the document will actually
+ * persist. The server recomputes authoritatively on submit — this is
+ * display-only.
+ */
+const lineBreakdown = computed(() =>
+    form.line_items.map((item) => {
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = Number(item.unit_price || 0);
+        const vatRate = props.vatRegistered ? Number(item.vat_rate || 0) : 0;
+        const lineAmount = quantity * unitPrice;
+
+        if (vatRate <= 0) {
+            return { net: lineAmount, vat: 0, gross: lineAmount };
+        }
+
+        if (props.pricesIncludeVat) {
+            const gross = lineAmount;
+            const net = gross / (1 + vatRate / 100);
+            return { net, vat: gross - net, gross };
+        }
+
+        const net = lineAmount;
+        const vat = net * (vatRate / 100);
+        return { net, vat, gross: net + vat };
+    }),
 );
-const total = computed(() => subtotal.value + vatTotal.value);
+
+const subtotal = computed(() => lineBreakdown.value.reduce((sum, i) => sum + i.net, 0));
+const vatTotal = computed(() => lineBreakdown.value.reduce((sum, i) => sum + i.vat, 0));
+const total = computed(() => lineBreakdown.value.reduce((sum, i) => sum + i.gross, 0));
+const priceModeLabel = computed(() => (props.vatRegistered ? (props.pricesIncludeVat ? 'z DDV' : 'brez DDV') : null));
 
 function submit() {
     const routeName = props.documentableType === 'appointment' ? 'appointments.documents.store' : 'orders.documents.store';
@@ -143,7 +171,7 @@ const showRoute = computed(() =>
                 </div>
             </SectionCard>
 
-            <SectionCard title="Postavke">
+            <SectionCard title="Postavke" :subtitle="priceModeLabel ? `Cene na postavkah so vnesene ${priceModeLabel}.` : undefined">
                 <div class="space-y-3">
                     <div v-for="(item, index) in form.line_items" :key="index" class="grid grid-cols-12 items-end gap-2">
                         <div class="col-span-4">
@@ -159,7 +187,7 @@ const showRoute = computed(() =>
                             <input v-model="item.unit" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
                         </div>
                         <div class="col-span-2">
-                            <label class="block text-xs text-neutral-500">Cena/enoto</label>
+                            <label class="block text-xs text-neutral-500">Cena/enoto{{ priceModeLabel ? ` (${priceModeLabel})` : '' }}</label>
                             <input v-model.number="item.unit_price" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
                         </div>
                         <div v-if="vatRegistered" class="col-span-1">
