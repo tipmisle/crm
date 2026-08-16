@@ -7,6 +7,7 @@ use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Appointment extends Model
@@ -104,6 +105,11 @@ class Appointment extends Model
     public function followUps(): MorphMany
     {
         return $this->morphMany(FollowUp::class, 'followable');
+    }
+
+    public function salesDocuments(): HasMany
+    {
+        return $this->hasMany(SalesDocument::class);
     }
 
     public function remainingBalance(): float

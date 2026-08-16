@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Appointment;
 use App\Models\InvoiceSettings;
 use App\Models\Order;
 use App\Models\SalesDocument;
@@ -27,6 +28,22 @@ use Inertia\Response;
  */
 class SalesDocumentController extends Controller
 {
+    private ?Appointment $appointment = null;
+
+    public function createForAppointment(Request $request, Appointment $appointment): Response
+    {
+        $this->appointment = $appointment->load('customer');
+
+        return $this->create($request, $this->appointmentAsOrder($appointment));
+    }
+
+    public function storeForAppointment(Request $request, Appointment $appointment): RedirectResponse
+    {
+        $this->appointment = $appointment->load('customer');
+
+        return $this->store($request, $this->appointmentAsOrder($appointment));
+    }
+
     public function create(Request $request, Order $order): Response
     {
         $order->load('customer');
@@ -38,6 +55,7 @@ class SalesDocumentController extends Controller
 
         return Inertia::render('Invoicing/Create', [
             'order' => $order,
+            'documentableType' => $this->appointment ? 'appointment' : 'order',
             'type' => $type,
             'settingsConfigured' => $settings->isConfigured(),
             'nextNumberPreview' => $settings->nextNumberPreview($type),
@@ -170,7 +188,8 @@ class SalesDocumentController extends Controller
 
             return SalesDocument::create([
                 'workspace_id' => $workspace->id,
-                'order_id' => $order->id,
+                'order_id' => $this->appointment ? null : $order->id,
+                'appointment_id' => $this->appointment?->id,
                 'customer_id' => $customer?->id,
                 'type' => $data['type'],
                 'source' => 'issued',
@@ -237,12 +256,33 @@ class SalesDocumentController extends Controller
         Storage::disk('local')->put($pdfPath, $bytes);
         $document->update(['pdf_path' => $pdfPath]);
 
+        $subject = $this->appointment ?? $order;
+        $subjectLabel = $this->appointment
+            ? "termin {$this->appointment->appointment_number}"
+            : "naročilo {$order->order_number}";
+
         ActivityLog::record(
             'sales_document_issued',
-            "{$document->typeLabel()} {$document->document_number} izdan za naročilo {$order->order_number}",
-            $order
+            "{$document->typeLabel()} {$document->document_number} izdan za {$subjectLabel}",
+            $subject
         );
 
-        return redirect()->route('orders.show', $order)->with('success', "{$document->typeLabel()} {$document->document_number} izdan.");
+        $redirectRoute = $this->appointment ? 'appointments.show' : 'orders.show';
+
+        return redirect()->route($redirectRoute, $subject)->with('success', "{$document->typeLabel()} {$document->document_number} izdan.");
+    }
+
+    private function appointmentAsOrder(Appointment $appointment): Order
+    {
+        $order = new Order([
+            'customer_id' => $appointment->customer_id,
+            'title' => $appointment->service_name,
+            'price' => $appointment->price,
+        ]);
+        $order->id = $appointment->id;
+        $order->order_number = $appointment->appointment_number;
+        $order->setRelation('customer', $appointment->customer);
+
+        return $order;
     }
 }

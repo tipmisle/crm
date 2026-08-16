@@ -1,27 +1,39 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AppointmentCard from '@/Components/AppointmentCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Search, Plus, CalendarDays, List } from 'lucide-vue-next';
+import { format } from 'date-fns';
 import type { Appointment } from '@/types/models';
+import type { PageProps } from '@/types';
+import { APPOINTMENT_STATUS_META, APPOINTMENT_STATUS_ORDER } from '@/lib/statuses';
 
 const props = defineProps<{
     appointments: { data: Appointment[]; links: { url: string | null; label: string; active: boolean }[] };
-    filters: { search?: string; filter?: string };
+    filters: { search?: string; status?: string; payment?: string; due?: string };
 }>();
 
+const page = usePage<PageProps>();
+const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
 const search = ref(props.filters.search ?? '');
-const filter = ref(props.filters.filter ?? '');
+const status = ref(props.filters.status ?? '');
+const payment = ref(props.filters.payment ?? '');
+const due = ref(props.filters.due ?? '');
+const calendarHref = computed(() =>
+    route('appointments.index', { ...props.filters, view: 'calendar', week: format(new Date(), 'yyyy-MM-dd') }),
+);
 
 function applyFilters() {
     router.get(
         route('appointments.index', { view: 'list' }),
         {
             search: search.value || undefined,
-            filter: filter.value || undefined,
+            status: status.value || undefined,
+            payment: payment.value || undefined,
+            due: due.value || undefined,
         },
         { preserveState: true, replace: true },
     );
@@ -32,16 +44,7 @@ watch(search, () => {
     clearTimeout(debounce);
     debounce = setTimeout(applyFilters, 300);
 });
-watch(filter, applyFilters);
-
-const filterOptions = [
-    { value: '', label: 'Vsi termini' },
-    { value: 'today', label: 'Danes' },
-    { value: 'upcoming', label: 'Prihajajoči' },
-    { value: 'completed', label: 'Zaključeni' },
-    { value: 'cancelled', label: 'Preklicani' },
-    { value: 'no_show', label: 'Ni se zglasil/a' },
-];
+watch([status, payment, due], applyFilters);
 </script>
 
 <template>
@@ -57,7 +60,7 @@ const filterOptions = [
                 <h1 class="text-2xl font-semibold text-neutral-900">Termini</h1>
                 <div class="flex flex-wrap items-center gap-2">
                     <Link
-                        :href="route('appointments.index', { view: 'calendar' })"
+                        :href="calendarHref"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
                         <CalendarDays :size="14" /> Koledar
@@ -82,8 +85,21 @@ const filterOptions = [
                     />
                 </div>
 
-                <select v-model="filter" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
-                    <option v-for="opt in filterOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                <select v-model="status" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Vsi statusi</option>
+                    <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">{{ APPOINTMENT_STATUS_META[s].label }}</option>
+                </select>
+
+                <select v-model="payment" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Vsa plačila</option>
+                    <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                </select>
+
+                <select v-model="due" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Katerikoli termin</option>
+                    <option value="today">Termin danes</option>
+                    <option value="week">Naslednjih 7 dni</option>
+                    <option value="overdue">Zamujeno</option>
                 </select>
             </div>
 

@@ -33,6 +33,7 @@ class Order extends Model
         'internal_notes',
         'customer_notes',
         'tags',
+        'delivery_method',
         'tracking_number',
         'tracking_url',
         'shipped_at',

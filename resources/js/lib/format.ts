@@ -9,6 +9,14 @@ export function formatMoney(amount: string | number, currency = 'EUR'): string {
     }).format(Number.isFinite(value) ? value : 0);
 }
 
+export function normalizeMoneyInput(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '';
+
+    const amount = typeof value === 'string' ? Number(value.replace(',', '.')) : value;
+
+    return Number.isFinite(amount) ? amount.toFixed(2) : String(value);
+}
+
 export function formatDate(value: string | null | undefined, opts: Intl.DateTimeFormatOptions = {}): string {
     if (!value) return '—';
 

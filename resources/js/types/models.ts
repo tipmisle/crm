@@ -162,6 +162,7 @@ export interface Order {
     customer?: Customer;
     conversation_id: number | null;
     conversation?: Conversation;
+    can_notify_customer?: boolean;
     channel_id: number | null;
     channel?: Channel;
     catalog_item_id: number | null;
@@ -178,6 +179,7 @@ export interface Order {
     internal_notes: string | null;
     customer_notes: string | null;
     tags: string[] | null;
+    delivery_method: 'mail' | 'pickup' | null;
     tracking_number: string | null;
     tracking_url: string | null;
     shipped_at: string | null;
@@ -189,6 +191,7 @@ export interface Order {
 export interface SalesDocument {
     id: number;
     order_id: number | null;
+    appointment_id: number | null;
     customer_id: number | null;
     type: 'proforma' | 'invoice' | 'other';
     source: 'issued' | 'external';
@@ -257,6 +260,7 @@ export interface Appointment {
     customer?: Customer;
     conversation_id: number | null;
     conversation?: Conversation;
+    can_notify_customer?: boolean;
     channel_id: number | null;
     channel?: Channel;
     service_id: number | null;
@@ -274,5 +278,6 @@ export interface Appointment {
     internal_notes: string | null;
     customer_notes: string | null;
     tags: string[] | null;
+    sales_documents?: SalesDocument[];
     created_at: string;
 }

@@ -1,6 +1,10 @@
 <?php
 
+use App\Events\InboxMessageReceived;
+use App\Models\Customer;
+use App\Models\Message;
 use App\Models\Order;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 
 function notifyPayload(array $overrides = []): array
@@ -19,6 +23,46 @@ test('a pickup notification can be sent', function () {
 
     $this->actingAs($user)->post(route('orders.notify.store', $order), notifyPayload())
         ->assertSessionHas('success');
+
+    expect($order->fresh()->delivery_method)->toBe('pickup');
+});
+
+test('a demo notification without a connected channel is recorded in the chat using the mock provider', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    $workspace->update(['is_demo' => true]);
+    [$order, $conversation, $channel] = createOrderWithConversation($workspace);
+    $channel->update(['status' => 'not_connected', 'connected_at' => null]);
+
+    Http::fake();
+    Event::fake([InboxMessageReceived::class]);
+
+    $this->actingAs($user)->post(route('orders.notify.store', $order), notifyPayload())
+        ->assertSessionHas('success')
+        ->assertSessionMissing('error');
+
+    Http::assertNothingSent();
+    Event::assertNotDispatched(InboxMessageReceived::class);
+    expect(Message::where('conversation_id', $conversation->id)->latest()->first()?->body)
+        ->toBe(notifyPayload()['body']);
+});
+
+test('a demo order without a linked conversation creates a local chat when notified', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    $workspace->update(['is_demo' => true]);
+    [$order, $oldConversation, $channel] = createOrderWithConversation($workspace);
+    $order->update(['conversation_id' => null]);
+    $channel->update(['status' => 'not_connected', 'connected_at' => null]);
+
+    Http::fake();
+
+    $this->actingAs($user)->post(route('orders.notify.store', $order), notifyPayload())
+        ->assertSessionHas('success');
+
+    $order->refresh();
+    expect($order->conversation_id)->not->toBeNull()->not->toBe($oldConversation->id);
+    expect(Message::where('conversation_id', $order->conversation_id)->latest()->first()?->body)
+        ->toBe(notifyPayload()['body']);
+    Http::assertNothingSent();
 });
 
 test('a shipping notification can be sent and tracking data is stored on the order', function () {
@@ -38,6 +82,23 @@ test('a shipping notification can be sent and tracking data is stored on the ord
     expect($order->tracking_number)->toBe('123456789');
     expect($order->tracking_url)->toBe('https://posta.si/sledenje/123456789');
     expect($order->shipped_at)->not->toBeNull();
+    expect($order->delivery_method)->toBe('mail');
+});
+
+test('delivery choice and tracking data can be saved before notifying the customer', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    [$order] = createOrderWithConversation($workspace);
+
+    $this->actingAs($user)->patch(route('orders.update', $order), [
+        'delivery_method' => 'mail',
+        'tracking_number' => 'PRE-123',
+        'tracking_url' => 'https://posta.si/PRE-123',
+    ])->assertSessionHas('success');
+
+    $order->refresh();
+    expect($order->delivery_method)->toBe('mail');
+    expect($order->tracking_number)->toBe('PRE-123');
+    expect($order->tracking_url)->toBe('https://posta.si/PRE-123');
 });
 
 test('existing tracking data is returned so it can be prefilled next time', function () {
@@ -57,7 +118,7 @@ test('notification requires an order with a linked conversation', function () {
 
     $order = Order::create([
         'workspace_id' => $workspace->id,
-        'customer_id' => \App\Models\Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Brez pogovora'])->id,
+        'customer_id' => Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Brez pogovora'])->id,
         'title' => 'Naročilo brez pogovora',
         'price' => 50,
         'amount_paid' => 0,

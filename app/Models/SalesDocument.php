@@ -26,6 +26,7 @@ class SalesDocument extends Model
     protected $fillable = [
         'workspace_id',
         'order_id',
+        'appointment_id',
         'customer_id',
         'type',
         'source',
@@ -78,6 +79,11 @@ class SalesDocument extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function appointment(): BelongsTo
+    {
+        return $this->belongsTo(Appointment::class);
     }
 
     public function customer(): BelongsTo

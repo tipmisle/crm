@@ -1,14 +1,72 @@
 <?php
 
+use App\Models\ActivityLog;
 use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
+use App\Models\Service;
+use App\Models\Workspace;
+use Illuminate\Support\Carbon;
 
-function enableAppointments(\App\Models\Workspace $workspace): void
+function enableAppointments(Workspace $workspace): void
 {
     $workspace->update(['appointments_enabled' => true]);
 }
+
+test('appointments default to the list view and calendar opens on the current week', function () {
+    Carbon::setTestNow('2026-08-19 12:00:00');
+    [$workspace, $user] = createWorkspaceWithUser();
+    enableAppointments($workspace);
+
+    $this->actingAs($user)->get(route('appointments.index'))
+        ->assertInertia(fn ($page) => $page->component('Appointments/Index'));
+
+    $this->actingAs($user)->get(route('appointments.index', ['view' => 'calendar']))
+        ->assertInertia(fn ($page) => $page
+            ->component('Appointments/Calendar')
+            ->where('weekStart', '2026-08-17'));
+
+    Carbon::setTestNow();
+});
+
+test('appointments can be filtered by status payment and date', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    enableAppointments($workspace);
+    $customer = Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Ana Novak']);
+
+    $matching = Appointment::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'service_name' => 'Manikura',
+        'appointment_date' => today(),
+        'start_time' => '10:00',
+        'duration_minutes' => 60,
+        'price' => 30,
+        'payment_status' => 'unpaid',
+        'status' => 'confirmed',
+    ]);
+    Appointment::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'service_name' => 'Pedikura',
+        'appointment_date' => today()->addDay(),
+        'start_time' => '12:00',
+        'duration_minutes' => 60,
+        'price' => 40,
+        'payment_status' => 'paid',
+        'status' => 'completed',
+    ]);
+
+    $this->actingAs($user)->get(route('appointments.index', [
+        'status' => 'confirmed',
+        'payment' => 'unpaid',
+        'due' => 'today',
+    ]))->assertInertia(fn ($page) => $page
+        ->component('Appointments/Index')
+        ->has('appointments.data', 1)
+        ->where('appointments.data.0.id', $matching->id));
+});
 
 test('an appointment can be created for an existing customer', function () {
     [$workspace, $user] = createWorkspaceWithUser();
@@ -123,7 +181,7 @@ test('appointment status can change through its lifecycle', function () {
     expect($appointment->fresh()->status->value)->toBe('no_show');
 
     expect(
-        \App\Models\ActivityLog::where('subject_type', Appointment::class)
+        ActivityLog::where('subject_type', Appointment::class)
             ->where('subject_id', $appointment->id)
             ->where('type', 'status_changed')
             ->count()
@@ -163,7 +221,7 @@ test('rescheduling an appointment is logged as an activity, not a status', funct
     expect($appointment->status->value)->toBe('confirmed'); // status unchanged by reschedule
 
     expect(
-        \App\Models\ActivityLog::where('subject_type', Appointment::class)
+        ActivityLog::where('subject_type', Appointment::class)
             ->where('subject_id', $appointment->id)
             ->where('type', 'appointment_rescheduled')
             ->exists()
@@ -243,7 +301,7 @@ test('a service belongs to its own workspace and cannot be edited cross-workspac
     enableAppointments($workspaceA);
     enableAppointments($workspaceB);
 
-    $serviceB = \App\Models\Service::create([
+    $serviceB = Service::create([
         'workspace_id' => $workspaceB->id,
         'name' => 'Service B',
         'default_duration_minutes' => 60,

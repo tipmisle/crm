@@ -1,35 +1,62 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
-import { ChevronLeft, ChevronRight, List, Plus, CalendarDays } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, List, Plus, CalendarDays, Search } from 'lucide-vue-next';
 import { addDays, addWeeks, subWeeks, format, parseISO, isToday } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { formatMoney } from '@/lib/format';
-import { APPOINTMENT_STATUS_META } from '@/lib/statuses';
+import { APPOINTMENT_STATUS_META, APPOINTMENT_STATUS_ORDER } from '@/lib/statuses';
 import type { Appointment } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{
     appointmentsByDate: Record<string, Appointment[]>;
     weekStart: string;
-    filters: { search?: string; filter?: string };
+    filters: { search?: string; status?: string; payment?: string; due?: string };
 }>();
 
 const weekStartDate = computed(() => parseISO(props.weekStart));
 const days = computed(() => Array.from({ length: 7 }, (_, i) => addDays(weekStartDate.value, i)));
+const page = usePage<PageProps>();
+const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+const search = ref(props.filters.search ?? '');
+const status = ref(props.filters.status ?? '');
+const payment = ref(props.filters.payment ?? '');
+const due = ref(props.filters.due ?? '');
 
 function appointmentsFor(day: Date): Appointment[] {
     return (props.appointmentsByDate[format(day, 'yyyy-MM-dd')] ?? []).slice().sort((a, b) => a.start_time.localeCompare(b.start_time));
 }
 
 function goToWeek(date: Date) {
-    router.get(route('appointments.index', { view: 'calendar', week: format(date, 'yyyy-MM-dd') }), {}, { preserveState: true });
+    router.get(route('appointments.index', { ...props.filters, view: 'calendar', week: format(date, 'yyyy-MM-dd') }), {}, { preserveState: true });
 }
 
 function goToday() {
     goToWeek(new Date());
 }
+
+function applyFilters() {
+    router.get(
+        route('appointments.index', { view: 'calendar', week: props.weekStart }),
+        {
+            search: search.value || undefined,
+            status: status.value || undefined,
+            payment: payment.value || undefined,
+            due: due.value || undefined,
+        },
+        { preserveState: true, replace: true },
+    );
+}
+
+let debounce: ReturnType<typeof setTimeout>;
+watch(search, () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(applyFilters, 300);
+});
+watch([status, payment, due], applyFilters);
 
 const totalAppointments = computed(() =>
     Object.values(props.appointmentsByDate).reduce((sum, list) => sum + list.length, 0),
@@ -49,7 +76,7 @@ const totalAppointments = computed(() =>
                 <h1 class="text-2xl font-semibold text-neutral-900">Termini</h1>
                 <div class="flex flex-wrap items-center gap-2">
                     <Link
-                        :href="route('appointments.index', { view: 'list' })"
+                        :href="route('appointments.index', { ...filters, view: 'list' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
                         <List :size="14" /> Seznam
@@ -61,6 +88,27 @@ const totalAppointments = computed(() =>
                         <Plus :size="14" /> Nov termin
                     </Link>
                 </div>
+            </div>
+
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+                <div class="relative min-w-48 flex-1">
+                    <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input v-model="search" type="text" placeholder="Iskanje po terminih, strankah, storitvah…" class="w-full rounded-md border border-neutral-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-neutral-400" />
+                </div>
+                <select v-model="status" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Vsi statusi</option>
+                    <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">{{ APPOINTMENT_STATUS_META[s].label }}</option>
+                </select>
+                <select v-model="payment" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Vsa plačila</option>
+                    <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                </select>
+                <select v-model="due" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Katerikoli termin</option>
+                    <option value="today">Termin danes</option>
+                    <option value="week">Naslednjih 7 dni</option>
+                    <option value="overdue">Zamujeno</option>
+                </select>
             </div>
 
             <div class="mb-4 flex items-center gap-2">

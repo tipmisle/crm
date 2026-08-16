@@ -119,14 +119,14 @@ function eraseCustomerData() {
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
                     <section v-if="ordersEnabled && openOrders.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Trenutna naročila</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Trenutna naročila</h3>
                         <div class="mt-3 space-y-2">
                             <OrderCard v-for="order in openOrders" :key="order.id" :order="order" />
                         </div>
                     </section>
 
                     <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Zgodovina naročil</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Zgodovina naročil</h3>
                         <div v-if="customer.orders.length" class="mt-3 space-y-2">
                             <OrderCard v-for="order in customer.orders" :key="order.id" :order="order" />
                         </div>
@@ -144,7 +144,7 @@ function eraseCustomerData() {
 
                     <section v-if="appointmentsEnabled && upcomingAppointments.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Prihajajoči termini</h2>
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Prihajajoči termini</h3>
                             <Link
                                 :href="route('appointments.create', { customer_id: customer.id })"
                                 class="flex items-center gap-1 text-xs font-medium text-[var(--color-accent-600)] hover:underline"
@@ -158,7 +158,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Zgodovina terminov</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Zgodovina terminov</h3>
                         <div v-if="customer.appointments.length" class="mt-3 space-y-2">
                             <AppointmentCard v-for="appointment in customer.appointments" :key="appointment.id" :appointment="appointment" />
                         </div>
@@ -175,7 +175,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Zgodovina pogovorov</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Zgodovina pogovorov</h3>
                         <div v-if="customer.conversations.length" class="mt-3 space-y-2">
                             <Link
                                 v-for="c in customer.conversations"
@@ -197,7 +197,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Časovnica aktivnosti</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Časovnica aktivnosti</h3>
                         <div v-if="activity.length" class="mt-3 space-y-3">
                             <div v-for="entry in activity" :key="entry.id" class="flex gap-2.5 text-sm">
                                 <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" />
@@ -215,7 +215,7 @@ function eraseCustomerData() {
                     <CustomerContactCard :customer="customer" title="Kontakt" :link-to-customer="false" show-name show-notes />
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Družbeni profili</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Družbeni profili</h3>
                         <div class="mt-2 space-y-2">
                             <div v-for="identity in customer.identities" :key="identity.id" class="flex items-center gap-2">
                                 <ChannelIcon :type="identity.channel_type" />
@@ -226,7 +226,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section v-if="ordersEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Skupna vrednost naročil</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Skupna vrednost naročil</h3>
                         <p class="mt-2 text-2xl font-semibold text-neutral-900">{{ formatMoney(customer.lifetime_spend) }}</p>
                         <div class="mt-3 grid grid-cols-2 gap-2 text-center">
                             <div class="rounded-md bg-neutral-50 py-2">
@@ -241,7 +241,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section v-if="appointmentsEnabled" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Skupna vrednost terminov</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Skupna vrednost terminov</h3>
                         <p class="mt-2 text-2xl font-semibold text-neutral-900">{{ formatMoney(customer.appointments_lifetime_spend) }}</p>
                         <div class="mt-3 grid grid-cols-2 gap-2 text-center">
                             <div class="rounded-md bg-neutral-50 py-2">
@@ -256,7 +256,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section v-if="followUps.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Opomniki</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Opomniki</h3>
                         <div class="mt-2 space-y-2">
                             <div v-for="f in followUps" :key="f.id" class="text-sm">
                                 <p class="text-neutral-700">{{ f.note }}</p>
@@ -266,7 +266,7 @@ function eraseCustomerData() {
                     </section>
 
                     <section class="rounded-xl border border-dashed border-neutral-200 bg-white p-4">
-                        <h3 class="text-xs font-semibold text-neutral-400 uppercase">Podatki stranke</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Podatki stranke</h3>
                         <div class="mt-2 flex flex-wrap gap-2">
                             <button
                                 type="button"

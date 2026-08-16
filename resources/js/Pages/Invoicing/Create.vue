@@ -9,6 +9,7 @@ import { Plus, Trash2 } from 'lucide-vue-next';
 
 const props = defineProps<{
     order: Order;
+    documentableType: 'order' | 'appointment';
     type: 'proforma' | 'invoice';
     settingsConfigured: boolean;
     nextNumberPreview: string;
@@ -64,8 +65,13 @@ const vatTotal = computed(() =>
 const total = computed(() => subtotal.value + vatTotal.value);
 
 function submit() {
-    form.post(route('orders.documents.store', props.order.id));
+    const routeName = props.documentableType === 'appointment' ? 'appointments.documents.store' : 'orders.documents.store';
+    form.post(route(routeName, props.order.id));
 }
+
+const showRoute = computed(() =>
+    route(props.documentableType === 'appointment' ? 'appointments.show' : 'orders.show', props.order.id),
+);
 </script>
 
 <template>
@@ -74,7 +80,7 @@ function submit() {
     <AppLayout>
         <template #header>
             <div class="flex items-center gap-2">
-                <Link :href="route('orders.show', order.id)" class="text-sm text-neutral-400 hover:text-neutral-600">{{ order.order_number }}</Link>
+                <Link :href="showRoute" class="text-sm text-neutral-400 hover:text-neutral-600">{{ order.order_number }}</Link>
                 <span class="text-neutral-300">/</span>
                 <span class="text-sm font-semibold text-neutral-900">Izstavi {{ typeLabel.toLowerCase() }}</span>
             </div>
@@ -198,7 +204,7 @@ function submit() {
                 >
                     Izdaj {{ typeLabel.toLowerCase() }}
                 </button>
-                <Link :href="route('orders.show', order.id)" class="text-sm text-neutral-500 hover:text-neutral-700">Prekliči</Link>
+                <Link :href="showRoute" class="text-sm text-neutral-500 hover:text-neutral-700">Prekliči</Link>
             </div>
         </div>
     </AppLayout>

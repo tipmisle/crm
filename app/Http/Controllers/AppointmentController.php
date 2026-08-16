@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
+use App\Models\InvoiceSettings;
 use App\Models\PaymentStatus;
 use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
@@ -30,28 +31,32 @@ class AppointmentController extends Controller
             });
         }
 
-        $filter = $request->get('filter');
-        if ($filter === 'today') {
-            $query->whereDate('appointment_date', Carbon::today());
-        } elseif ($filter === 'upcoming') {
-            $query->whereDate('appointment_date', '>=', Carbon::today())
-                ->whereIn('status', [AppointmentStatus::Requested->value, AppointmentStatus::Confirmed->value]);
-        } elseif ($filter === 'completed') {
-            $query->where('status', AppointmentStatus::Completed->value);
-        } elseif ($filter === 'cancelled') {
-            $query->where('status', AppointmentStatus::Cancelled->value);
-        } elseif ($filter === 'no_show') {
-            $query->where('status', AppointmentStatus::NoShow->value);
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
         }
 
-        $view = $request->get('view', 'calendar');
+        if ($payment = $request->get('payment')) {
+            $query->where('payment_status', $payment);
+        }
+
+        $due = $request->get('due');
+        if ($due === 'today') {
+            $query->whereDate('appointment_date', Carbon::today());
+        } elseif ($due === 'week') {
+            $query->whereBetween('appointment_date', [Carbon::today(), Carbon::today()->addDays(7)]);
+        } elseif ($due === 'overdue') {
+            $query->whereDate('appointment_date', '<', Carbon::today())
+                ->whereNotIn('status', [AppointmentStatus::Completed->value, AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value]);
+        }
+
+        $view = $request->get('view', 'list');
 
         if ($view === 'list') {
             $appointments = $query->orderByDesc('appointment_date')->orderByDesc('start_time')->paginate(20)->withQueryString();
 
             return Inertia::render('Appointments/Index', [
                 'appointments' => $appointments,
-                'filters' => $request->only(['search', 'filter']),
+                'filters' => $request->only(['search', 'status', 'payment', 'due']),
             ]);
         }
 
@@ -69,7 +74,7 @@ class AppointmentController extends Controller
         return Inertia::render('Appointments/Calendar', [
             'appointmentsByDate' => $appointmentsByDate,
             'weekStart' => $weekStart->format('Y-m-d'),
-            'filters' => $request->only(['search', 'filter']),
+            'filters' => $request->only(['search', 'status', 'payment', 'due']),
         ]);
     }
 
@@ -173,7 +178,13 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): Response
     {
-        $appointment->load(['customer.appointments', 'conversation.channel', 'channel', 'service']);
+        $appointment->load(['customer.appointments', 'customer.primaryChannel', 'conversation.channel', 'channel', 'service', 'salesDocuments', 'workspace']);
+
+        $mockNotificationsEnabled = app()->isLocal() || $appointment->workspace?->is_demo;
+        $appointment->setAttribute('can_notify_customer', (bool) $appointment->conversation
+            || ($mockNotificationsEnabled && (bool) ($appointment->channel || $appointment->customer?->primaryChannel)));
+
+        $invoiceSettings = InvoiceSettings::where('workspace_id', $appointment->workspace_id)->first();
 
         return Inertia::render('Appointments/Show', [
             'appointment' => $appointment,
@@ -182,6 +193,7 @@ class AppointmentController extends Controller
                 ->where('subject_id', $appointment->id)
                 ->orderByDesc('created_at')
                 ->get(),
+            'invoiceSettingsConfigured' => $invoiceSettings?->isConfigured() ?? false,
         ]);
     }
 

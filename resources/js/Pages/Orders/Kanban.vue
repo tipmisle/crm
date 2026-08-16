@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Avatar from '@/Components/Avatar.vue';
 import Badge from '@/Components/Badge.vue';
-import { List, Plus, CalendarDays } from 'lucide-vue-next';
+import { List, Plus, CalendarDays, Search } from 'lucide-vue-next';
 import { formatMoney, formatDate } from '@/lib/format';
 import type { Order, OrderStatus } from '@/types/models';
 import type { PageProps } from '@/types';
@@ -18,6 +18,30 @@ const props = defineProps<{
 const page = usePage<PageProps>();
 const orderStatuses = computed(() => page.props.orderStatuses ?? []);
 const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+const search = ref(props.filters.search ?? '');
+const status = ref(props.filters.status ?? '');
+const payment = ref(props.filters.payment ?? '');
+const due = ref(props.filters.due ?? '');
+
+function applyFilters() {
+    router.get(
+        route('orders.index', { view: 'kanban' }),
+        {
+            search: search.value || undefined,
+            status: status.value || undefined,
+            payment: payment.value || undefined,
+            due: due.value || undefined,
+        },
+        { preserveState: true, replace: true },
+    );
+}
+
+let debounce: ReturnType<typeof setTimeout>;
+watch(search, () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(applyFilters, 300);
+});
+watch([status, payment, due], applyFilters);
 
 function paymentMeta(key: string) {
     return paymentStatuses.value.find((s) => s.key === key) ?? { label: key, color: '#4B5563', bg: '#F1F2F4' };
@@ -43,13 +67,13 @@ function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
                 <h1 class="text-2xl font-semibold text-neutral-900">Naročila</h1>
                 <div class="flex flex-wrap items-center gap-2">
                     <Link
-                        :href="route('orders.index')"
+                        :href="route('orders.index', { ...filters, view: 'list' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
                         <List :size="14" /> Seznam
                     </Link>
                     <Link
-                        :href="route('orders.index', { view: 'calendar' })"
+                        :href="route('orders.index', { ...filters, view: 'calendar' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
                         <CalendarDays :size="14" /> Koledar
@@ -61,6 +85,27 @@ function onChange(status: OrderStatus, event: { added?: { element: Order } }) {
                         <Plus :size="14" /> Novo naročilo
                     </Link>
                 </div>
+            </div>
+
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+                <div class="relative min-w-48 flex-1">
+                    <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input v-model="search" type="text" placeholder="Iskanje po naročilih, strankah…" class="w-full rounded-md border border-neutral-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-neutral-400" />
+                </div>
+                <select v-model="status" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Vsi statusi</option>
+                    <option v-for="s in orderStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                </select>
+                <select v-model="payment" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Vsa plačila</option>
+                    <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                </select>
+                <select v-model="due" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
+                    <option value="">Katerikoli rok</option>
+                    <option value="today">Rok danes</option>
+                    <option value="week">Naslednjih 7 dni</option>
+                    <option value="overdue">Zamujeno</option>
+                </select>
             </div>
 
             <div class="flex flex-1 gap-4 overflow-x-auto pb-2">

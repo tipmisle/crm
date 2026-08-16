@@ -57,13 +57,13 @@ watch([status, payment, due], applyFilters);
                 <h1 class="text-2xl font-semibold text-neutral-900">Naročila</h1>
                 <div class="flex flex-wrap items-center gap-2">
                     <Link
-                        :href="route('orders.index', { view: 'kanban' })"
+                        :href="route('orders.index', { ...filters, view: 'kanban' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
                         <LayoutGrid :size="14" /> Tabla
                     </Link>
                     <Link
-                        :href="route('orders.index', { view: 'calendar' })"
+                        :href="route('orders.index', { ...filters, view: 'calendar' })"
                         class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                     >
                         <CalendarDays :size="14" /> Koledar

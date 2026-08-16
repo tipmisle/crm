@@ -51,7 +51,14 @@ class OutboundMessageService
                 'last_message_at' => $message->sent_at,
             ]);
 
-            broadcast(new InboxMessageReceived($conversation->workspace_id, $conversation->id))->toOthers();
+            // Local mock sends are returned through the current Inertia
+            // request, so they do not need an external realtime connection.
+            $isLocalMock = $provider instanceof MockMessagingProvider
+                && (app()->isLocal() || $conversation->workspace?->is_demo);
+
+            if (! $isLocalMock) {
+                broadcast(new InboxMessageReceived($conversation->workspace_id, $conversation->id))->toOthers();
+            }
 
             return $message;
         }

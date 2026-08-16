@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Appointment;
 use App\Models\SalesDocument;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -58,6 +59,35 @@ test('invoice and proforma sequences are independent', function () {
 
     expect($proforma->document_number)->toBe('P-2026-8');
     expect($invoice->document_number)->toBe('2026-1');
+});
+
+test('an invoice can be issued directly for an appointment', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    $workspace->update(['appointments_enabled' => true]);
+    configureInvoicing($workspace, ['invoice_prefix' => '2026-', 'invoice_next_number' => 20]);
+    [$order] = createOrderWithConversation($workspace);
+
+    $appointment = Appointment::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $order->customer_id,
+        'conversation_id' => $order->conversation_id,
+        'channel_id' => $order->channel_id,
+        'service_name' => 'Fotografiranje',
+        'appointment_date' => now()->addDay(),
+        'start_time' => '10:00',
+        'duration_minutes' => 60,
+        'price' => 120,
+        'payment_status' => 'unpaid',
+        'status' => 'confirmed',
+    ]);
+
+    $this->actingAs($user)->post(route('appointments.documents.store', $appointment), issuePayload('invoice'))
+        ->assertRedirect(route('appointments.show', $appointment));
+
+    $document = SalesDocument::where('appointment_id', $appointment->id)->first();
+    expect($document)->not->toBeNull();
+    expect($document->order_id)->toBeNull();
+    expect($document->document_number)->toBe('2026-20');
 });
 
 test('rapid sequential issuance never produces duplicate numbers', function () {

@@ -34,7 +34,7 @@ const address = computed(() => {
 <template>
     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
         <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold text-neutral-500 uppercase">{{ title }}</h3>
+            <h3 class="text-xs font-semibold text-neutral-800 uppercase">{{ title }}</h3>
             <button type="button" class="flex items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-700" @click="editOpen = true">
                 <Pencil :size="12" /> Uredi
             </button>

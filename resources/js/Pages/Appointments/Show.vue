@@ -1,25 +1,30 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import Avatar from '@/Components/Avatar.vue';
+import Badge from '@/Components/Badge.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
+import CustomerContactCard from '@/Components/CustomerContactCard.vue';
+import ExternalDocumentModal from '@/Components/ExternalDocumentModal.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
+import SendDocumentModal from '@/Components/SendDocumentModal.vue';
 import DateInput from '@/Components/DateInput.vue';
-import { formatMoney, formatDate, formatDateTime } from '@/lib/format';
+import { formatMoney, formatDate, formatDateTime, normalizeMoneyInput } from '@/lib/format';
 import { APPOINTMENT_STATUS_ORDER, APPOINTMENT_STATUS_META } from '@/lib/statuses';
-import type { ActivityLogEntry, Appointment, AppointmentStatus, FollowUp } from '@/types/models';
+import type { ActivityLogEntry, Appointment, AppointmentStatus, FollowUp, SalesDocument } from '@/types/models';
 import type { PageProps } from '@/types';
-import { MessageSquare, Bell } from 'lucide-vue-next';
+import { MessageSquare, Bell, FileText, Paperclip, Settings, Ban, Send } from 'lucide-vue-next';
 
 const props = defineProps<{
     appointment: Appointment;
     followUps: FollowUp[];
     activity: ActivityLogEntry[];
+    invoiceSettingsConfigured: boolean;
 }>();
 
 const page = usePage<PageProps>();
 const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+const acceptsDeposit = computed(() => page.props.workspace?.accepts_deposit ?? true);
 const statusMeta = computed(() => APPOINTMENT_STATUS_META[props.appointment.status]);
 const paymentMeta = computed(
     () =>
@@ -45,11 +50,6 @@ function cancelAppointment() {
     updateStatus('cancelled');
 }
 
-function markNoShow() {
-    if (!confirm(`Označiš, da se stranka ni zglasila za ${props.appointment.appointment_number}?`)) return;
-    updateStatus('no_show');
-}
-
 function updatePayment(payment_status: string) {
     router.patch(route('appointments.update', props.appointment.id), { payment_status }, { preserveScroll: true });
 }
@@ -61,6 +61,9 @@ const paymentForm = useForm({
 });
 
 function savePayment() {
+    paymentForm.price = normalizeMoneyInput(paymentForm.price);
+    paymentForm.deposit_amount = normalizeMoneyInput(paymentForm.deposit_amount);
+    paymentForm.amount_paid = normalizeMoneyInput(paymentForm.amount_paid);
     paymentForm.patch(route('appointments.update', props.appointment.id), { preserveScroll: true });
 }
 
@@ -70,11 +73,75 @@ const scheduleForm = useForm({
     duration_minutes: props.appointment.duration_minutes,
 });
 
+const notesForm = useForm({
+    internal_notes: props.appointment.internal_notes ?? '',
+});
+
+function saveNotes() {
+    notesForm.patch(route('appointments.update', props.appointment.id), { preserveScroll: true });
+}
+
 function saveSchedule() {
     scheduleForm.patch(route('appointments.update', props.appointment.id), { preserveScroll: true });
 }
 
+watch(() => scheduleForm.appointment_date, saveSchedule);
+
+const appointmentNotifyOpen = ref(false);
 const followUpOpen = ref(false);
+const canNotifyCustomer = computed(() => props.appointment.can_notify_customer ?? Boolean(props.appointment.conversation));
+const appointmentReminderBody = computed(
+    () =>
+        `Živjo ${props.appointment.customer?.full_name ?? 'tam'} 😊 Opomnik za termin ${props.appointment.service_name}, ` +
+        `${formatDate(props.appointment.appointment_date, { year: 'numeric' })} ob ${props.appointment.start_time.slice(0, 5)}.`,
+);
+
+function documentsOfType(type: 'proforma' | 'invoice') {
+    return (props.appointment.sales_documents ?? []).filter((document) => document.type === type);
+}
+
+const proformaDocuments = computed(() => documentsOfType('proforma'));
+const invoiceDocuments = computed(() => documentsOfType('invoice'));
+const otherDocuments = computed(() => (props.appointment.sales_documents ?? []).filter((document) => document.type === 'other'));
+const customerName = computed(() => props.appointment.customer?.full_name ?? 'tam');
+
+const sendModal = ref<{ open: boolean; document: SalesDocument | null; title: string; submitLabel: string; body: string }>({
+    open: false,
+    document: null,
+    title: '',
+    submitLabel: '',
+    body: '',
+});
+
+function openSendModal(document: SalesDocument) {
+    const typeLabel = document.type === 'proforma' ? 'predračun' : 'račun';
+    sendModal.value = {
+        open: true,
+        document,
+        title: document.sent_at ? `Pošlji ${typeLabel} znova` : `Pošlji ${typeLabel} stranki`,
+        submitLabel: 'Pošlji',
+        body: `Živjo ${customerName.value} 😊 Pošiljam ti ${typeLabel} za termin. Podatke najdeš v priponki.`,
+    };
+}
+
+function openReminderModal(document: SalesDocument) {
+    sendModal.value = {
+        open: true,
+        document,
+        title: 'Pošlji opomnik za plačilo',
+        submitLabel: 'Pošlji opomnik',
+        body: `Živjo ${customerName.value} 😊 Samo prijazen opomnik glede plačila za termin. Za plačilo je še ${formatMoney(remainingBalance.value)}. Če si nakazilo že uredila, sporočilo mirno prezri.`,
+    };
+}
+
+const sendModalAction = computed(() => {
+    if (!sendModal.value.document) return '';
+    return sendModal.value.submitLabel === 'Pošlji opomnik'
+        ? route('documents.remind', sendModal.value.document.id)
+        : route('documents.send', sendModal.value.document.id);
+});
+
+const externalDocumentOpen = ref(false);
 </script>
 
 <template>
@@ -89,7 +156,7 @@ const followUpOpen = ref(false);
             </div>
         </template>
 
-        <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
             <div class="mb-6 flex items-start justify-between">
                 <div>
                     <h1 class="text-2xl font-semibold text-neutral-900">{{ appointment.service_name }}</h1>
@@ -97,35 +164,157 @@ const followUpOpen = ref(false);
                         {{ appointment.appointment_number }} · {{ formatDate(appointment.appointment_date) }} ob {{ appointment.start_time.slice(0, 5) }}
                     </p>
                 </div>
-                <button
-                    type="button"
-                    class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                    @click="followUpOpen = true"
-                >
-                    <Bell :size="14" /> Nastavi opomnik
-                </button>
+                <div class="flex items-stretch gap-2">
+                    <Link
+                        :href="route('settings.statuses.edit')"
+                        title="Nastavitve statusov"
+                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                    >
+                        <Settings :size="14" />
+                    </Link>
+                    <button
+                        v-if="appointment.status !== 'cancelled'"
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
+                        @click="cancelAppointment"
+                    >
+                        <Ban :size="14" /> Prekliči termin
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti termina</h2>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Podrobnosti termina</h3>
+                            <Badge :color="statusMeta.color" :bg="statusMeta.bg">{{ statusMeta.label }}</Badge>
+                        </div>
                         <p class="mt-2 text-sm text-neutral-700">{{ appointment.description || 'Opis ni dodan.' }}</p>
 
-                        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div>
-                                <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
-                                <p class="mt-1 text-sm text-neutral-700">{{ appointment.customer_notes || '—' }}</p>
+                        <div class="mt-4">
+                            <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
+                            <p class="mt-1 text-sm text-neutral-700">{{ appointment.customer_notes || '—' }}</p>
+                        </div>
+
+                        <div class="mt-4 flex items-end justify-between gap-4">
+                            <div class="max-w-xs flex-1">
+                                <label class="block text-xs text-neutral-500">Status termina</label>
+                                <select
+                                    :value="appointment.status"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                    @change="updateStatus(($event.target as HTMLSelectElement).value)"
+                                >
+                                    <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">
+                                        {{ APPOINTMENT_STATUS_META[s as AppointmentStatus].label }}
+                                    </option>
+                                </select>
                             </div>
-                            <div>
-                                <h3 class="text-xs font-medium text-neutral-500">Interne opombe</h3>
-                                <p class="mt-1 text-sm text-neutral-700">{{ appointment.internal_notes || '—' }}</p>
-                            </div>
+                            <button
+                                v-if="canNotifyCustomer"
+                                type="button"
+                                class="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                                @click="appointmentNotifyOpen = true"
+                            >
+                                <Send :size="14" /> Obvesti stranko
+                            </button>
                         </div>
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Časovnica</h2>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Podrobnosti o plačilu</h3>
+                            <Badge :color="paymentMeta.color" :bg="paymentMeta.bg">{{ paymentMeta.label }}</Badge>
+                        </div>
+                        <div class="mt-3 grid grid-cols-2 gap-4" :class="acceptsDeposit ? 'sm:grid-cols-4' : 'sm:grid-cols-3'">
+                            <div>
+                                <label class="block text-xs text-neutral-500">Cena</label>
+                                <input v-model="paymentForm.price" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" @change="savePayment" />
+                            </div>
+                            <div v-if="acceptsDeposit">
+                                <label class="block text-xs text-neutral-500">Ara</label>
+                                <input v-model="paymentForm.deposit_amount" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" @change="savePayment" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Plačan znesek</label>
+                                <input v-model="paymentForm.amount_paid" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" @change="savePayment" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Status plačila</label>
+                                <select :value="appointment.payment_status" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" @change="updatePayment(($event.target as HTMLSelectElement).value)">
+                                    <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="mt-3 text-xs text-neutral-500">Preostanek: {{ formatMoney(remainingBalance) }}</p>
+                    </section>
+
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Dokumenti</h3>
+                            <button type="button" class="flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700" @click="externalDocumentOpen = true">
+                                <Paperclip :size="13" /> Priloži obstoječ dokument
+                            </button>
+                        </div>
+                        <p v-if="!invoiceSettingsConfigured" class="mt-3 text-sm text-neutral-500">
+                            Za izdajo računov najprej nastavi
+                            <Link :href="route('settings.invoicing.edit')" class="font-medium text-[var(--color-accent-500)] hover:underline">podatke o računih</Link>.
+                        </p>
+                        <div class="mt-3 space-y-3">
+                            <div v-for="doc in [...proformaDocuments, ...invoiceDocuments, ...otherDocuments]" :key="doc.id" class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5">
+                                <div class="flex items-center gap-2.5">
+                                    <FileText :size="16" class="text-neutral-400" />
+                                    <div>
+                                        <p class="text-sm font-medium text-neutral-800">
+                                            {{ doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : 'Drugo' }}
+                                            {{ doc.document_number ?? doc.external_document_number }}
+                                            <span v-if="doc.source === 'external'" class="ml-1 text-xs font-normal text-neutral-400">(zunanji)</span>
+                                        </p>
+                                        <p class="text-xs text-neutral-400">
+                                            Izdano {{ formatDate(doc.issued_at) }}
+                                            <span v-if="doc.sent_at"> · Poslano {{ formatDate(doc.sent_at) }}</span>
+                                            <span v-else> · Ni še poslano</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <a :href="route('documents.download', doc.id)" target="_blank" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline">Odpri</a>
+                                    <button v-if="appointment.conversation" type="button" class="text-xs font-medium text-[var(--color-accent-500)] hover:underline" @click="openSendModal(doc)">
+                                        {{ doc.sent_at ? 'Pošlji znova' : 'Pošlji stranki' }}
+                                    </button>
+                                    <button v-if="appointment.conversation && doc.sent_at" type="button" class="text-xs font-medium text-neutral-500 hover:underline" @click="openReminderModal(doc)">Opomnik</button>
+                                </div>
+                            </div>
+                            <p v-if="!(appointment.sales_documents ?? []).length" class="text-sm text-neutral-400">Še ni dokumentov.</p>
+                        </div>
+                        <div class="mt-4 flex items-center gap-2">
+                            <Link :href="route('appointments.documents.create', { appointment: appointment.id, type: 'proforma' })" class="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50">Izstavi predračun</Link>
+                            <Link :href="route('appointments.documents.create', { appointment: appointment.id, type: 'invoice' })" class="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50">Izstavi račun</Link>
+                        </div>
+                    </section>
+
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Opombe</h3>
+                        <textarea
+                            v-model="notesForm.internal_notes"
+                            rows="3"
+                            placeholder="Dodaj interno opombo o tem terminu…"
+                            class="mt-3 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                        />
+                        <div class="mt-2 flex justify-end">
+                            <button
+                                type="button"
+                                :disabled="notesForm.processing"
+                                class="rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
+                                @click="saveNotes"
+                            >
+                                Shrani opombo
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Časovnica</h3>
                         <div class="mt-3 space-y-3">
                             <div v-for="entry in activity" :key="entry.id" class="flex gap-2.5 text-sm">
                                 <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" />
@@ -151,7 +340,7 @@ const followUpOpen = ref(false);
 
                     <section v-if="appointment.conversation" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Izvorni pogovor</h2>
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Izvorni pogovor</h3>
                             <Link
                                 :href="route('inbox.show', appointment.conversation.id)"
                                 class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-600)] hover:underline"
@@ -163,119 +352,37 @@ const followUpOpen = ref(false);
                 </div>
 
                 <div class="space-y-5">
-                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Stranka</h3>
-                        <Link
-                            :href="route('customers.show', appointment.customer!.id)"
-                            class="mt-3 flex items-center gap-3 rounded-lg hover:bg-neutral-50 -mx-2 px-2 py-1.5"
-                        >
-                            <Avatar :name="appointment.customer?.full_name ?? ''" size="md" />
-                            <div class="min-w-0">
-                                <p class="truncate text-sm font-medium text-neutral-900">{{ appointment.customer?.full_name }}</p>
-                                <p class="truncate text-xs text-neutral-500">{{ appointment.customer?.email }}</p>
-                            </div>
-                        </Link>
-                    </section>
+                    <CustomerContactCard v-if="appointment.customer" :customer="appointment.customer" />
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Status termina</h3>
-                        <select
-                            :value="appointment.status"
-                            class="mt-2 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            @change="updateStatus(($event.target as HTMLSelectElement).value)"
-                        >
-                            <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">
-                                {{ APPOINTMENT_STATUS_META[s as AppointmentStatus].label }}
-                            </option>
-                        </select>
-                        <div v-if="!['cancelled', 'no_show', 'completed'].includes(appointment.status)" class="mt-2 grid grid-cols-2 gap-2">
-                            <button
-                                type="button"
-                                class="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                                @click="cancelAppointment"
-                            >
-                                Prekliči
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
-                                @click="markNoShow"
-                            >
-                                Ni se zglasil/a
-                            </button>
-                        </div>
-                    </section>
-
-                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Termin</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Termin</h3>
                         <div class="mt-2 space-y-2">
                             <DateInput v-model="scheduleForm.appointment_date" />
                             <input
                                 v-model="scheduleForm.start_time"
                                 type="time"
                                 class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                @change="saveSchedule"
                             />
                             <select
                                 v-model.number="scheduleForm.duration_minutes"
                                 class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                @change="saveSchedule"
                             >
                                 <option v-for="d in [15, 30, 45, 60, 75, 90, 120, 150, 180, 240]" :key="d" :value="d">{{ d }} min</option>
                             </select>
-                            <button
-                                type="button"
-                                class="w-full rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                                @click="saveSchedule"
-                            >
-                                Shrani termin
-                            </button>
                         </div>
-                    </section>
-
-                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Plačilo</h3>
-                        <div class="mt-2 space-y-2">
-                            <label class="block text-xs text-neutral-500">Cena</label>
-                            <input
-                                v-model="paymentForm.price"
-                                type="number"
-                                step="0.01"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
-                            <label class="block text-xs text-neutral-500">Ara</label>
-                            <input
-                                v-model="paymentForm.deposit_amount"
-                                type="number"
-                                step="0.01"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
-                            <label class="block text-xs text-neutral-500">Plačan znesek</label>
-                            <input
-                                v-model="paymentForm.amount_paid"
-                                type="number"
-                                step="0.01"
-                                class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                            />
-                            <p class="text-xs text-neutral-500">Preostanek: {{ formatMoney(remainingBalance) }}</p>
-                            <button
-                                type="button"
-                                class="w-full rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                                @click="savePayment"
-                            >
-                                Shrani plačilo
-                            </button>
-
-                            <select
-                                :value="appointment.payment_status"
-                                class="mt-2 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                                @change="updatePayment(($event.target as HTMLSelectElement).value)"
-                            >
-                                <option v-for="s in paymentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
-                            </select>
-                        </div>
+                        <button
+                            type="button"
+                            class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                            @click="followUpOpen = true"
+                        >
+                            <Bell :size="14" /> Nastavi opomnik
+                        </button>
                     </section>
 
                     <section v-if="appointment.channel" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Vir</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Vir</h3>
                         <div class="mt-2 flex items-center gap-2">
                             <ChannelIcon :type="appointment.channel.type" size="md" />
                             <span class="text-sm text-neutral-700">{{ appointment.channel.display_name }}</span>
@@ -285,12 +392,37 @@ const followUpOpen = ref(false);
             </div>
         </div>
 
+        <SendDocumentModal
+            :show="appointmentNotifyOpen"
+            title="Pošlji opomnik za termin"
+            submit-label="Pošlji"
+            :action="route('appointments.notify.store', appointment.id)"
+            :default-body="appointmentReminderBody"
+            @close="appointmentNotifyOpen = false"
+        />
+
         <FollowUpModal
             :show="followUpOpen"
             followable-type="App\Models\Appointment"
             :followable-id="appointment.id"
             :default-note="`Opomnik za termin: ${appointment.service_name}`"
             @close="followUpOpen = false"
+        />
+
+        <SendDocumentModal
+            :show="sendModal.open"
+            :title="sendModal.title"
+            :submit-label="sendModal.submitLabel"
+            :action="sendModalAction"
+            :default-body="sendModal.body"
+            @close="sendModal.open = false"
+        />
+
+        <ExternalDocumentModal
+            :show="externalDocumentOpen"
+            :documentable-id="appointment.id"
+            documentable-type="appointment"
+            @close="externalDocumentOpen = false"
         />
     </AppLayout>
 </template>

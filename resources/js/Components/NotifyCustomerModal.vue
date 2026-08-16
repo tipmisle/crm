@@ -95,7 +95,7 @@ function choose(type: 'pickup' | 'shipped') {
 }
 
 function reset() {
-    step.value = 'choose';
+    step.value = props.order.delivery_method === 'mail' ? 'shipped' : props.order.delivery_method === 'pickup' ? 'pickup' : 'choose';
     pickupLocation.value = '';
     pickupDate.value = '';
     pickupTime.value = '';
@@ -103,6 +103,8 @@ function reset() {
     trackingUrl.value = props.order.tracking_url ?? '';
     bodyEditedManually.value = false;
     form.reset();
+    form.type = step.value === 'choose' ? '' : step.value;
+    regenerateBody();
     form.clearErrors();
 }
 

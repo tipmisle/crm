@@ -10,7 +10,7 @@ import ExternalDocumentModal from '@/Components/ExternalDocumentModal.vue';
 import NotifyCustomerModal from '@/Components/NotifyCustomerModal.vue';
 import CustomerContactCard from '@/Components/CustomerContactCard.vue';
 import DateInput from '@/Components/DateInput.vue';
-import { formatMoney, formatDate, formatDateTime, formatTime } from '@/lib/format';
+import { formatMoney, formatDate, formatDateTime, formatTime, normalizeMoneyInput } from '@/lib/format';
 import type { ActivityLogEntry, FollowUp, Order, SalesDocument } from '@/types/models';
 import type { PageProps } from '@/types';
 import { CalendarClock, MessageSquare, Bell, Check, Ban, Settings, FileText, Paperclip, Send } from 'lucide-vue-next';
@@ -53,6 +53,9 @@ const paymentForm = useForm({
 });
 
 function savePayment() {
+    paymentForm.price = normalizeMoneyInput(paymentForm.price);
+    paymentForm.deposit_amount = normalizeMoneyInput(paymentForm.deposit_amount);
+    paymentForm.amount_paid = normalizeMoneyInput(paymentForm.amount_paid);
     paymentForm.patch(route('orders.update', props.order.id), { preserveScroll: true });
 }
 
@@ -60,6 +63,16 @@ const deadlineForm = useForm({
     due_date: props.order.due_date ?? '',
     due_time: props.order.due_time ?? '',
 });
+
+const deliveryForm = useForm({
+    delivery_method: props.order.delivery_method ?? (props.order.tracking_number || props.order.tracking_url || props.order.shipped_at ? 'mail' : null),
+    tracking_number: props.order.tracking_number ?? '',
+    tracking_url: props.order.tracking_url ?? '',
+});
+
+function saveDelivery() {
+    deliveryForm.patch(route('orders.update', props.order.id), { preserveScroll: true });
+}
 
 function saveDeadline() {
     deadlineForm.patch(route('orders.update', props.order.id), { preserveScroll: true });
@@ -135,7 +148,7 @@ const sendModalAction = computed(() => {
 
 const externalDocumentOpen = ref(false);
 
-const canNotifyCustomer = computed(() => Boolean(props.order.conversation));
+const canNotifyCustomer = computed(() => props.order.can_notify_customer ?? Boolean(props.order.conversation));
 const notifyModalOpen = ref(false);
 </script>
 
@@ -180,7 +193,7 @@ const notifyModalOpen = ref(false);
                 <div class="space-y-6 lg:col-span-2">
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti naročila</h2>
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Podrobnosti naročila</h3>
                             <Badge :color="statusMeta.color" :bg="statusMeta.bg">{{ statusMeta.label }}</Badge>
                         </div>
                         <p class="mt-2 text-sm text-neutral-700">{{ order.description || 'Opis ni dodan.' }}</p>
@@ -215,7 +228,7 @@ const notifyModalOpen = ref(false);
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Podrobnosti o plačilu</h2>
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Podrobnosti o plačilu</h3>
                             <Badge :color="paymentMeta.color" :bg="paymentMeta.bg">{{ paymentMeta.label }}</Badge>
                         </div>
                         <div class="mt-3 grid grid-cols-2 gap-4" :class="acceptsDeposit ? 'sm:grid-cols-4' : 'sm:grid-cols-3'">
@@ -264,7 +277,7 @@ const notifyModalOpen = ref(false);
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Dokumenti</h2>
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Dokumenti</h3>
                             <button
                                 type="button"
                                 class="flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-700"
@@ -328,7 +341,7 @@ const notifyModalOpen = ref(false);
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Opombe</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Opombe</h3>
 
                         <form class="mt-3 flex gap-2" @submit.prevent="submitNote">
                             <input
@@ -358,7 +371,7 @@ const notifyModalOpen = ref(false);
                     </section>
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h2 class="text-sm font-semibold text-neutral-900">Časovnica</h2>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Časovnica</h3>
                         <div class="mt-3 space-y-3">
                             <div v-for="entry in activity" :key="entry.id" class="flex gap-2.5 text-sm">
                                 <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" />
@@ -384,7 +397,7 @@ const notifyModalOpen = ref(false);
 
                     <section v-if="order.conversation" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Izvorni pogovor</h2>
+                            <h3 class="text-xs font-semibold text-neutral-800 uppercase">Izvorni pogovor</h3>
                             <Link
                                 :href="route('inbox.show', order.conversation.id)"
                                 class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-600)] hover:underline"
@@ -399,7 +412,68 @@ const notifyModalOpen = ref(false);
                     <CustomerContactCard v-if="order.customer" :customer="order.customer" />
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Rok</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Dostava</h3>
+                        <div class="mt-3 space-y-2">
+                            <label class="flex items-center gap-2 text-sm text-neutral-700">
+                                <input
+                                    v-model="deliveryForm.delivery_method"
+                                    type="radio"
+                                    value="mail"
+                                    class="accent-[var(--color-ink-950)]"
+                                    @change="saveDelivery"
+                                />
+                                Pošiljanje po pošti
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-neutral-700">
+                                <input
+                                    v-model="deliveryForm.delivery_method"
+                                    type="radio"
+                                    value="pickup"
+                                    class="accent-[var(--color-ink-950)]"
+                                    @change="saveDelivery"
+                                />
+                                Osebni prevzem
+                            </label>
+                        </div>
+
+                        <div v-if="deliveryForm.delivery_method === 'mail'" class="mt-4 space-y-3">
+                            <div>
+                                <label class="block text-xs text-neutral-500">Številka za sledenje</label>
+                                <input
+                                    v-model="deliveryForm.tracking_number"
+                                    type="text"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                                    @change="saveDelivery"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Povezava za sledenje</label>
+                                <input
+                                    v-model="deliveryForm.tracking_url"
+                                    type="url"
+                                    placeholder="https://…"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                                    @change="saveDelivery"
+                                />
+                                <p v-if="deliveryForm.errors.tracking_url" class="mt-1 text-xs text-red-500">{{ deliveryForm.errors.tracking_url }}</p>
+                            </div>
+                            <p v-if="order.shipped_at" class="text-xs text-neutral-500">
+                                Poslano {{ formatDate(order.shipped_at, { year: 'numeric' }) }}
+                            </p>
+                        </div>
+                        <a
+                            v-if="deliveryForm.delivery_method === 'mail' && deliveryForm.tracking_url"
+                            :href="deliveryForm.tracking_url"
+                            target="_blank"
+                            rel="noopener"
+                            class="mt-3 flex w-full items-center justify-center rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                        >
+                            Odpri sledenje
+                        </a>
+                    </section>
+
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Rok</h3>
                         <div class="mt-2 space-y-2">
                             <DateInput v-model="deadlineForm.due_date" />
                             <input
@@ -419,7 +493,7 @@ const notifyModalOpen = ref(false);
                     </section>
 
                     <section v-if="order.channel" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Vir</h3>
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Vir</h3>
                         <div class="mt-2 flex items-center gap-2">
                             <ChannelIcon :type="order.channel.type" size="md" />
                             <span class="text-sm text-neutral-700">{{ order.channel.display_name }}</span>
@@ -446,7 +520,7 @@ const notifyModalOpen = ref(false);
             @close="sendModal.open = false"
         />
 
-        <ExternalDocumentModal :show="externalDocumentOpen" :order-id="order.id" @close="externalDocumentOpen = false" />
+        <ExternalDocumentModal :show="externalDocumentOpen" :documentable-id="order.id" @close="externalDocumentOpen = false" />
 
         <NotifyCustomerModal
             :show="notifyModalOpen"

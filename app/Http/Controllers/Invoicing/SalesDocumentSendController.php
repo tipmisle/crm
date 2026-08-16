@@ -36,10 +36,11 @@ class SalesDocumentSendController extends Controller
             'body' => 'required|string|max:2000',
         ]);
 
-        $order = $document->order()->with('conversation.channel')->first();
-        $conversation = $order?->conversation;
+        $document->loadMissing(['order.conversation.channel', 'appointment.conversation.channel']);
+        $subject = $document->order ?? $document->appointment;
+        $conversation = $subject?->conversation;
 
-        abort_unless($conversation, 422, 'To naročilo nima povezanega pogovora.');
+        abort_unless($conversation, 422, 'Ta zapis nima povezanega pogovora.');
 
         $channel = $conversation->channel;
 

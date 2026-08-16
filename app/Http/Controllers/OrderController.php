@@ -69,7 +69,7 @@ class OrderController extends Controller
             return Inertia::render('Orders/Calendar', [
                 'ordersByDate' => $ordersByDate,
                 'month' => $month->format('Y-m'),
-                'filters' => $request->only(['search', 'status', 'payment']),
+                'filters' => $request->only(['search', 'status', 'payment', 'due']),
             ]);
         }
 
@@ -190,14 +190,18 @@ class OrderController extends Controller
 
     public function show(Order $order): Response
     {
-        $order->load(['customer.orders', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments']);
+        $order->load(['customer.orders', 'customer.primaryChannel', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments', 'workspace']);
+
+        $mockNotificationsEnabled = app()->isLocal() || $order->workspace?->is_demo;
+        $order->setAttribute('can_notify_customer', (bool) $order->conversation
+            || ($mockNotificationsEnabled && (bool) ($order->channel || $order->customer?->primaryChannel)));
 
         $invoiceSettings = InvoiceSettings::where('workspace_id', $order->workspace_id)->first();
 
         return Inertia::render('Orders/Show', [
             'order' => $order,
             'followUps' => $order->followUps()->orderBy('due_at')->get(),
-            'activity' => \App\Models\ActivityLog::where('subject_type', Order::class)
+            'activity' => ActivityLog::where('subject_type', Order::class)
                 ->where('subject_id', $order->id)
                 ->orderByDesc('created_at')
                 ->get(),
@@ -219,6 +223,9 @@ class OrderController extends Controller
             'status' => 'sometimes|string',
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
+            'delivery_method' => 'nullable|in:mail,pickup',
+            'tracking_number' => 'nullable|string|max:100',
+            'tracking_url' => 'nullable|url|max:2048',
         ]);
 
         $previousStatus = $order->status;

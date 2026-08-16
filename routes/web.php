@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\AppointmentNotificationController;
 use App\Http\Controllers\Billing\ActivationController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CustomerController;
@@ -142,6 +143,10 @@ Route::middleware('auth')->group(function () {
 
         Route::middleware('appointments.enabled')->group(function () {
             Route::resource('appointments', AppointmentController::class)->except(['edit']);
+            Route::post('/appointments/{appointment}/notify', [AppointmentNotificationController::class, 'store'])->name('appointments.notify.store');
+            Route::get('/appointments/{appointment}/documents/create', [SalesDocumentController::class, 'createForAppointment'])->name('appointments.documents.create');
+            Route::post('/appointments/{appointment}/documents', [SalesDocumentController::class, 'storeForAppointment'])->name('appointments.documents.store');
+            Route::post('/appointments/{appointment}/documents/external', [ExternalDocumentController::class, 'storeForAppointment'])->name('appointments.documents.external.store');
             Route::resource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
         });
 

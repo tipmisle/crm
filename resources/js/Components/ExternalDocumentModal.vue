@@ -4,7 +4,8 @@ import Modal from '@/Components/Modal.vue';
 
 const props = defineProps<{
     show: boolean;
-    orderId: number;
+    documentableId: number;
+    documentableType?: 'order' | 'appointment';
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -20,7 +21,8 @@ function onFileChange(event: Event) {
 }
 
 function submit() {
-    form.post(route('orders.documents.external.store', props.orderId), {
+    const routeName = props.documentableType === 'appointment' ? 'appointments.documents.external.store' : 'orders.documents.external.store';
+    form.post(route(routeName, props.documentableId), {
         preserveScroll: true,
         onSuccess: () => {
             form.reset();
