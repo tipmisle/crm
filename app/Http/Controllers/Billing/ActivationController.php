@@ -56,9 +56,17 @@ class ActivationController extends Controller
      * synchronized via webhook. If the webhook hasn't landed yet, the
      * subscription.active gate simply bounces the user back here once
      * more. See docs/billing.md.
+     *
+     * A brand new (non-demo) workspace hasn't finished onboarding yet, so
+     * it's routed to /onboarding instead of straight to Today — see
+     * EnsureOnboardingComplete.
      */
     public function success(Request $request): RedirectResponse
     {
-        return redirect()->route('dashboard')->with('success', 'Plačilo se obdeluje — Beležka bo na voljo v nekaj trenutkih.');
+        $workspace = $request->user()->currentWorkspace;
+
+        $target = $workspace->needsOnboarding() ? 'onboarding.show' : 'dashboard';
+
+        return redirect()->route($target)->with('success', 'Plačilo se obdeluje — Beležka bo na voljo v nekaj trenutkih.');
     }
 }

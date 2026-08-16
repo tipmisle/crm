@@ -19,6 +19,16 @@ class MetaIntegrationController extends Controller
 
     private const SESSION_ACCOUNTS_KEY = 'meta_pending_accounts';
 
+    /**
+     * "Sporočila" is an optional onboarding step reusing this same OAuth
+     * flow — while onboarding is incomplete, every redirect that would
+     * normally land back on Settings returns to /onboarding instead.
+     */
+    private function returnRoute(Request $request): string
+    {
+        return $request->user()->currentWorkspace->needsOnboarding() ? 'onboarding.show' : 'settings.edit';
+    }
+
     public function connect(Request $request, MetaMessagingProvider $provider): RedirectResponse
     {
         $state = Str::random(40);
@@ -32,20 +42,20 @@ class MetaIntegrationController extends Controller
         $expectedState = $request->session()->pull(self::SESSION_STATE_KEY);
 
         if ($request->query('error')) {
-            return redirect()->route('settings.edit')
+            return redirect()->route($this->returnRoute($request))
                 ->with('error', 'Povezava z Meta je bila preklicana.');
         }
 
         if (! $expectedState || $request->query('state') !== $expectedState) {
             Log::warning('meta.oauth.state_mismatch');
 
-            return redirect()->route('settings.edit')
+            return redirect()->route($this->returnRoute($request))
                 ->with('error', 'Preverjanje povezave z Meta ni uspelo. Poskusi znova.');
         }
 
         $code = $request->query('code');
         if (! $code) {
-            return redirect()->route('settings.edit')->with('error', 'Manjka avtorizacijska koda Meta.');
+            return redirect()->route($this->returnRoute($request))->with('error', 'Manjka avtorizacijska koda Meta.');
         }
 
         $workspaceId = $request->user()->current_workspace_id;
@@ -56,12 +66,12 @@ class MetaIntegrationController extends Controller
         } catch (\Throwable $e) {
             Log::error('meta.oauth.callback_failed', ['error' => $e->getMessage()]);
 
-            return redirect()->route('settings.edit')
+            return redirect()->route($this->returnRoute($request))
                 ->with('error', 'Povezava z Meta ni uspela. Poskusi znova.');
         }
 
         if (empty($accounts)) {
-            return redirect()->route('settings.edit')
+            return redirect()->route($this->returnRoute($request))
                 ->with('error', 'Na tvojem Meta računu ni najdenih strani ali Instagram poslovnih profilov.');
         }
 
@@ -70,7 +80,7 @@ class MetaIntegrationController extends Controller
             'accounts' => array_map(fn (DiscoveredAccount $a) => $a->toSessionArray(), $accounts),
         ]);
 
-        return redirect()->route('settings.edit');
+        return redirect()->route($this->returnRoute($request));
     }
 
     public function store(Request $request, MetaMessagingProvider $provider): RedirectResponse
@@ -78,7 +88,7 @@ class MetaIntegrationController extends Controller
         $pending = $request->session()->get(self::SESSION_ACCOUNTS_KEY);
 
         if (! $pending) {
-            return redirect()->route('settings.edit')->with('error', 'Ni čakajočih Meta računov za povezavo.');
+            return redirect()->route($this->returnRoute($request))->with('error', 'Ni čakajočih Meta računov za povezavo.');
         }
 
         $data = $request->validate([
@@ -111,7 +121,7 @@ class MetaIntegrationController extends Controller
         if ($alreadyClaimed->isNotEmpty()) {
             $names = $alreadyClaimed->map(fn (array $a) => $a['display_name'])->implode(', ');
 
-            return redirect()->route('settings.edit')->with(
+            return redirect()->route($this->returnRoute($request))->with(
                 'error',
                 "Račun(i) {$names} so že povezani z drugim delovnim prostorom Beležke. En Meta račun je lahko naenkrat povezan samo z enim delovnim prostorom."
             );
@@ -157,7 +167,7 @@ class MetaIntegrationController extends Controller
 
         $request->session()->forget(self::SESSION_ACCOUNTS_KEY);
 
-        return redirect()->route('settings.edit')
+        return redirect()->route($this->returnRoute($request))
             ->with('success', 'Povezano: '.implode(', ', $connected).'.');
     }
 
@@ -165,7 +175,7 @@ class MetaIntegrationController extends Controller
     {
         $request->session()->forget(self::SESSION_ACCOUNTS_KEY);
 
-        return redirect()->route('settings.edit');
+        return redirect()->route($this->returnRoute($request));
     }
 
     public function destroy(Request $request, Channel $channel, MetaMessagingProvider $provider): RedirectResponse

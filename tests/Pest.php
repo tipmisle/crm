@@ -73,14 +73,19 @@ function something()
  * every existing test suite assumes ("a normal, working workspace"). Pass
  * withSubscription: false for billing tests that specifically need an
  * unpaid/no-subscription workspace (see App\Http\Middleware\EnsureWorkspaceHasActiveSubscription).
+ *
+ * Also defaults to onboarding already completed, same reasoning — most
+ * tests assume a normal workspace past first-run setup. Pass
+ * onboardingCompleted: false for Onboarding feature tests.
  */
-function createWorkspaceWithUser(array $userAttributes = [], bool $withSubscription = true): array
+function createWorkspaceWithUser(array $userAttributes = [], bool $withSubscription = true, bool $onboardingCompleted = true): array
 {
     $workspace = Workspace::create([
         'name' => 'Test Workspace',
         'slug' => Str::random(10),
         'timezone' => 'Europe/Ljubljana',
         'currency' => 'EUR',
+        'onboarding_completed_at' => $onboardingCompleted ? now() : null,
     ]);
 
     $user = User::factory()->create(array_merge([

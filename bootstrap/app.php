@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAppointmentsEnabled;
+use App\Http\Middleware\EnsureOnboardingComplete;
 use App\Http\Middleware\EnsureOrdersEnabled;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureWorkspaceHasActiveSubscription;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'orders.enabled' => EnsureOrdersEnabled::class,
             'platform.admin' => EnsurePlatformAdmin::class,
             'subscription.active' => EnsureWorkspaceHasActiveSubscription::class,
+            'onboarding.gate' => EnsureOnboardingComplete::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

@@ -36,6 +36,7 @@ class Workspace extends Model
         'demo_variant',
         'deletion_requested_at',
         'scheduled_deletion_at',
+        'onboarding_completed_at',
     ];
 
     protected function casts(): array
@@ -49,6 +50,7 @@ class Workspace extends Model
             'deletion_requested_at' => 'datetime',
             'scheduled_deletion_at' => 'datetime',
             'trial_ends_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 
@@ -60,6 +62,15 @@ class Workspace extends Model
     public function isPendingDeletion(): bool
     {
         return $this->deletion_requested_at !== null;
+    }
+
+    /**
+     * Demo workspaces skip the first-run /onboarding flow entirely — they
+     * arrive pre-seeded via a demo seeder, not through Stripe activation.
+     */
+    public function needsOnboarding(): bool
+    {
+        return ! $this->is_demo && $this->onboarding_completed_at === null;
     }
 
     public function members(): HasMany

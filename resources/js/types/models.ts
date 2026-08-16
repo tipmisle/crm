@@ -54,6 +54,7 @@ export interface Workspace {
     is_demo: boolean;
     demo_expires_at: string | null;
     demo_variant: 'services' | 'orders' | 'both' | null;
+    onboarding_completed_at: string | null;
 }
 
 export interface Channel {

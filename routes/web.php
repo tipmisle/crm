@@ -21,6 +21,7 @@ use App\Http\Controllers\Invoicing\SalesDocumentReminderController;
 use App\Http\Controllers\Invoicing\SalesDocumentSendController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MarketingController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderNoteController;
 use App\Http\Controllers\OrderNotificationController;
@@ -113,7 +114,14 @@ Route::middleware('auth')->group(function () {
 
     // Normal product surface — requires an active subscription for real
     // (non-demo) workspaces. Demo bypasses entirely. See docs/billing.md.
-    Route::middleware('subscription.active')->group(function () {
+    // onboarding.gate additionally bounces an incomplete (non-demo)
+    // workspace to /onboarding first; the onboarding routes themselves and
+    // the Meta OAuth round-trip are exempt from that bounce (see
+    // EnsureOnboardingComplete).
+    Route::middleware(['subscription.active', 'onboarding.gate'])->group(function () {
+        Route::get('/onboarding', [OnboardingController::class, 'show'])->name('onboarding.show');
+        Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
+
         Route::get('/today', TodayController::class)->name('dashboard');
 
         Route::get('/search', SearchController::class)->name('search');
