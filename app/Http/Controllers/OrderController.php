@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -216,13 +217,19 @@ class OrderController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $workspaceId = $request->user()->current_workspace_id;
+
         $data = $request->validate([
-            'catalog_item_id' => 'nullable|exists:catalog_items,id',
+            // A catalog_item_id must be a Product (not a Service — both
+            // share the catalog_items table) belonging to THIS workspace;
+            // a plain exists:catalog_items,id would accept either type from
+            // any workspace.
+            'catalog_item_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'product'))],
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
-            'customer_id' => 'nullable|exists:customers,id',
+            'customer_id' => ['nullable', Rule::exists('customers', 'id')->where('workspace_id', $workspaceId)],
             'customer_name' => 'required_without_all:customer_id,conversation_id|nullable|string|max:255',
-            'conversation_id' => 'nullable|exists:conversations,id',
+            'conversation_id' => ['nullable', Rule::exists('conversations', 'id')->where('workspace_id', $workspaceId)],
             'due_date' => 'nullable|date',
             'due_time' => 'nullable',
             'price' => 'required|numeric|min:0',
@@ -318,6 +325,9 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order): RedirectResponse
     {
+        // Custom keys are fully supported — this checks against the CURRENT
+        // workspace's OrderStatus/PaymentStatus rows (any key that exists),
+        // not a fixed whitelist of canonical names.
         $data = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:2000',
@@ -326,8 +336,8 @@ class OrderController extends Controller
             'price' => 'sometimes|numeric|min:0',
             'deposit_amount' => 'sometimes|numeric|min:0',
             'amount_paid' => 'sometimes|numeric|min:0',
-            'payment_status' => 'sometimes|string',
-            'status' => 'sometimes|string',
+            'payment_status' => ['sometimes', 'string', Rule::exists('payment_statuses', 'key')->where('workspace_id', $order->workspace_id)],
+            'status' => ['sometimes', 'string', Rule::exists('order_statuses', 'key')->where('workspace_id', $order->workspace_id)],
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
             'delivery_method' => 'nullable|in:mail,pickup',

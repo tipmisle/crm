@@ -20,9 +20,11 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\WorkspaceStatusDefaults;
 use Carbon\Carbon;
 use Database\Seeders\Concerns\SpreadsTimestamps;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class BloomAndCrumbSeeder extends Seeder
@@ -138,6 +140,8 @@ class BloomAndCrumbSeeder extends Seeder
             'user_id' => $this->user->id,
             'role' => 'owner',
         ]);
+
+        WorkspaceStatusDefaults::seed($this->workspace);
     }
 
     private function createChannels(): void
@@ -183,7 +187,7 @@ class BloomAndCrumbSeeder extends Seeder
         }
     }
 
-    /** @return \Illuminate\Support\Collection<int, Customer> */
+    /** @return Collection<int, Customer> */
     private function createCustomers()
     {
         $customers = collect();
@@ -275,7 +279,7 @@ class BloomAndCrumbSeeder extends Seeder
         return array_values(array_unique([$pool[array_rand($pool)], $pool[array_rand($pool)]]));
     }
 
-    /** @return \Illuminate\Support\Collection<int, Conversation> */
+    /** @return Collection<int, Conversation> */
     private function createConversationsAndMessages($customers)
     {
         $conversations = collect();
@@ -429,7 +433,7 @@ class BloomAndCrumbSeeder extends Seeder
         ]);
     }
 
-    /** @return \Illuminate\Support\Collection<int, Order> */
+    /** @return Collection<int, Order> */
     private function createOrders($customers, $conversations)
     {
         $orders = collect();

@@ -23,9 +23,11 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\WorkspaceStatusDefaults;
 use Carbon\Carbon;
 use Database\Seeders\Concerns\SpreadsTimestamps;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -113,6 +115,8 @@ class FotoStudioLunaSeeder extends Seeder
             'user_id' => $this->user->id,
             'role' => 'owner',
         ]);
+
+        WorkspaceStatusDefaults::seed($this->workspace);
     }
 
     private function createChannels(): void
@@ -175,7 +179,7 @@ class FotoStudioLunaSeeder extends Seeder
         }
     }
 
-    /** @return \Illuminate\Support\Collection<int, Customer> */
+    /** @return Collection<int, Customer> */
     private function createCustomers()
     {
         $customers = collect();
@@ -286,7 +290,7 @@ class FotoStudioLunaSeeder extends Seeder
         return [$pool[array_rand($pool)]];
     }
 
-    /** @return \Illuminate\Support\Collection<int, Conversation> */
+    /** @return Collection<int, Conversation> */
     private function createConversationsAndMessages($customers)
     {
         $conversations = collect();
@@ -477,7 +481,7 @@ class FotoStudioLunaSeeder extends Seeder
         ]);
     }
 
-    /** @return \Illuminate\Support\Collection<int, Appointment> */
+    /** @return Collection<int, Appointment> */
     private function createAppointments($customers, $conversations)
     {
         $appointments = collect();
@@ -596,7 +600,7 @@ class FotoStudioLunaSeeder extends Seeder
         return $appointments;
     }
 
-    /** @return \Illuminate\Support\Collection<int, Order> */
+    /** @return Collection<int, Order> */
     private function createOrders($customers, $conversations)
     {
         $orders = collect();

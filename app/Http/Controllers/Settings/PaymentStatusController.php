@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
+use App\Models\Order;
 use App\Models\PaymentStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class PaymentStatusController extends Controller
 {
@@ -64,12 +67,14 @@ class PaymentStatusController extends Controller
     {
         abort_if(PaymentStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status plačila.');
 
+        $workspace = $request->user()->currentWorkspace;
+
         $data = $request->validate([
-            'reassign_to' => 'nullable|string|exists:payment_statuses,key',
+            'reassign_to' => ['nullable', 'string', Rule::exists('payment_statuses', 'key')->where('workspace_id', $workspace->id)],
         ]);
 
-        $inUse = \App\Models\Order::where('payment_status', $paymentStatus->key)->exists()
-            || \App\Models\Appointment::where('payment_status', $paymentStatus->key)->exists();
+        $inUse = Order::where('payment_status', $paymentStatus->key)->exists()
+            || Appointment::where('payment_status', $paymentStatus->key)->exists();
 
         if ($inUse) {
             $reassignTo = $data['reassign_to'] ?? null;
@@ -87,8 +92,8 @@ class PaymentStatusController extends Controller
             );
 
             DB::transaction(function () use ($paymentStatus, $reassignTo) {
-                \App\Models\Order::where('payment_status', $paymentStatus->key)->update(['payment_status' => $reassignTo]);
-                \App\Models\Appointment::where('payment_status', $paymentStatus->key)->update(['payment_status' => $reassignTo]);
+                Order::where('payment_status', $paymentStatus->key)->update(['payment_status' => $reassignTo]);
+                Appointment::where('payment_status', $paymentStatus->key)->update(['payment_status' => $reassignTo]);
                 $paymentStatus->delete();
             });
 

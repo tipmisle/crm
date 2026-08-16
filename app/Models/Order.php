@@ -111,14 +111,29 @@ class Order extends Model
         return $this->morphMany(FollowUp::class, 'followable');
     }
 
+    /**
+     * Resolves by BOTH `key` and this order's own workspace_id — a key-only
+     * match would let an order resolve another workspace's status row with
+     * the same key in an unauthenticated context (job/CLI/queue), where
+     * BelongsToWorkspace's global scope doesn't apply. Lazy-access only
+     * (see isOverdue()): the `where` below binds to $this->workspace_id at
+     * call time, which is correct for lazy access on a real, hydrated
+     * instance but would be null on the empty model Eloquent builds eager-
+     * load queries from — do not eager-load this via with()/load().
+     */
     public function orderStatus(): BelongsTo
     {
-        return $this->belongsTo(OrderStatus::class, 'status', 'key');
+        return $this->belongsTo(OrderStatus::class, 'status', 'key')
+            ->withoutGlobalScopes()
+            ->where('order_statuses.workspace_id', $this->workspace_id);
     }
 
+    /** See orderStatus() for why this is scoped by workspace_id as well as key, and why it must stay lazy-only. */
     public function paymentStatusRecord(): BelongsTo
     {
-        return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key');
+        return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key')
+            ->withoutGlobalScopes()
+            ->where('payment_statuses.workspace_id', $this->workspace_id);
     }
 
     public function isOverdue(): bool

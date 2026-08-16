@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class OrderStatusController extends Controller
 {
@@ -62,8 +63,10 @@ class OrderStatusController extends Controller
     {
         abort_if(OrderStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status naročila.');
 
+        $workspace = $request->user()->currentWorkspace;
+
         $data = $request->validate([
-            'reassign_to' => 'nullable|string|exists:order_statuses,key',
+            'reassign_to' => ['nullable', 'string', Rule::exists('order_statuses', 'key')->where('workspace_id', $workspace->id)],
         ]);
 
         if ($orderStatus->orders()->exists()) {

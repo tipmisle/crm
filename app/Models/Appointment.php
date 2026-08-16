@@ -97,9 +97,12 @@ class Appointment extends Model
         return $this->belongsTo(Service::class);
     }
 
+    /** See Order::orderStatus() for why this is scoped by workspace_id as well as key, and why it must stay lazy-only (never eager-loaded via with()/load()). */
     public function paymentStatusRecord(): BelongsTo
     {
-        return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key');
+        return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key')
+            ->withoutGlobalScopes()
+            ->where('payment_statuses.workspace_id', $this->workspace_id);
     }
 
     public function followUps(): MorphMany

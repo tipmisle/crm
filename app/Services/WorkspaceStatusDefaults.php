@@ -8,15 +8,34 @@ use App\Models\Workspace;
 
 /**
  * Seeds a workspace's initial, fully-editable order/payment status lists —
- * called once, right after a Workspace is created (real registration and
- * demo creation alike). The values mirror what used to be the fixed
- * App\Enums\OrderStatus/PaymentStatus cases, so existing behavior is
- * unchanged until an owner actually edits their lists in Settings.
+ * called once, right after a Workspace is created (real registration, demo
+ * creation, and standalone dev seeders alike). The values mirror what used
+ * to be the fixed App\Enums\OrderStatus/PaymentStatus cases, so existing
+ * behavior is unchanged until an owner actually edits their lists in
+ * Settings.
+ *
+ * Idempotent per list: each of seedOrderStatuses()/seedPaymentStatuses()
+ * only inserts the starter set when the workspace has ZERO rows in that
+ * list. A workspace that already has any order (or payment) statuses —
+ * including one that deliberately deleted every starter row — is left
+ * alone, independently per list. This makes seed() safe to call again on
+ * an existing workspace (e.g. a backfill for workspaces created before
+ * these tables existed) without resurrecting anything the owner removed.
  */
 class WorkspaceStatusDefaults
 {
     public static function seed(Workspace $workspace): void
     {
+        static::seedOrderStatuses($workspace);
+        static::seedPaymentStatuses($workspace);
+    }
+
+    public static function seedOrderStatuses(Workspace $workspace): void
+    {
+        if (OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->exists()) {
+            return;
+        }
+
         $orderStatuses = [
             ['key' => 'new', 'label' => 'Novo', 'color' => '#4B5563', 'bg' => '#F1F2F4', 'is_default' => true],
             ['key' => 'quote_needed', 'label' => 'Potrebna ponudba', 'color' => '#B45309', 'bg' => '#FEF3C7'],
@@ -34,6 +53,13 @@ class WorkspaceStatusDefaults
                 'workspace_id' => $workspace->id,
                 'sort_order' => $i,
             ]));
+        }
+    }
+
+    public static function seedPaymentStatuses(Workspace $workspace): void
+    {
+        if (PaymentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->exists()) {
+            return;
         }
 
         $paymentStatuses = [
