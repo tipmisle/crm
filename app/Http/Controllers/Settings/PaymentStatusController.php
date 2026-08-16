@@ -60,13 +60,40 @@ class PaymentStatusController extends Controller
         return back()->with('success', 'Status plačila posodobljen.');
     }
 
-    public function destroy(PaymentStatus $paymentStatus): RedirectResponse
+    public function destroy(Request $request, PaymentStatus $paymentStatus): RedirectResponse
     {
+        abort_if(PaymentStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status plačila.');
+
+        $data = $request->validate([
+            'reassign_to' => 'nullable|string|exists:payment_statuses,key',
+        ]);
+
         $inUse = \App\Models\Order::where('payment_status', $paymentStatus->key)->exists()
             || \App\Models\Appointment::where('payment_status', $paymentStatus->key)->exists();
 
-        abort_if($inUse, 422, 'Tega statusa ni mogoče izbrisati, ker ga uporablja vsaj eno naročilo ali termin.');
-        abort_if(PaymentStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status plačila.');
+        if ($inUse) {
+            $reassignTo = $data['reassign_to'] ?? null;
+
+            abort_if(
+                ! $reassignTo || $reassignTo === $paymentStatus->key,
+                422,
+                'Ta status je v uporabi. Izberi status, na katerega naj se prestavijo obstoječa naročila/termini.'
+            );
+
+            abort_unless(
+                PaymentStatus::query()->where('key', $reassignTo)->exists(),
+                422,
+                'Izbrani status ne obstaja.'
+            );
+
+            DB::transaction(function () use ($paymentStatus, $reassignTo) {
+                \App\Models\Order::where('payment_status', $paymentStatus->key)->update(['payment_status' => $reassignTo]);
+                \App\Models\Appointment::where('payment_status', $paymentStatus->key)->update(['payment_status' => $reassignTo]);
+                $paymentStatus->delete();
+            });
+
+            return back()->with('success', 'Status plačila izbrisan, obstoječi zapisi prestavljeni na nov status.');
+        }
 
         $paymentStatus->delete();
 

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Laravel\Cashier\Billable;
 
 /**
@@ -29,6 +30,7 @@ class Workspace extends Model
         'currency',
         'orders_enabled',
         'appointments_enabled',
+        'accepts_deposit',
         'is_demo',
         'demo_expires_at',
         'demo_variant',
@@ -41,6 +43,7 @@ class Workspace extends Model
         return [
             'orders_enabled' => 'boolean',
             'appointments_enabled' => 'boolean',
+            'accepts_deposit' => 'boolean',
             'is_demo' => 'boolean',
             'demo_expires_at' => 'datetime',
             'deletion_requested_at' => 'datetime',
@@ -89,6 +92,16 @@ class Workspace extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function salesDocuments(): HasMany
+    {
+        return $this->hasMany(SalesDocument::class);
+    }
+
+    public function invoiceSettings(): HasOne
+    {
+        return $this->hasOne(InvoiceSettings::class);
     }
 
     public function appointments(): HasMany

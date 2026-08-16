@@ -19,6 +19,11 @@ class Customer extends Model
         'full_name',
         'email',
         'phone',
+        'address_line',
+        'postal_code',
+        'city',
+        'country',
+        'tax_number',
         'notes',
         'tags',
         'primary_channel_id',
@@ -56,6 +61,11 @@ class Customer extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function salesDocuments(): HasMany
+    {
+        return $this->hasMany(SalesDocument::class);
     }
 
     public function appointments(): HasMany

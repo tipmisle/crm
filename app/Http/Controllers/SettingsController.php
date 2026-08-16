@@ -52,6 +52,7 @@ class SettingsController extends Controller
         $data = $request->validate([
             'orders_enabled' => 'required|boolean',
             'appointments_enabled' => 'required|boolean',
+            'accepts_deposit' => 'required|boolean',
         ]);
 
         if (! $data['orders_enabled'] && ! $data['appointments_enabled']) {

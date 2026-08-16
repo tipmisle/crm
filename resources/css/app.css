@@ -62,6 +62,21 @@
     textarea {
         background-color: #fff;
     }
+
+    /* Every <select> in the app gets a hand-drawn chevron with real
+       breathing room instead of the browser's native arrow, which renders
+       flush against the border in most browsers. padding-right needs
+       !important since it must win over each instance's own px-* utility
+       class (same specificity, later in the cascade). */
+    select {
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236B7280' stroke-width='1.5'%3E%3Cpath d='M6 8l4 4 4-4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.7rem center;
+        background-size: 0.9rem;
+        padding-right: 2.25rem !important;
+    }
 }
 
 @layer utilities {

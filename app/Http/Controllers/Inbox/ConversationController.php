@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Inbox;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageSenderType;
 use App\Enums\MessageStatus;
-use App\Enums\MessageType;
-use App\Events\InboxMessageReceived;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Channel;
@@ -17,18 +15,20 @@ use App\Models\Message;
 use App\Services\Messaging\DTOs\OutboundAttachment;
 use App\Services\Messaging\MessagingProviderInterface;
 use App\Services\Messaging\MessagingProviderManager;
+use App\Services\Messaging\OutboundMessageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ConversationController extends Controller
 {
-    public function __construct(private readonly MessagingProviderManager $providers) {}
+    public function __construct(
+        private readonly MessagingProviderManager $providers,
+        private readonly OutboundMessageService $outboundMessages,
+    ) {}
 
     public function index(): Response
     {
@@ -100,40 +100,7 @@ class ConversationController extends Controller
         ?string $text,
         ?OutboundAttachment $attachment = null,
     ): Message {
-        $message = $conversation->messages()->create([
-            'sender_type' => MessageSenderType::Business,
-            'body' => $text,
-            'message_type' => $attachment ? MessageType::Image : MessageType::Text,
-            'status' => MessageStatus::Pending,
-            'metadata' => $attachment ? ['attachments' => [$attachment->toArray()]] : null,
-            'sent_at' => Carbon::now(),
-        ]);
-
-        $result = $provider->sendMessage($channel, $conversation, $text, $attachment);
-
-        if ($result->success) {
-            $message->update([
-                'status' => MessageStatus::Sent,
-                'external_message_id' => $result->externalMessageId,
-            ]);
-
-            $conversation->update([
-                'last_message_preview' => $text ? Str::limit($text, 120) : '📎 Priloga',
-                'last_message_at' => $message->sent_at,
-            ]);
-
-            broadcast(new InboxMessageReceived($conversation->workspace_id, $conversation->id))->toOthers();
-
-            return $message;
-        }
-
-        $message->update([
-            'status' => MessageStatus::Failed,
-            'failed_at' => Carbon::now(),
-            'failure_reason' => $result->errorMessage,
-        ]);
-
-        return $message;
+        return $this->outboundMessages->send($channel, $conversation, $text, $attachment, $provider);
     }
 
     /**
@@ -310,7 +277,7 @@ class ConversationController extends Controller
                 'lifetime_spend' => $customer->lifetimeSpend(),
                 'open_orders_count' => $customer->openOrdersCount(),
                 'current_open_order' => $customer->orders
-                    ->filter(fn ($o) => ! in_array($o->status->value, ['completed', 'cancelled'], true))
+                    ->filter(fn ($o) => ! in_array($o->status, ['completed', 'cancelled'], true))
                     ->sortByDesc('created_at')
                     ->first(),
                 'last_order_date' => $customer->orders->max('created_at'),

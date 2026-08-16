@@ -45,7 +45,7 @@ class TodayController extends Controller
             );
 
             $todaysOrders = Order::query()
-                ->with(['customer', 'channel'])
+                ->with(['customer', 'channel', 'salesDocuments:id,order_id,type'])
                 ->whereDate('due_date', Carbon::today())
                 ->whereIn('status', $openStatuses)
                 ->orderBy('due_time')
@@ -104,7 +104,7 @@ class TodayController extends Controller
             );
 
             $upcomingOrders = Order::query()
-                ->with(['customer', 'channel'])
+                ->with(['customer', 'channel', 'salesDocuments:id,order_id,type'])
                 ->whereIn('status', $openStatuses)
                 ->whereDate('due_date', '>', Carbon::today())
                 ->whereDate('due_date', '<=', Carbon::today()->addDays(7))

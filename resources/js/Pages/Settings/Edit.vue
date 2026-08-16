@@ -35,6 +35,7 @@ function submit() {
 const capabilitiesForm = useForm({
     orders_enabled: props.workspace.orders_enabled,
     appointments_enabled: props.workspace.appointments_enabled,
+    accepts_deposit: props.workspace.accepts_deposit,
 });
 
 function saveCapabilities() {
@@ -145,6 +146,13 @@ function cancelPending() {
                             <span class="block text-xs text-neutral-500">Upravljaj termine, storitve, datume, ure in zgodovino strank.</span>
                         </span>
                     </label>
+                    <label class="flex items-start gap-3 rounded-lg border border-neutral-200 px-4 py-3">
+                        <input v-model="capabilitiesForm.accepts_deposit" type="checkbox" class="mt-0.5" />
+                        <span>
+                            <span class="block text-sm font-medium text-neutral-900">Sprejemam aro</span>
+                            <span class="block text-xs text-neutral-500">Če izklopiš, se polje za aro skrije pri podrobnostih naročila.</span>
+                        </span>
+                    </label>
                 </div>
                 <p v-if="capabilitiesForm.errors.appointments_enabled" class="mt-2 text-xs text-red-500">
                     {{ capabilitiesForm.errors.appointments_enabled }}
@@ -253,6 +261,12 @@ function cancelPending() {
             <SectionCard title="Statusi naročil in plačil" subtitle="Prilagodi imena, barve in privzete statuse">
                 <Link :href="route('settings.statuses.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
                     Upravljaj statuse →
+                </Link>
+            </SectionCard>
+
+            <SectionCard title="Računi in plačila" subtitle="Podatki o podjetju, IBAN, logotip in oštevilčevanje">
+                <Link :href="route('settings.invoicing.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
+                    Upravljaj račune →
                 </Link>
             </SectionCard>
 

@@ -64,6 +64,27 @@ test('a payment status referenced by an order cannot be deleted', function () {
     expect(PaymentStatus::find($status->id))->not->toBeNull();
 });
 
+test('a payment status in use can be deleted when its orders are reassigned to another status', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'unpaid')->first();
+    $otherStatus = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'paid')->first();
+
+    $order = Order::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Test Customer'])->id,
+        'title' => 'Test order',
+        'status' => 'new',
+        'payment_status' => $status->key,
+    ]);
+
+    $this->actingAs($owner)
+        ->delete(route('settings.statuses.payment.destroy', $status->id), ['reassign_to' => $otherStatus->key])
+        ->assertRedirect();
+
+    expect(PaymentStatus::find($status->id))->toBeNull();
+    expect($order->fresh()->payment_status)->toBe($otherStatus->key);
+});
+
 test('a payment status referenced by an appointment cannot be deleted', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
     $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'unpaid')->first();

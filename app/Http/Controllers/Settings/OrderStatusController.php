@@ -58,10 +58,36 @@ class OrderStatusController extends Controller
         return back()->with('success', 'Status naročila posodobljen.');
     }
 
-    public function destroy(OrderStatus $orderStatus): RedirectResponse
+    public function destroy(Request $request, OrderStatus $orderStatus): RedirectResponse
     {
-        abort_if($orderStatus->orders()->exists(), 422, 'Tega statusa ni mogoče izbrisati, ker ga uporablja vsaj eno naročilo.');
         abort_if(OrderStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status naročila.');
+
+        $data = $request->validate([
+            'reassign_to' => 'nullable|string|exists:order_statuses,key',
+        ]);
+
+        if ($orderStatus->orders()->exists()) {
+            $reassignTo = $data['reassign_to'] ?? null;
+
+            abort_if(
+                ! $reassignTo || $reassignTo === $orderStatus->key,
+                422,
+                'Ta status je v uporabi. Izberi status, na katerega naj se prestavijo obstoječa naročila.'
+            );
+
+            abort_unless(
+                OrderStatus::query()->where('key', $reassignTo)->exists(),
+                422,
+                'Izbrani status ne obstaja.'
+            );
+
+            DB::transaction(function () use ($orderStatus, $reassignTo) {
+                $orderStatus->orders()->update(['status' => $reassignTo]);
+                $orderStatus->delete();
+            });
+
+            return back()->with('success', 'Status naročila izbrisan, naročila prestavljena na nov status.');
+        }
 
         $orderStatus->delete();
 

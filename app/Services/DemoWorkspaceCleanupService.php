@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\InvoiceSettings;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Services\Concerns\CollectsLocalAttachmentPaths;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The single place that knows how to safely delete a demo workspace —
@@ -37,6 +39,10 @@ class DemoWorkspaceCleanupService
         // transactional, so we only want to act on it once the DB rows are
         // confirmed gone, not before.
         $attachmentPaths = $this->localAttachmentPaths($workspace->id);
+        $invoicePdfPaths = $this->salesDocumentPdfPaths($workspace->id);
+        $invoiceLogoPath = InvoiceSettings::withoutGlobalScopes()
+            ->where('workspace_id', $workspace->id)
+            ->value('logo_path');
 
         DB::transaction(function () use ($workspace) {
             // Capture the demo user ids before deleting the workspace —
@@ -47,7 +53,8 @@ class DemoWorkspaceCleanupService
 
             // Cascades Channels, Customers (+identities), Conversations
             // (+Messages), Orders, Appointments, CatalogItems, FollowUps,
-            // ActivityLogs, Integrations, WorkspaceMembers.
+            // ActivityLogs, Integrations, WorkspaceMembers, InvoiceSettings,
+            // SalesDocuments.
             $workspace->delete();
 
             // Never touches a real (non-demo) user, even if somehow
@@ -56,5 +63,10 @@ class DemoWorkspaceCleanupService
         });
 
         $this->deleteAttachmentFiles($attachmentPaths, 'demos.cleanup');
+        $this->deleteAttachmentFiles($invoicePdfPaths, 'demos.cleanup');
+
+        if ($invoiceLogoPath) {
+            Storage::disk('public')->delete($invoiceLogoPath);
+        }
     }
 }

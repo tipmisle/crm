@@ -7,6 +7,7 @@ import ChannelIcon from '@/Components/ChannelIcon.vue';
 import { formatDate, formatMoney, formatTime } from '@/lib/format';
 import type { Order } from '@/types/models';
 import type { PageProps } from '@/types';
+import { FileText, Receipt } from 'lucide-vue-next';
 
 const props = defineProps<{ order: Order }>();
 
@@ -18,6 +19,9 @@ const statusMeta = computed(
 const paymentMeta = computed(
     () => page.props.paymentStatuses?.find((s) => s.key === props.order.payment_status) ?? fallback(props.order.payment_status),
 );
+
+const hasProforma = computed(() => props.order.sales_documents?.some((d) => d.type === 'proforma') ?? false);
+const hasInvoice = computed(() => props.order.sales_documents?.some((d) => d.type === 'invoice') ?? false);
 </script>
 
 <template>
@@ -42,7 +46,11 @@ const paymentMeta = computed(
         </div>
 
         <div class="flex shrink-0 items-center justify-between gap-2 sm:flex-col sm:items-end sm:justify-start sm:gap-1.5">
-            <span class="text-sm font-semibold text-neutral-900">{{ formatMoney(order.price) }}</span>
+            <span class="flex items-center gap-1.5">
+                <span class="text-sm font-semibold text-neutral-900">{{ formatMoney(order.price) }}</span>
+                <FileText v-if="hasProforma" :size="13" class="shrink-0 text-neutral-400" title="Izdan predračun" />
+                <Receipt v-if="hasInvoice" :size="13" class="shrink-0 text-neutral-400" title="Izdan račun" />
+            </span>
             <div class="flex flex-wrap gap-1.5 sm:justify-end">
                 <Badge :color="statusMeta.color" :bg="statusMeta.bg">{{ statusMeta.label }}</Badge>
                 <Badge :color="paymentMeta.color" :bg="paymentMeta.bg">{{ paymentMeta.label }}</Badge>

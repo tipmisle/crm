@@ -33,6 +33,9 @@ class Order extends Model
         'internal_notes',
         'customer_notes',
         'tags',
+        'tracking_number',
+        'tracking_url',
+        'shipped_at',
     ];
 
     protected function casts(): array
@@ -48,6 +51,7 @@ class Order extends Model
             'deposit_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
             'tags' => 'array',
+            'shipped_at' => 'datetime',
             // Application-encrypted — see docs/data-security.md.
             'description' => 'encrypted',
             'internal_notes' => 'encrypted',
@@ -94,6 +98,11 @@ class Order extends Model
     public function notes(): HasMany
     {
         return $this->hasMany(OrderNote::class)->latest();
+    }
+
+    public function salesDocuments(): HasMany
+    {
+        return $this->hasMany(SalesDocument::class)->latest('issued_at')->latest('id');
     }
 
     public function followUps(): MorphMany

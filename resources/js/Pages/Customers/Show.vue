@@ -9,11 +9,11 @@ import ChannelIcon from '@/Components/ChannelIcon.vue';
 import OrderCard from '@/Components/OrderCard.vue';
 import AppointmentCard from '@/Components/AppointmentCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
-import FollowUpModal from '@/Components/FollowUpModal.vue';
+import CustomerContactCard from '@/Components/CustomerContactCard.vue';
 import Modal from '@/Components/Modal.vue';
 import { formatMoney, formatDate, formatDateTime, relativeTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
-import { Bell, Plus, Pencil } from 'lucide-vue-next';
+import { Plus } from 'lucide-vue-next';
 import type { ActivityLogEntry, Appointment, Conversation, CustomerIdentity, FollowUp, Order } from '@/types/models';
 
 interface CustomerDetail {
@@ -21,8 +21,12 @@ interface CustomerDetail {
     full_name: string;
     email: string | null;
     phone: string | null;
+    address_line: string | null;
+    postal_code: string | null;
+    city: string | null;
     notes: string | null;
     tags: string[] | null;
+    primary_channel_id: number | null;
     identities: CustomerIdentity[];
     first_contacted_at: string | null;
     last_interaction_at: string | null;
@@ -47,26 +51,23 @@ const page = usePage<PageProps>();
 const ordersEnabled = computed(() => page.props.workspace?.orders_enabled ?? true);
 const appointmentsEnabled = computed(() => page.props.workspace?.appointments_enabled ?? false);
 
-const editing = ref(false);
-const editForm = useForm({
-    full_name: props.customer.full_name,
-    email: props.customer.email ?? '',
-    phone: props.customer.phone ?? '',
-    notes: props.customer.notes ?? '',
-});
+const lastInteractionLabel = computed(() => {
+    const value = props.customer.last_interaction_at;
+    if (!value) return '';
 
-function saveEdit() {
-    editForm.patch(route('customers.update', props.customer.id), {
-        onSuccess: () => (editing.value = false),
-    });
-}
+    // last_interaction_at is always a past event by definition — clamp any
+    // future timestamp (stale/misseeded data, clock skew) to "now" so the
+    // relative label never reads in future tense ("čez X dni").
+    const date = new Date(value);
+    const now = new Date();
+
+    return relativeTime(date > now ? now.toISOString() : value);
+});
 
 const openOrders = computed(() => props.customer.orders.filter((o) => !['completed', 'cancelled'].includes(o.status)));
 const upcomingAppointments = computed(() =>
     props.customer.appointments.filter((a) => ['requested', 'confirmed'].includes(a.status)),
 );
-const followUpOpen = ref(false);
-
 const confirmingErasure = ref(false);
 const eraseForm = useForm({ confirm: false });
 
@@ -95,38 +96,30 @@ function eraseCustomerData() {
             </div>
         </template>
 
-        <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
             <div class="mb-6 flex items-start justify-between">
                 <div class="flex items-center gap-4">
                     <Avatar :name="customer.full_name" size="lg" />
                     <div>
                         <h1 class="text-2xl font-semibold text-neutral-900">{{ customer.full_name }}</h1>
                         <p class="text-sm text-neutral-500">
-                            Stranka od {{ formatDate(customer.first_contacted_at) }} · Zadnji stik {{ relativeTime(customer.last_interaction_at) }}
+                            Stranka od {{ formatDate(customer.first_contacted_at) }} · Zadnji stik {{ lastInteractionLabel }}
                         </p>
                     </div>
                 </div>
-                <button
-                    type="button"
+                <Link
+                    v-if="ordersEnabled"
+                    :href="route('orders.create', { customer_id: customer.id })"
                     class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                    @click="followUpOpen = true"
                 >
-                    <Bell :size="14" /> Nastavi opomnik
-                </button>
+                    <Plus :size="14" /> Novo naročilo
+                </Link>
             </div>
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="space-y-6 lg:col-span-2">
                     <section v-if="ordersEnabled && openOrders.length" class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-semibold text-neutral-900">Trenutna naročila</h2>
-                            <Link
-                                :href="route('orders.create', { customer_id: customer.id })"
-                                class="flex items-center gap-1 text-xs font-medium text-[var(--color-accent-600)] hover:underline"
-                            >
-                                <Plus :size="12" /> Novo naročilo
-                            </Link>
-                        </div>
+                        <h2 class="text-sm font-semibold text-neutral-900">Trenutna naročila</h2>
                         <div class="mt-3 space-y-2">
                             <OrderCard v-for="order in openOrders" :key="order.id" :order="order" />
                         </div>
@@ -219,29 +212,7 @@ function eraseCustomerData() {
                 </div>
 
                 <div class="space-y-5">
-                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-xs font-semibold text-neutral-500 uppercase">Kontakt</h3>
-                            <button type="button" class="text-neutral-400 hover:text-neutral-600" @click="editing = !editing">
-                                <Pencil :size="14" />
-                            </button>
-                        </div>
-
-                        <template v-if="!editing">
-                            <div class="mt-2 space-y-1.5 text-sm">
-                                <p class="text-neutral-700"><span class="text-neutral-400">E-pošta: </span>{{ customer.email ?? '—' }}</p>
-                                <p class="text-neutral-700"><span class="text-neutral-400">Telefon: </span>{{ customer.phone ?? '—' }}</p>
-                            </div>
-                            <p v-if="customer.notes" class="mt-3 rounded-md bg-neutral-50 p-2.5 text-xs text-neutral-600">{{ customer.notes }}</p>
-                        </template>
-                        <form v-else class="mt-2 space-y-2" @submit.prevent="saveEdit">
-                            <input v-model="editForm.full_name" type="text" placeholder="Polno ime" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                            <input v-model="editForm.email" type="email" placeholder="E-pošta" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                            <input v-model="editForm.phone" type="text" placeholder="Telefon" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                            <textarea v-model="editForm.notes" rows="3" placeholder="Opombe" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                            <button type="submit" class="w-full rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]">Shrani</button>
-                        </form>
-                    </section>
+                    <CustomerContactCard :customer="customer" title="Kontakt" :link-to-customer="false" show-name show-notes />
 
                     <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
                         <h3 class="text-xs font-semibold text-neutral-500 uppercase">Družbeni profili</h3>
@@ -340,13 +311,5 @@ function eraseCustomerData() {
                 </div>
             </div>
         </Modal>
-
-        <FollowUpModal
-            :show="followUpOpen"
-            followable-type="App\Models\Customer"
-            :followable-id="customer.id"
-            :default-note="`Opomnik za stranko: ${customer.full_name}`"
-            @close="followUpOpen = false"
-        />
     </AppLayout>
 </template>

@@ -7,6 +7,9 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "barryvdh/laravel-dompdf": "^3.1",
+        "datalinx/php-upn-qr-generator": "^2.0",
+        "endroid/qr-code": "^6.0",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel-notification-channels/webpush": "^11.0",
         "laravel/cashier": "^15.0",

@@ -50,6 +50,7 @@ export interface Workspace {
     currency: string;
     orders_enabled: boolean;
     appointments_enabled: boolean;
+    accepts_deposit: boolean;
     is_demo: boolean;
     demo_expires_at: string | null;
     demo_variant: 'services' | 'orders' | 'both' | null;
@@ -82,6 +83,11 @@ export interface Customer {
     full_name: string;
     email: string | null;
     phone: string | null;
+    address_line?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    country?: string | null;
+    tax_number?: string | null;
     notes: string | null;
     tags: string[] | null;
     primary_channel_id: number | null;
@@ -172,7 +178,27 @@ export interface Order {
     internal_notes: string | null;
     customer_notes: string | null;
     tags: string[] | null;
+    tracking_number: string | null;
+    tracking_url: string | null;
+    shipped_at: string | null;
     notes?: OrderNote[];
+    sales_documents?: SalesDocument[];
+    created_at: string;
+}
+
+export interface SalesDocument {
+    id: number;
+    order_id: number | null;
+    customer_id: number | null;
+    type: 'proforma' | 'invoice' | 'other';
+    source: 'issued' | 'external';
+    document_number: string | null;
+    external_document_number: string | null;
+    issued_at: string;
+    due_date: string | null;
+    currency: string;
+    total: string | number;
+    sent_at: string | null;
     created_at: string;
 }
 

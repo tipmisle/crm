@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
+use App\Models\InvoiceSettings;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\PaymentStatus;
@@ -20,7 +21,7 @@ class OrderController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Order::query()->with(['customer', 'channel']);
+        $query = Order::query()->with(['customer', 'channel', 'salesDocuments:id,order_id,type']);
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -189,7 +190,9 @@ class OrderController extends Controller
 
     public function show(Order $order): Response
     {
-        $order->load(['customer.orders', 'conversation.channel', 'channel', 'notes.user']);
+        $order->load(['customer.orders', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments']);
+
+        $invoiceSettings = InvoiceSettings::where('workspace_id', $order->workspace_id)->first();
 
         return Inertia::render('Orders/Show', [
             'order' => $order,
@@ -198,6 +201,7 @@ class OrderController extends Controller
                 ->where('subject_id', $order->id)
                 ->orderByDesc('created_at')
                 ->get(),
+            'invoiceSettingsConfigured' => $invoiceSettings?->isConfigured() ?? false,
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Services\Concerns;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\SalesDocument;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -33,6 +34,18 @@ trait CollectsLocalAttachmentPaths
             ->flatMap(fn (Message $message) => $message->metadata['attachments'] ?? [])
             ->filter(fn (array $attachment) => ($attachment['source'] ?? null) === 'local' && ! empty($attachment['path']))
             ->pluck('path')
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function salesDocumentPdfPaths(int $workspaceId): array
+    {
+        return SalesDocument::withoutGlobalScopes()
+            ->where('workspace_id', $workspaceId)
+            ->whereNotNull('pdf_path')
+            ->pluck('pdf_path')
             ->all();
     }
 

@@ -89,6 +89,27 @@ test('a status currently used by an order cannot be deleted', function () {
     expect(OrderStatus::find($status->id))->not->toBeNull();
 });
 
+test('a status in use can be deleted when its orders are reassigned to another status', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'new')->first();
+    $otherStatus = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'quote_needed')->first();
+
+    $order = Order::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Test Customer'])->id,
+        'title' => 'Test order',
+        'status' => $status->key,
+        'payment_status' => 'unpaid',
+    ]);
+
+    $this->actingAs($owner)
+        ->delete(route('settings.statuses.order.destroy', $status->id), ['reassign_to' => $otherStatus->key])
+        ->assertRedirect();
+
+    expect(OrderStatus::find($status->id))->toBeNull();
+    expect($order->fresh()->status)->toBe($otherStatus->key);
+});
+
 test('an unused status can be deleted', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
     $status = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'quote_needed')->first();

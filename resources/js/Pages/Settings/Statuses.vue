@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
+import Modal from '@/Components/Modal.vue';
 import { GripVertical, Plus, Trash2 } from 'lucide-vue-next';
 
 interface StatusRow {
@@ -53,7 +54,19 @@ function updatePaymentStatus(status: StatusRow, data: Partial<StatusRow>) {
     router.patch(route('settings.statuses.payment.update', status.id), data, { preserveScroll: true });
 }
 
+const reassign = ref<{ type: 'order' | 'payment'; status: StatusRow; reassignTo: string; processing: boolean; error: string } | null>(null);
+
+const reassignOptions = computed(() => {
+    if (!reassign.value) return [];
+    const list = reassign.value.type === 'order' ? orderList.value : paymentList.value;
+    return list.filter((s) => s.id !== reassign.value!.status.id);
+});
+
 function deleteOrderStatus(status: StatusRow) {
+    if (status.in_use) {
+        reassign.value = { type: 'order', status, reassignTo: '', processing: false, error: '' };
+        return;
+    }
     if (!confirm(`Izbrišeš status naročila "${status.label}"?`)) return;
     router.delete(route('settings.statuses.order.destroy', status.id), {
         preserveScroll: true,
@@ -64,11 +77,43 @@ function deleteOrderStatus(status: StatusRow) {
 }
 
 function deletePaymentStatus(status: StatusRow) {
+    if (status.in_use) {
+        reassign.value = { type: 'payment', status, reassignTo: '', processing: false, error: '' };
+        return;
+    }
     if (!confirm(`Izbrišeš status plačila "${status.label}"?`)) return;
     router.delete(route('settings.statuses.payment.destroy', status.id), {
         preserveScroll: true,
         onSuccess: () => {
             paymentList.value = paymentList.value.filter((s) => s.id !== status.id);
+        },
+    });
+}
+
+function confirmReassignAndDelete() {
+    if (!reassign.value || !reassign.value.reassignTo) return;
+
+    const { type, status, reassignTo } = reassign.value;
+    const routeName = type === 'order' ? 'settings.statuses.order.destroy' : 'settings.statuses.payment.destroy';
+
+    reassign.value.processing = true;
+
+    router.delete(route(routeName, status.id), {
+        data: { reassign_to: reassignTo },
+        preserveScroll: true,
+        onSuccess: () => {
+            if (type === 'order') {
+                orderList.value = orderList.value.filter((s) => s.id !== status.id);
+            } else {
+                paymentList.value = paymentList.value.filter((s) => s.id !== status.id);
+            }
+            reassign.value = null;
+        },
+        onError: (errors) => {
+            if (reassign.value) {
+                reassign.value.processing = false;
+                reassign.value.error = Object.values(errors)[0] as string ?? 'Prišlo je do napake.';
+            }
         },
     });
 }
@@ -155,9 +200,8 @@ function addPaymentStatus() {
                             </label>
                             <button
                                 type="button"
-                                :disabled="status.in_use"
-                                :title="status.in_use ? 'Status je v uporabi, zato ga ni mogoče izbrisati' : 'Izbriši status'"
-                                class="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+                                :title="status.in_use ? 'Status je v uporabi — izberi, kam prestaviti obstoječa naročila' : 'Izbriši status'"
+                                class="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
                                 @click="deleteOrderStatus(status)"
                             >
                                 <Trash2 :size="14" />
@@ -231,9 +275,8 @@ function addPaymentStatus() {
                             </label>
                             <button
                                 type="button"
-                                :disabled="status.in_use"
-                                :title="status.in_use ? 'Status je v uporabi, zato ga ni mogoče izbrisati' : 'Izbriši status'"
-                                class="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+                                :title="status.in_use ? 'Status je v uporabi — izberi, kam prestaviti obstoječa naročila/termine' : 'Izbriši status'"
+                                class="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
                                 @click="deletePaymentStatus(status)"
                             >
                                 <Trash2 :size="14" />
@@ -259,5 +302,39 @@ function addPaymentStatus() {
                 </form>
             </SectionCard>
         </div>
+
+        <Modal :show="reassign !== null" max-width="sm" @close="reassign = null">
+            <div v-if="reassign" class="p-6">
+                <h2 class="text-base font-semibold text-neutral-900">Status je v uporabi</h2>
+                <p class="mt-1 text-sm text-neutral-500">
+                    Status "{{ reassign.status.label }}" trenutno uporablja vsaj eno
+                    {{ reassign.type === 'order' ? 'naročilo' : 'naročilo ali termin' }}. Izberi status, na katerega naj se ti prestavijo, nato bo "{{ reassign.status.label }}" izbrisan.
+                </p>
+
+                <select
+                    v-model="reassign.reassignTo"
+                    class="mt-4 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                >
+                    <option value="" disabled>Izberi status…</option>
+                    <option v-for="option in reassignOptions" :key="option.id" :value="option.key">{{ option.label }}</option>
+                </select>
+
+                <p v-if="reassign.error" class="mt-2 text-xs text-red-500">{{ reassign.error }}</p>
+
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100" @click="reassign = null">
+                        Prekliči
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="!reassign.reassignTo || reassign.processing"
+                        class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        @click="confirmReassignAndDelete"
+                    >
+                        Prestavi in izbriši
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

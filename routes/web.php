@@ -11,16 +11,23 @@ use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\AttachmentController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
+use App\Http\Controllers\Invoicing\ExternalDocumentController;
+use App\Http\Controllers\Invoicing\SalesDocumentController;
+use App\Http\Controllers\Invoicing\SalesDocumentDownloadController;
+use App\Http\Controllers\Invoicing\SalesDocumentReminderController;
+use App\Http\Controllers\Invoicing\SalesDocumentSendController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderNoteController;
+use App\Http\Controllers\OrderNotificationController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\Settings\BillingController;
+use App\Http\Controllers\Settings\InvoiceSettingsController;
 use App\Http\Controllers\Settings\OrderStatusController;
 use App\Http\Controllers\Settings\PaymentStatusController;
 use App\Http\Controllers\Settings\StatusesController as SettingsStatusesController;
@@ -77,6 +84,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'destroy'])->name('settings.statuses.payment.destroy');
     Route::post('/settings/statuses/payment/reorder', [PaymentStatusController::class, 'reorder'])->name('settings.statuses.payment.reorder');
 
+    Route::get('/settings/invoicing', [InvoiceSettingsController::class, 'edit'])->name('settings.invoicing.edit');
+    Route::patch('/settings/invoicing', [InvoiceSettingsController::class, 'update'])->name('settings.invoicing.update');
+    Route::post('/settings/invoicing/logo', [InvoiceSettingsController::class, 'updateLogo'])->name('settings.invoicing.logo.update');
+    Route::delete('/settings/invoicing/logo', [InvoiceSettingsController::class, 'destroyLogo'])->name('settings.invoicing.logo.destroy');
+    Route::get('/settings/invoicing/preview', [InvoiceSettingsController::class, 'preview'])->name('settings.invoicing.preview');
+
     Route::get('/settings/privacy', [WorkspacePrivacyController::class, 'edit'])->name('settings.privacy.edit');
     Route::get('/settings/privacy/export/{export}/download', [WorkspaceExportController::class, 'download'])->name('settings.privacy.export.download');
 
@@ -113,6 +126,14 @@ Route::middleware('auth')->group(function () {
         Route::resource('customers', CustomerController::class)->except(['edit']);
         Route::resource('orders', OrderController::class)->except(['edit']);
         Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
+        Route::post('/orders/{order}/notify', [OrderNotificationController::class, 'store'])->name('orders.notify.store');
+
+        Route::get('/orders/{order}/documents/create', [SalesDocumentController::class, 'create'])->name('orders.documents.create');
+        Route::post('/orders/{order}/documents', [SalesDocumentController::class, 'store'])->name('orders.documents.store');
+        Route::post('/orders/{order}/documents/external', [ExternalDocumentController::class, 'store'])->name('orders.documents.external.store');
+        Route::get('/documents/{document}/download', [SalesDocumentDownloadController::class, 'show'])->name('documents.download');
+        Route::post('/documents/{document}/send', [SalesDocumentSendController::class, 'store'])->name('documents.send');
+        Route::post('/documents/{document}/remind', [SalesDocumentReminderController::class, 'store'])->name('documents.remind');
 
         Route::get('/analitika', [AnalyticsController::class, 'index'])->name('analytics.index');
 

@@ -1,7 +1,11 @@
 <?php
 
 use App\Models\Channel;
+use App\Models\Conversation;
+use App\Models\Customer;
 use App\Models\Integration;
+use App\Models\InvoiceSettings;
+use App\Models\Order;
 use App\Models\SupportAccessGrant;
 use App\Models\User;
 use App\Models\Workspace;
@@ -182,4 +186,73 @@ function createWorkspaceWithSubscription(string $status = 'active', array $overr
     attachSubscription($workspace, $status, $overrides);
 
     return [$workspace, $user];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Invoicing test helpers
+|--------------------------------------------------------------------------
+*/
+
+function configureInvoicing(Workspace $workspace, array $overrides = []): InvoiceSettings
+{
+    return InvoiceSettings::create(array_merge([
+        'workspace_id' => $workspace->id,
+        'company_name' => 'Test Obrt d.o.o.',
+        'address_line' => 'Testna cesta 1',
+        'postal_code' => '1000',
+        'city' => 'Ljubljana',
+        'country' => 'Slovenija',
+        'tax_number' => 'SI12345678',
+        'vat_registered' => true,
+        'iban' => 'SI56020170014356205',
+        'bank_name' => 'Test banka',
+        'default_payment_deadline_days' => 8,
+        'invoice_prefix' => now()->format('Y').'-',
+        'invoice_next_number' => 1,
+        'proforma_prefix' => 'P-'.now()->format('Y').'-',
+        'proforma_next_number' => 1,
+    ], $overrides));
+}
+
+/**
+ * Reuses an existing Meta channel for the workspace if one was already
+ * created (e.g. by an earlier call for the same workspace) — createMetaChannel()
+ * gives its Integration a fixed workspace-scoped external_account_id, so a
+ * second call for the same workspace would otherwise violate its unique
+ * constraint.
+ *
+ * @return array{0: Order, 1: Conversation, 2: Channel}
+ */
+function createOrderWithConversation(Workspace $workspace, array $customerOverrides = []): array
+{
+    $channel = Channel::where('workspace_id', $workspace->id)->first() ?? createMetaChannel($workspace);
+
+    $customer = Customer::create(array_merge([
+        'workspace_id' => $workspace->id,
+        'full_name' => 'Nina Novak',
+        'email' => 'nina@example.com',
+    ], $customerOverrides));
+
+    $conversation = Conversation::create([
+        'workspace_id' => $workspace->id,
+        'channel_id' => $channel->id,
+        'customer_id' => $customer->id,
+        'external_conversation_id' => 'sender_'.Str::random(8),
+        'status' => 'order_confirmed',
+    ]);
+
+    $order = Order::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'conversation_id' => $conversation->id,
+        'channel_id' => $channel->id,
+        'title' => 'Rojstnodnevna torta',
+        'price' => 100,
+        'amount_paid' => 40,
+        'payment_status' => 'unpaid',
+        'status' => 'new',
+    ]);
+
+    return [$order, $conversation, $channel];
 }
