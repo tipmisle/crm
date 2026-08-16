@@ -1,0 +1,128 @@
+<?php
+
+use App\Models\AuditLog;
+use App\Models\Channel;
+use App\Models\Conversation;
+use App\Models\Customer;
+use App\Models\CustomerIdentity;
+use App\Models\Message;
+
+function makeCustomerWithConversation(int $workspaceId, string $name = 'Jane Doe'): array
+{
+    $customer = Customer::create([
+        'workspace_id' => $workspaceId,
+        'full_name' => $name,
+        'email' => 'jane@example.com',
+        'phone' => '123456',
+        'notes' => 'private note',
+    ]);
+
+    CustomerIdentity::create([
+        'customer_id' => $customer->id,
+        'workspace_id' => $workspaceId,
+        'channel_type' => 'instagram',
+        'external_id' => 'ig_'.$customer->id,
+        'username' => 'jane_ig',
+    ]);
+
+    $channel = Channel::create([
+        'workspace_id' => $workspaceId,
+        'type' => 'instagram',
+        'display_name' => 'x',
+        'status' => 'connected',
+    ]);
+
+    $conversation = Conversation::withoutGlobalScopes()->create([
+        'workspace_id' => $workspaceId,
+        'channel_id' => $channel->id,
+        'customer_id' => $customer->id,
+        'external_conversation_id' => 'conv_'.$customer->id,
+        'status' => 'new_enquiry',
+        'last_message_preview' => 'hello there',
+    ]);
+
+    $message = Message::create([
+        'conversation_id' => $conversation->id,
+        'sender_type' => 'customer',
+        'body' => 'a private message',
+        'message_type' => 'text',
+        'status' => 'sent',
+        'sent_at' => now(),
+    ]);
+
+    return [$customer, $conversation, $message];
+}
+
+test('customer export is scoped to only that customer', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    [$customerA] = makeCustomerWithConversation($workspace->id, 'Customer A');
+    [$customerB] = makeCustomerWithConversation($workspace->id, 'Customer B');
+
+    $response = $this->actingAs($owner)->post(route('customers.privacy.export', $customerA->id));
+    $response->assertOk();
+
+    $zipBytes = $response->streamedContent();
+    $tmpZip = tempnam(sys_get_temp_dir(), 'test-export-').'.zip';
+    file_put_contents($tmpZip, $zipBytes);
+
+    $zip = new ZipArchive;
+    $zip->open($tmpZip);
+    $content = $zip->getFromName('customer.json');
+    $zip->close();
+    unlink($tmpZip);
+
+    expect($content)->toContain('a private message');
+    expect($content)->not->toContain('Customer B');
+
+    expect(AuditLog::where('event', 'privacy.customer.export')->exists())->toBeTrue();
+});
+
+test('customer erasure anonymizes only that customer', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    [$customerA, $conversationA, $messageA] = makeCustomerWithConversation($workspace->id, 'Customer A');
+    [$customerB] = makeCustomerWithConversation($workspace->id, 'Customer B');
+
+    $this->actingAs($owner)
+        ->post(route('customers.privacy.erase', $customerA->id), ['confirm' => true])
+        ->assertRedirect();
+
+    $customerA->refresh();
+    expect($customerA->full_name)->toBe('Izbrisana stranka');
+    expect($customerA->email)->toBeNull();
+    expect($customerA->phone)->toBeNull();
+    expect($customerA->notes)->toBeNull();
+    expect(CustomerIdentity::where('customer_id', $customerA->id)->count())->toBe(0);
+    expect($messageA->fresh()->body)->toBeNull();
+    expect($conversationA->fresh()->last_message_preview)->toBeNull();
+
+    $customerB->refresh();
+    expect($customerB->full_name)->toBe('Customer B');
+    expect($customerB->email)->not->toBeNull();
+    expect(CustomerIdentity::where('customer_id', $customerB->id)->count())->toBe(1);
+
+    expect(AuditLog::where('event', 'privacy.customer.erased')->exists())->toBeTrue();
+
+    $auditLog = AuditLog::where('event', 'privacy.customer.erased')->first();
+    expect(json_encode($auditLog->metadata))->not->toContain('private note');
+});
+
+test('erasure requires explicit confirmation', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    [$customer] = makeCustomerWithConversation($workspace->id);
+
+    $this->actingAs($owner)
+        ->post(route('customers.privacy.erase', $customer->id), [])
+        ->assertSessionHasErrors('confirm');
+
+    expect($customer->fresh()->full_name)->not->toBe('Izbrisana stranka');
+});
+
+test('a member of a different workspace cannot export or erase another workspace customer', function () {
+    [$workspace] = createWorkspaceWithUser();
+    [$customer] = makeCustomerWithConversation($workspace->id);
+
+    [, $otherOwner] = createWorkspaceWithUser();
+
+    $this->actingAs($otherOwner)->post(route('customers.privacy.export', $customer->id))->assertNotFound();
+    $this->actingAs($otherOwner)->post(route('customers.privacy.erase', $customer->id), ['confirm' => true])->assertNotFound();
+});

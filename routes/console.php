@@ -10,3 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:send-due-follow-up-reminders')->everyMinute();
 Schedule::command('demos:cleanup')->hourly();
+Schedule::command('workspaces:purge-expired')->daily();
+Schedule::command('exports:purge-expired')->hourly();

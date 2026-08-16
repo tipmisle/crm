@@ -10,6 +10,7 @@ import OrderCard from '@/Components/OrderCard.vue';
 import AppointmentCard from '@/Components/AppointmentCard.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import FollowUpModal from '@/Components/FollowUpModal.vue';
+import Modal from '@/Components/Modal.vue';
 import { formatMoney, formatDate, formatDateTime, relativeTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
 import { Bell, Plus, Pencil } from 'lucide-vue-next';
@@ -65,6 +66,21 @@ const upcomingAppointments = computed(() =>
     props.customer.appointments.filter((a) => ['requested', 'confirmed'].includes(a.status)),
 );
 const followUpOpen = ref(false);
+
+const confirmingErasure = ref(false);
+const eraseForm = useForm({ confirm: false });
+
+function exportCustomerData() {
+    window.location.href = route('customers.privacy.export', props.customer.id);
+}
+
+function eraseCustomerData() {
+    eraseForm.confirm = true;
+    eraseForm.post(route('customers.privacy.erase', props.customer.id), {
+        preserveScroll: true,
+        onSuccess: () => (confirmingErasure.value = false),
+    });
+}
 </script>
 
 <template>
@@ -277,9 +293,53 @@ const followUpOpen = ref(false);
                             </div>
                         </div>
                     </section>
+
+                    <section class="rounded-xl border border-dashed border-neutral-200 bg-white p-4">
+                        <h3 class="text-xs font-semibold text-neutral-400 uppercase">Podatki stranke</h3>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                class="rounded-md border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-50"
+                                @click="exportCustomerData"
+                            >
+                                Izvozi podatke stranke
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-md border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                                @click="confirmingErasure = true"
+                            >
+                                Izbriši / anonimiziraj podatke stranke
+                            </button>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
+
+        <Modal :show="confirmingErasure" max-width="sm" @close="confirmingErasure = false">
+            <div class="p-6">
+                <h2 class="text-base font-semibold text-neutral-900">Izbriši podatke stranke?</h2>
+                <p class="mt-1 text-sm text-neutral-500">
+                    Ime, kontaktni podatki, opombe, sporočila in profili te stranke bodo trajno izbrisani ali
+                    anonimizirani. Naročila in termini ostanejo shranjeni brez osebnih podatkov stranke. Tega dejanja
+                    ni mogoče razveljaviti.
+                </p>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100" @click="confirmingErasure = false">
+                        Prekliči
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="eraseForm.processing"
+                        class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        @click="eraseCustomerData"
+                    >
+                        Izbriši podatke
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <FollowUpModal
             :show="followUpOpen"

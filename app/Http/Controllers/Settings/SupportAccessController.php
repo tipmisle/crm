@@ -6,6 +6,7 @@ use App\Enums\SupportAccessScope;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\SupportAccessGrant;
+use App\Models\WorkspaceMember;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -41,7 +42,7 @@ class SupportAccessController extends Controller
         $user = $request->user();
         $workspace = $user->currentWorkspace;
 
-        abort_unless($this->isOwner($user, $workspace->id), 403, 'Samo lastnik delovnega prostora lahko dovoli dostop podpori.');
+        abort_unless(WorkspaceMember::isOwnerOf($user, $workspace->id), 403, 'Samo lastnik delovnega prostora lahko dovoli dostop podpori.');
 
         $data = $request->validate([
             'duration_minutes' => ['required', 'integer', Rule::in(self::ALLOWED_MINUTES)],
@@ -72,7 +73,7 @@ class SupportAccessController extends Controller
         $user = $request->user();
         $workspace = $user->currentWorkspace;
 
-        abort_unless($this->isOwner($user, $workspace->id), 403);
+        abort_unless(WorkspaceMember::isOwnerOf($user, $workspace->id), 403);
 
         $grant = $this->activeGrant($workspace->id, asModel: true);
 
@@ -83,11 +84,6 @@ class SupportAccessController extends Controller
         }
 
         return back()->with('success', 'Dostop za podporo je bil preklican.');
-    }
-
-    private function isOwner($user, int $workspaceId): bool
-    {
-        return $user->workspaces()->wherePivot('role', 'owner')->where('workspaces.id', $workspaceId)->exists();
     }
 
     private function activeGrant(int $workspaceId, bool $asModel = false)

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureAppointmentsEnabled;
 use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\EnsureWorkspaceHasActiveSubscription;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -32,10 +33,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'appointments.enabled' => EnsureAppointmentsEnabled::class,
             'platform.admin' => EnsurePlatformAdmin::class,
+            'subscription.active' => EnsureWorkspaceHasActiveSubscription::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [
             'webhooks/meta',
+            'stripe/webhook',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

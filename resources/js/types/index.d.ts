@@ -14,6 +14,12 @@ export interface ActiveSupportSession {
     expires_at: string;
 }
 
+export type SubscriptionAccessState = 'active' | 'incomplete' | 'past_due' | 'canceling' | 'canceled' | 'no_subscription';
+
+export interface BillingStatus {
+    status: SubscriptionAccessState;
+}
+
 export type PageProps<
     T extends Record<string, unknown> = Record<string, unknown>,
 > = T & {
@@ -23,6 +29,7 @@ export type PageProps<
     workspace: Workspace | null;
     unreadInboxCount: number;
     activeSupportSession: ActiveSupportSession | null;
+    billing: BillingStatus | null;
     vapidPublicKey: string | null;
     flash: {
         success?: string | null;

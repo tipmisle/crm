@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Conversation;
+use App\Services\Billing\WorkspaceSubscriptionStateService;
 use App\Support\SupportSessionManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -37,6 +38,10 @@ class HandleInertiaRequests extends Middleware
             ? app(SupportSessionManager::class)->current($request)?->load(['workspace:id,name'])
             : null;
 
+        $billing = $user?->currentWorkspace && ! $user->currentWorkspace->is_demo
+            ? ['status' => app(WorkspaceSubscriptionStateService::class)->for($user->currentWorkspace)->value]
+            : null;
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -51,6 +56,7 @@ class HandleInertiaRequests extends Middleware
                 'expires_at' => $activeSupportSession->expires_at,
             ] : null,
             'vapidPublicKey' => config('webpush.vapid.public_key'),
+            'billing' => $billing,
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

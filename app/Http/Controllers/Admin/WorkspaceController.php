@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\Service;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\Billing\WorkspaceSubscriptionStateService;
 use App\Services\DemoWorkspaceCleanupService;
 use App\Support\SupportSessionManager;
 use Illuminate\Http\Request;
@@ -65,6 +66,9 @@ class WorkspaceController extends Controller
 
         $grant = $workspace->currentSupportAccessGrant();
 
+        $subscription = $workspace->subscription(config('billing.subscription_name'));
+        $billingState = app(WorkspaceSubscriptionStateService::class);
+
         return Inertia::render('Admin/Workspaces/Show', [
             'workspace' => $workspace,
             'owner' => $workspace->users()->wherePivot('role', 'owner')->first(['users.id', 'users.name', 'users.email']),
@@ -87,6 +91,17 @@ class WorkspaceController extends Controller
                 'expires_at' => $grant->expires_at,
                 'granted_by' => $grant->grantedBy?->name,
             ] : null,
+            // Read-only. No card details, no manual "mark as paid" — Stripe/
+            // webhook state stays authoritative. See docs/billing.md.
+            'billing' => $workspace->is_demo ? null : [
+                'status' => $billingState->for($workspace)->value,
+                'status_label' => $billingState->for($workspace)->label(),
+                'stripe_customer_id' => $workspace->stripe_id,
+                'stripe_subscription_id' => $subscription?->stripe_id,
+                'cancel_at_period_end' => $subscription?->onGracePeriod() ?? false,
+                'ends_at' => $subscription?->onGracePeriod() ? $subscription->ends_at : null,
+                'has_payment_problem' => $subscription?->pastDue() ?? false,
+            ],
         ]);
     }
 

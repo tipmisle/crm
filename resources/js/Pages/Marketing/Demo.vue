@@ -4,6 +4,7 @@ import { Head, router } from '@inertiajs/vue3';
 import MarketingLayout from '@/Layouts/MarketingLayout.vue';
 import Reveal from '@/Components/Marketing/Reveal.vue';
 import { CalendarDays, Package, ArrowRight, LoaderCircle } from 'lucide-vue-next';
+import { trackDemoVariantSelected } from '@/lib/analytics';
 
 type Variant = 'services' | 'orders' | 'both';
 
@@ -22,6 +23,8 @@ const variants: {
 
 function startDemo(variant: Variant) {
     if (submitting.value) return;
+
+    trackDemoVariantSelected(variant);
 
     submitting.value = true;
     loadingVariant.value = variant;

@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Workspace;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Cashier\Cashier;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,7 +17,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Billing belongs to the Workspace (the paying business), never to
+        // an individual User — see docs/billing.md. Never call
+        // Cashier::calculateTaxes() (default already off) — Stripe Tax is
+        // deliberately not enabled this milestone, see NEEDS OWNER INPUT.
+        // Must run during register(), not boot() — CashierServiceProvider
+        // registers its own routes/webhook controller during ITS boot(),
+        // so ignoreRoutes() has to be set before any provider's boot phase
+        // runs, or it registers them anyway.
+        Cashier::useCustomerModel(Workspace::class);
+
+        // We register our own webhook route (StripeWebhookController) with
+        // custom event handlers instead of Cashier's default controller —
+        // see routes/web.php.
+        Cashier::ignoreRoutes();
     }
 
     /**

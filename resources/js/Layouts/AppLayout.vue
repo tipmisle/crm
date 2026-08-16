@@ -22,6 +22,7 @@ import type { PageProps } from '@/types';
 import Avatar from '@/Components/Avatar.vue';
 import CommandPalette from '@/Components/CommandPalette.vue';
 import DemoBanner from '@/Components/DemoBanner.vue';
+import BillingBanner from '@/Components/BillingBanner.vue';
 
 const page = usePage<PageProps>();
 
@@ -172,6 +173,10 @@ onUnmounted(stopNavigateListener);
 
         <div class="flex min-w-0 flex-1 flex-col">
             <DemoBanner v-if="page.props.workspace?.is_demo" />
+            <BillingBanner
+                v-else-if="page.props.billing && ['past_due', 'canceling'].includes(page.props.billing.status)"
+                :status="page.props.billing.status"
+            />
 
             <header
                 class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-4 sm:px-6"

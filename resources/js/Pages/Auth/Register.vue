@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import Checkbox from '@/Components/Checkbox.vue';
 import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
@@ -12,6 +13,7 @@ const form = useForm({
     email: '',
     password: '',
     password_confirmation: '',
+    terms_dpa_accepted: false,
 });
 
 const submit = () => {
@@ -98,6 +100,24 @@ const submit = () => {
                     class="mt-2"
                     :message="form.errors.password_confirmation"
                 />
+            </div>
+
+            <div class="mt-5">
+                <label class="flex items-start gap-2 text-sm text-neutral-600">
+                    <Checkbox v-model:checked="form.terms_dpa_accepted" class="mt-0.5" />
+                    <span>
+                        Strinjam se s
+                        <Link :href="route('legal.terms')" target="_blank" class="text-[var(--color-accent-600)] hover:underline">Pogoji poslovanja</Link>
+                        in
+                        <Link :href="route('legal.dpa')" target="_blank" class="text-[var(--color-accent-600)] hover:underline">Dogovorom o obdelavi osebnih podatkov</Link>.
+                    </span>
+                </label>
+                <InputError class="mt-2" :message="form.errors.terms_dpa_accepted" />
+
+                <p class="mt-2 text-xs text-neutral-400">
+                    Preberi tudi našo
+                    <Link :href="route('legal.privacy')" target="_blank" class="text-[var(--color-accent-600)] hover:underline">Politiko zasebnosti</Link>.
+                </p>
             </div>
 
             <div class="mt-5 flex items-center justify-end">

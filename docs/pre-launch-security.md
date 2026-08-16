@@ -221,6 +221,33 @@ row — the migration's `down()` will refuse to run for exactly this reason.
       the existing login throttle) — low priority given MFA is the larger
       gap, worth bundling together.
 
+## CODE — billing (Stripe/Cashier)
+
+- [x] **Workspace is the billed entity, never User** — Cashier's `Billable`
+      trait lives only on `App\Models\Workspace`, configured via
+      `Cashier::useCustomerModel(Workspace::class)`. See `docs/billing.md`.
+- [x] **Subscription state is never inferred ad hoc** — every consumer
+      (gating middleware, shared Inertia prop, Settings/Billing, Admin
+      view) goes through `App\Services\Billing\WorkspaceSubscriptionStateService`.
+      Confirmed by `tests/Feature/Billing/AccessGatingTest.php`.
+- [x] **Checkout price ID is always server-chosen** — read only from
+      `config('billing.monthly_price_id')`, never from client input.
+      Confirmed by `tests/Feature/Billing/CheckoutTest.php`.
+- [x] **Webhook signatures verified** via Cashier's own
+      `VerifyWebhookSignature` middleware; a duplicate Stripe event never
+      duplicates a custom side effect (`stripe_webhook_events` unique
+      constraint). Confirmed by `tests/Feature/Webhooks/StripeWebhookTest.php`.
+- [x] **Demo workspaces never touch Stripe** — no `stripe_id`, no
+      subscription row, no checkout route reachable. Confirmed by
+      `tests/Feature/Billing/DataExposureTest.php` and `AccessGatingTest.php`.
+- [x] **Cancellation and deletion remain separate, directional systems** —
+      a Stripe cancellation webhook only ever updates local subscription
+      status; workspace purge cancels Stripe (never the reverse). Confirmed
+      by `tests/Feature/Billing/DeletionPurgeInteractionTest.php` and
+      `CancellationTest.php`.
+- [x] **No Stripe secret or card detail ever reaches an Inertia response or
+      application log.** Confirmed by `tests/Feature/Billing/DataExposureTest.php`.
+
 ## INFRASTRUCTURE — must be verified in the actual production environment
 
 None of the following can be confirmed from this repository's code — they
@@ -269,6 +296,30 @@ environment.**
 - [ ] **Reverb/websocket transport secured** (`wss://` in production, not
       `ws://`) for the realtime broadcast channels this milestone verified
       the *authorization* of
+- [ ] **Live Stripe API keys** (`STRIPE_KEY`/`STRIPE_SECRET`) configured in
+      the production secret manager, not test-mode keys. See `docs/billing.md`.
+- [ ] **Live-mode Product/Price created** in the Stripe Dashboard and
+      `STRIPE_BELEZKA_MONTHLY_PRICE_ID` updated to the live price ID.
+- [ ] **Live webhook endpoint configured** (correct URL, subscribed to the
+      exact event types `docs/billing.md` lists) with its signing secret
+      set as `STRIPE_WEBHOOK_SECRET`.
+- [ ] **Stripe Customer Portal reviewed in live mode** — no plan switching
+      to a nonexistent plan, no coupons, no pause; cancellation behavior
+      matches the finalized owner decision (see NEEDS OWNER INPUT below).
+- [ ] **Billing email/address collection reviewed** against actual
+      invoicing needs (this milestone does not build Slovenian fiscal
+      invoicing — see `docs/billing.md` Part on FURS/invoicing).
+- [ ] **Payment-failure recovery emails** (Stripe's own dunning emails)
+      reviewed for tone/branding before going live.
+- [ ] **`Terms.vue` §8 billing copy finalized** and republished with a
+      bumped `LEGAL_TERMS_VERSION` — it currently still says the service is
+      free with no payment system, which becomes false the moment billing
+      ships.
+- [ ] **Final price/VAT display decision made** — `BILLING_DISPLAY_PRICE`
+      and `config/legal.php`'s VAT fields set accordingly.
+- [ ] **Slovenian fiscal invoicing (FURS/ZOI/EOR) milestone completed** —
+      Stripe's own receipt/invoice is explicitly not a substitute; see
+      `docs/billing.md`.
 
 ## Final standard this milestone achieves (code-verifiable)
 

@@ -2,15 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Conversation;
-use App\Models\Message;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\Concerns\CollectsLocalAttachmentPaths;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Throwable;
 
 /**
  * The single place that knows how to safely delete a demo workspace —
@@ -26,6 +22,8 @@ use Throwable;
  */
 class DemoWorkspaceCleanupService
 {
+    use CollectsLocalAttachmentPaths;
+
     /**
      * @throws \InvalidArgumentException if $workspace is not a demo workspace
      */
@@ -57,37 +55,6 @@ class DemoWorkspaceCleanupService
             User::whereIn('id', $userIds)->where('is_demo', true)->delete();
         });
 
-        $this->deleteAttachmentFiles($attachmentPaths);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function localAttachmentPaths(int $workspaceId): array
-    {
-        $conversationIds = Conversation::withoutGlobalScopes()
-            ->where('workspace_id', $workspaceId)
-            ->pluck('id');
-
-        return Message::whereIn('conversation_id', $conversationIds)
-            ->whereNotNull('metadata')
-            ->get(['metadata'])
-            ->flatMap(fn (Message $message) => $message->metadata['attachments'] ?? [])
-            ->filter(fn (array $attachment) => ($attachment['source'] ?? null) === 'local' && ! empty($attachment['path']))
-            ->pluck('path')
-            ->all();
-    }
-
-    private function deleteAttachmentFiles(array $paths): void
-    {
-        foreach ($paths as $path) {
-            try {
-                Storage::disk('local')->delete($path);
-            } catch (Throwable $e) {
-                // Never fatal — the DB rows are already gone, an orphaned
-                // file is a cleanup nuisance, not a data-integrity problem.
-                Log::warning('demos.cleanup.attachment_delete_failed', ['path_hash' => md5($path)]);
-            }
-        }
+        $this->deleteAttachmentFiles($attachmentPaths, 'demos.cleanup');
     }
 }

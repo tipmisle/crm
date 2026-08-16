@@ -69,3 +69,15 @@
         scrollbar-width: thin;
     }
 }
+
+/* Legal pages (Terms/Privacy/DPA/etc.) print cleanly: no header/footer
+   chrome, no sticky positioning, just the document. See LegalLayout.vue. */
+@media print {
+    .legal-page .legal-page-chrome {
+        display: none !important;
+    }
+
+    .legal-page {
+        position: static !important;
+    }
+}

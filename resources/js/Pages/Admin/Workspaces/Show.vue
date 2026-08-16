@@ -33,6 +33,15 @@ const props = defineProps<{
         scopes: string[] | null;
     }>;
     supportAccess: { expires_at: string; granted_by: string | null } | null;
+    billing: {
+        status: string;
+        status_label: string;
+        stripe_customer_id: string | null;
+        stripe_subscription_id: string | null;
+        cancel_at_period_end: boolean;
+        ends_at: string | null;
+        has_payment_problem: boolean;
+    } | null;
 }>();
 
 const usageLabels: Record<string, string> = {
@@ -129,6 +138,22 @@ function deleteDemo() {
                         </tr>
                     </tbody>
                 </table>
+            </SectionCard>
+
+            <SectionCard v-if="billing" title="Naročnina" class="lg:col-span-3">
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-neutral-500">Stanje</dt>
+                        <dd>
+                            <Badge v-if="billing.status === 'active'" color="#166534" bg="#DCFCE7">{{ billing.status_label }}</Badge>
+                            <Badge v-else-if="billing.has_payment_problem" color="#B91C1C" bg="#FEE2E2">{{ billing.status_label }}</Badge>
+                            <Badge v-else color="#374151" bg="#F1F2F4">{{ billing.status_label }}</Badge>
+                        </dd>
+                    </div>
+                    <div class="flex justify-between"><dt class="text-neutral-500">Stripe stranka</dt><dd class="text-neutral-500">{{ billing.stripe_customer_id ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-neutral-500">Stripe naročnina</dt><dd class="text-neutral-500">{{ billing.stripe_subscription_id ?? '—' }}</dd></div>
+                    <div v-if="billing.cancel_at_period_end" class="flex justify-between"><dt class="text-neutral-500">Poteče</dt><dd>{{ formatDateTime(billing.ends_at) }}</dd></div>
+                </dl>
             </SectionCard>
 
             <SectionCard title="Dostop za podporo" class="lg:col-span-3">

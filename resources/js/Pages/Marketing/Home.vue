@@ -9,6 +9,7 @@ import Badge from '@/Components/Badge.vue';
 import CustomerAvatar from '@/Components/Marketing/CustomerAvatar.vue';
 import CakeThumbnail from '@/Components/Marketing/CakeThumbnail.vue';
 import { PAYMENT_STATUS_META } from '@/lib/statuses';
+import { trackDemoClick } from '@/lib/analytics';
 import {
     Instagram,
     Facebook,
@@ -228,6 +229,10 @@ const faqs = [
         q: 'Kaj pa TikTok in WhatsApp?',
         a: 'Obe integraciji sta v pripravi. Trenutno sta na voljo Instagram in Facebook Messenger.',
     },
+    {
+        q: 'Ali lahko Beležko preizkusim pred registracijo?',
+        a: 'Da. Odpreš lahko interaktivni demo z vzorčnimi strankami, pogovori, naročili in termini ter Beležko prosto preklikaš brez registracije.',
+    },
 ];
 
 const openFaq = ref<number | null>(0);
@@ -265,19 +270,24 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
 
                 <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <Link
-                        :href="route('register')"
+                        :href="route('demo')"
                         class="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-500)] px-6 py-3 text-sm font-semibold text-white shadow-sm shadow-[var(--color-accent-500)]/25 transition hover:bg-[var(--color-accent-600)]"
+                        @click="trackDemoClick('hero')"
                     >
-                        Začni z Beležko
+                        Preizkusi demo
                         <ArrowRight :size="16" />
                     </Link>
-                    <a
-                        href="#kako-deluje"
+                    <Link
+                        :href="route('register')"
                         class="inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-neutral-300 transition hover:text-white"
                     >
-                        Poglej, kako deluje
-                    </a>
+                        Začni z Beležko
+                    </Link>
                 </div>
+
+                <p class="mt-4 text-center text-xs text-neutral-500">
+                    Brez registracije · z vzorčnimi podatki · prosto klikaj
+                </p>
             </div>
 
             <!-- Hero visual: full-bleed real product composition -->
@@ -1074,12 +1084,22 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                     <p class="mx-auto mt-8 max-w-lg text-center text-sm text-neutral-500">
                         Uporabljaš oboje? Naročila in termini ostanejo povezani z isto stranko in njeno zgodovino.
                     </p>
+                    <p class="mx-auto mt-3 max-w-lg text-center text-sm">
+                        <Link
+                            :href="route('demo')"
+                            class="inline-flex items-center gap-1 font-medium text-[var(--color-accent-600)] transition hover:text-[var(--color-accent-700)]"
+                            @click="trackDemoClick('orders_appointments')"
+                        >
+                            Poglej, kako bi Beležka izgledala pri tvojem načinu dela
+                            <ArrowRight :size="14" />
+                        </Link>
+                    </p>
                 </Reveal>
             </div>
         </section>
 
         <!-- INTEGRATIONS BRIDGE: compact reassurance strip, not a major section -->
-        <section class="border-t border-teal-100 bg-teal-50/60 py-12 sm:py-14">
+        <section class="border-t border-neutral-100 bg-white py-14 sm:py-16">
             <div class="mx-auto max-w-2xl px-4 text-center sm:px-6">
                 <Reveal>
                     <h2 class="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
@@ -1088,33 +1108,41 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                 </Reveal>
 
                 <Reveal :delay="60">
-                    <div class="mx-auto mt-6 grid max-w-xl grid-cols-2 gap-2.5 sm:grid-cols-4">
-                        <div class="flex items-center gap-2 rounded-lg border border-teal-100 bg-white px-3 py-2.5 shadow-sm shadow-teal-900/[0.03]">
-                            <Instagram :size="15" class="text-[#E1306C]" />
-                            <div>
-                                <p class="text-xs font-medium text-neutral-800">Instagram</p>
-                                <p class="text-[10px] font-medium text-emerald-600">Povezano</p>
+                    <div class="mx-auto mt-8 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                        <div class="flex flex-col items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-5 shadow-sm shadow-neutral-900/[0.04]">
+                            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-[#FCE7F0]">
+                                <Instagram :size="20" class="text-[#E1306C]" />
+                            </span>
+                            <div class="text-center">
+                                <p class="text-sm font-semibold text-neutral-900">Instagram</p>
+                                <p class="mt-0.5 text-[11px] font-medium text-emerald-600">Povezano</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 rounded-lg border border-teal-100 bg-white px-3 py-2.5 shadow-sm shadow-teal-900/[0.03]">
-                            <Facebook :size="15" class="text-[#0084FF]" />
-                            <div>
-                                <p class="text-xs font-medium text-neutral-800">Messenger</p>
-                                <p class="text-[10px] font-medium text-emerald-600">Povezano</p>
+                        <div class="flex flex-col items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-5 shadow-sm shadow-neutral-900/[0.04]">
+                            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-[#E3F1FF]">
+                                <Facebook :size="20" class="text-[#0084FF]" />
+                            </span>
+                            <div class="text-center">
+                                <p class="text-sm font-semibold text-neutral-900">Facebook Messenger</p>
+                                <p class="mt-0.5 text-[11px] font-medium text-emerald-600">Povezano</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 rounded-lg border border-dashed border-teal-200 bg-white/60 px-3 py-2.5 opacity-60">
-                            <Music2 :size="15" class="text-neutral-400" />
-                            <div>
-                                <p class="text-xs font-medium text-neutral-500">TikTok</p>
-                                <p class="text-[10px] font-medium text-neutral-400">Kmalu</p>
+                        <div class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-5">
+                            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100">
+                                <Music2 :size="20" class="text-neutral-400" />
+                            </span>
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-neutral-500">TikTok</p>
+                                <p class="mt-0.5 text-[11px] font-medium text-neutral-400">Kmalu</p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 rounded-lg border border-dashed border-teal-200 bg-white/60 px-3 py-2.5 opacity-60">
-                            <MessageCircle :size="15" class="text-neutral-400" />
-                            <div>
-                                <p class="text-xs font-medium text-neutral-500">WhatsApp</p>
-                                <p class="text-[10px] font-medium text-neutral-400">Kmalu</p>
+                        <div class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-5">
+                            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100">
+                                <MessageCircle :size="20" class="text-neutral-400" />
+                            </span>
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-neutral-500">WhatsApp</p>
+                                <p class="mt-0.5 text-[11px] font-medium text-neutral-400">Kmalu</p>
                             </div>
                         </div>
                     </div>
@@ -1418,6 +1446,15 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
                                     <ArrowRight :size="16" />
                                 </Link>
 
+                                <Link
+                                    :href="route('demo')"
+                                    class="mt-3 flex w-full items-center justify-center gap-1 text-sm font-medium text-[var(--color-accent-600)] transition hover:text-[var(--color-accent-700)]"
+                                    @click="trackDemoClick('pricing')"
+                                >
+                                    Najprej preizkusi demo
+                                    <ArrowRight :size="14" />
+                                </Link>
+
                                 <p class="mt-4 text-xs text-neutral-400">
                                     Instagram, Facebook Messenger, stranke, naročila, termini in pregled poslovanja
                                     — brez dodatnih paketov.
@@ -1502,24 +1539,27 @@ const depositPaid = PAYMENT_STATUS_META.deposit_paid;
             <div class="mx-auto max-w-3xl px-4 text-center sm:px-6">
                 <Sparkles :size="28" class="mx-auto text-white/70" />
                 <h2 class="mt-6 text-4xl leading-[1.1] font-semibold tracking-tight text-white sm:text-5xl">
-                    Tvoj posel se že začne v DM-jih.
-                    <br />
-                    Naj se kaos tam tudi konča.
+                    Najboljši način, da vidiš, ali ti Beležka ustreza? Preizkusi jo.
                 </h2>
+
+                <p class="mx-auto mt-5 max-w-xl text-lg text-white/80">
+                    Odpri demo z vzorčnimi strankami, pogovori, naročili in termini. Brez registracije — prosto klikaj.
+                </p>
 
                 <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <Link
-                        :href="route('register')"
+                        :href="route('demo')"
                         class="inline-flex items-center gap-2 rounded-lg bg-white px-7 py-3.5 text-sm font-semibold text-[var(--color-accent-700)] shadow-sm transition hover:bg-neutral-50"
+                        @click="trackDemoClick('final_cta')"
                     >
-                        Začni z Beležko
+                        Preizkusi demo
                         <ArrowRight :size="16" />
                     </Link>
                     <Link
-                        :href="route('login')"
+                        :href="route('register')"
                         class="inline-flex items-center gap-2 rounded-lg border border-white/30 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
                     >
-                        Prijava
+                        Ustvari svoj račun
                     </Link>
                 </div>
             </div>

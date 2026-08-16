@@ -2,13 +2,16 @@
 
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\Billing\ActivationController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\Customers\PrivacyController as CustomerPrivacyController;
 use App\Http\Controllers\DemoController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\Inbox\AttachmentController;
 use App\Http\Controllers\Inbox\ConversationController;
 use App\Http\Controllers\Integrations\MetaIntegrationController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderNoteController;
@@ -17,10 +20,14 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\Settings\BillingController;
 use App\Http\Controllers\Settings\SupportAccessController;
+use App\Http\Controllers\Settings\WorkspaceExportController;
+use App\Http\Controllers\Settings\WorkspacePrivacyController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TodayController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
+use App\Http\Controllers\Webhooks\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [MarketingController::class, 'home'])->name('home');
@@ -28,39 +35,22 @@ Route::get('/', [MarketingController::class, 'home'])->name('home');
 Route::get('/demo', [DemoController::class, 'show'])->name('demo');
 Route::post('/demo/{variant}', [DemoController::class, 'create'])->name('demo.create');
 
+// Public legal pages — no auth/workspace required, never redirect an
+// authenticated user away. See docs/legal-compliance.md.
+Route::get('/pogoji-poslovanja', [LegalController::class, 'terms'])->name('legal.terms');
+Route::get('/zasebnost', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/piskotki', [LegalController::class, 'cookies'])->name('legal.cookies');
+Route::get('/obdelava-osebnih-podatkov', [LegalController::class, 'dpa'])->name('legal.dpa');
+Route::get('/podatki-o-ponudniku', [LegalController::class, 'provider'])->name('legal.provider');
+Route::get('/podobdelovalci', [LegalController::class, 'subprocessors'])->name('legal.subprocessors');
+
 Route::middleware('auth')->group(function () {
-    Route::get('/today', TodayController::class)->name('dashboard');
-
-    Route::get('/search', SearchController::class)->name('search');
-
-    Route::get('/inbox', [ConversationController::class, 'index'])->name('inbox.index');
-    Route::get('/inbox/{conversation}', [ConversationController::class, 'show'])->name('inbox.show');
-    Route::post('/inbox/{conversation}/messages', [ConversationController::class, 'sendMessage'])->name('inbox.messages.store');
-    Route::patch('/inbox/{conversation}', [ConversationController::class, 'update'])->name('inbox.update');
-    Route::post('/inbox/{conversation}/create-customer', [ConversationController::class, 'createCustomer'])->name('inbox.create-customer');
-    Route::post('/inbox/{conversation}/notes', [ConversationController::class, 'addNote'])->name('inbox.notes.store');
-    Route::get('/inbox/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
-
-    Route::resource('customers', CustomerController::class)->except(['edit']);
-    Route::resource('orders', OrderController::class)->except(['edit']);
-    Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
-
-    Route::get('/analitika', [AnalyticsController::class, 'index'])->name('analytics.index');
-
-    Route::get('/ponudba', [CatalogController::class, 'index'])->name('catalog.index');
-    Route::resource('products', ProductController::class)->only(['store', 'update', 'destroy']);
-
-    Route::middleware('appointments.enabled')->group(function () {
-        Route::resource('appointments', AppointmentController::class)->except(['edit']);
-        Route::resource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
-    });
-
-    Route::post('/follow-ups', [FollowUpController::class, 'store'])->name('follow-ups.store');
-    Route::patch('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
-    Route::delete('/follow-ups/{followUp}', [FollowUpController::class, 'destroy'])->name('follow-ups.destroy');
-
-    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
-    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
+    // Billing management/activation and account/GDPR routes stay reachable
+    // regardless of subscription state — never trap an unpaid/canceled
+    // owner in an app they can't exit, pay, or delete. See docs/billing.md.
+    Route::get('/billing/activate', [ActivationController::class, 'edit'])->name('billing.activate');
+    Route::post('/billing/activate/checkout', [ActivationController::class, 'checkout'])->name('billing.activate.checkout');
+    Route::get('/billing/activate/success', [ActivationController::class, 'success'])->name('billing.activate.success');
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings/business', [SettingsController::class, 'update'])->name('settings.update');
@@ -70,20 +60,80 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/support', [SupportAccessController::class, 'store'])->name('settings.support.store');
     Route::delete('/settings/support', [SupportAccessController::class, 'destroy'])->name('settings.support.destroy');
 
-    Route::get('/settings/integrations/meta/connect', [MetaIntegrationController::class, 'connect'])->name('integrations.meta.connect');
-    Route::get('/settings/integrations/meta/callback', [MetaIntegrationController::class, 'callback'])->name('integrations.meta.callback');
-    Route::post('/settings/integrations/meta/channels', [MetaIntegrationController::class, 'store'])->name('integrations.meta.store');
-    Route::delete('/settings/integrations/meta/pending', [MetaIntegrationController::class, 'cancel'])->name('integrations.meta.cancel');
-    Route::delete('/settings/integrations/meta/channels/{channel}', [MetaIntegrationController::class, 'destroy'])->name('integrations.meta.disconnect');
+    Route::get('/settings/billing', [BillingController::class, 'edit'])->name('settings.billing.edit');
+    Route::get('/settings/billing/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
+
+    Route::get('/settings/privacy', [WorkspacePrivacyController::class, 'edit'])->name('settings.privacy.edit');
+    Route::get('/settings/privacy/export/{export}/download', [WorkspaceExportController::class, 'download'])->name('settings.privacy.export.download');
+
+    // Destructive/data-generating mutations require a recently-confirmed
+    // password on top of normal auth — same pattern as routes/admin.php.
+    Route::middleware('password.confirm')->group(function () {
+        Route::post('/settings/privacy/delete', [WorkspacePrivacyController::class, 'requestDeletion'])->name('settings.privacy.delete');
+        Route::delete('/settings/privacy/delete', [WorkspacePrivacyController::class, 'cancelDeletion'])->name('settings.privacy.cancel');
+        Route::post('/settings/privacy/export', [WorkspaceExportController::class, 'store'])->name('settings.privacy.export.store');
+    });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
+    Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
+
+    // Normal product surface — requires an active subscription for real
+    // (non-demo) workspaces. Demo bypasses entirely. See docs/billing.md.
+    Route::middleware('subscription.active')->group(function () {
+        Route::get('/today', TodayController::class)->name('dashboard');
+
+        Route::get('/search', SearchController::class)->name('search');
+
+        Route::get('/inbox', [ConversationController::class, 'index'])->name('inbox.index');
+        Route::get('/inbox/{conversation}', [ConversationController::class, 'show'])->name('inbox.show');
+        Route::post('/inbox/{conversation}/messages', [ConversationController::class, 'sendMessage'])->name('inbox.messages.store');
+        Route::patch('/inbox/{conversation}', [ConversationController::class, 'update'])->name('inbox.update');
+        Route::post('/inbox/{conversation}/create-customer', [ConversationController::class, 'createCustomer'])->name('inbox.create-customer');
+        Route::post('/inbox/{conversation}/notes', [ConversationController::class, 'addNote'])->name('inbox.notes.store');
+        Route::get('/inbox/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
+
+        Route::resource('customers', CustomerController::class)->except(['edit']);
+        Route::resource('orders', OrderController::class)->except(['edit']);
+        Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
+
+        Route::get('/analitika', [AnalyticsController::class, 'index'])->name('analytics.index');
+
+        Route::get('/ponudba', [CatalogController::class, 'index'])->name('catalog.index');
+        Route::resource('products', ProductController::class)->only(['store', 'update', 'destroy']);
+
+        Route::middleware('appointments.enabled')->group(function () {
+            Route::resource('appointments', AppointmentController::class)->except(['edit']);
+            Route::resource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
+        });
+
+        Route::post('/follow-ups', [FollowUpController::class, 'store'])->name('follow-ups.store');
+        Route::patch('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
+        Route::delete('/follow-ups/{followUp}', [FollowUpController::class, 'destroy'])->name('follow-ups.destroy');
+
+        Route::post('/customers/{customer}/privacy/export', [CustomerPrivacyController::class, 'exportData'])->name('customers.privacy.export');
+        Route::post('/customers/{customer}/privacy/erase', [CustomerPrivacyController::class, 'eraseData'])->name('customers.privacy.erase');
+
+        Route::get('/settings/integrations/meta/connect', [MetaIntegrationController::class, 'connect'])->name('integrations.meta.connect');
+        Route::get('/settings/integrations/meta/callback', [MetaIntegrationController::class, 'callback'])->name('integrations.meta.callback');
+        Route::post('/settings/integrations/meta/channels', [MetaIntegrationController::class, 'store'])->name('integrations.meta.store');
+        Route::delete('/settings/integrations/meta/pending', [MetaIntegrationController::class, 'cancel'])->name('integrations.meta.cancel');
+        Route::delete('/settings/integrations/meta/channels/{channel}', [MetaIntegrationController::class, 'destroy'])->name('integrations.meta.disconnect');
+    });
 });
 
 // Meta calls these directly — no session, no auth, no CSRF (verified via
 // hub.verify_token on GET and X-Hub-Signature-256 on POST instead).
 Route::get('/webhooks/meta', [MetaWebhookController::class, 'verify'])->name('webhooks.meta.verify');
 Route::post('/webhooks/meta', [MetaWebhookController::class, 'handle'])->name('webhooks.meta.handle');
+
+// Stripe calls this directly — no session/auth/CSRF; Cashier's own
+// VerifyWebhookSignature middleware (applied automatically by
+// StripeWebhookController's parent constructor when cashier.webhook.secret
+// is configured) authenticates the request instead.
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])->name('cashier.webhook');
 
 require __DIR__.'/auth.php';

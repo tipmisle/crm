@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\LegalDocument;
 use App\Http\Controllers\Controller;
+use App\Models\LegalAcceptance;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
@@ -38,6 +40,7 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'terms_dpa_accepted' => ['accepted'],
         ]);
 
         $user = User::create([
@@ -59,10 +62,16 @@ class RegisteredUserController extends Controller
 
         $user->update(['current_workspace_id' => $workspace->id]);
 
+        // Versions come from server-side config, never client input — see
+        // docs/legal-compliance.md. Privacy Policy is intentionally not
+        // recorded here: it's a notice, not something a user "agrees to".
+        LegalAcceptance::record($user, LegalDocument::Terms, config('legal.terms_version'), $workspace, $request);
+        LegalAcceptance::record($user, LegalDocument::Dpa, config('legal.dpa_version'), $workspace, $request);
+
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect(route('billing.activate', absolute: false));
     }
 }

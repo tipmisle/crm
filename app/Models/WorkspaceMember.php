@@ -22,4 +22,9 @@ class WorkspaceMember extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public static function isOwnerOf(User $user, int $workspaceId): bool
+    {
+        return $user->workspaces()->wherePivot('role', 'owner')->where('workspaces.id', $workspaceId)->exists();
+    }
 }

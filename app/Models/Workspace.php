@@ -6,10 +6,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Cashier\Billable;
 
+/**
+ * Billing belongs to the Workspace (the paying business), never to an
+ * individual User — see docs/billing.md. Cashier's Billable model is
+ * configured to Workspace via Cashier::useCustomerModel() in
+ * AppServiceProvider::boot(). Demo workspaces (is_demo=true) must never
+ * get a stripe_id / subscription row — enforced at the call sites that
+ * create Stripe customers/subscriptions (ActivationController), not here.
+ */
 class Workspace extends Model
 {
-    use HasFactory;
+    use Billable, HasFactory;
 
     protected $fillable = [
         'name',
@@ -23,6 +32,8 @@ class Workspace extends Model
         'is_demo',
         'demo_expires_at',
         'demo_variant',
+        'deletion_requested_at',
+        'scheduled_deletion_at',
     ];
 
     protected function casts(): array
@@ -32,7 +43,20 @@ class Workspace extends Model
             'appointments_enabled' => 'boolean',
             'is_demo' => 'boolean',
             'demo_expires_at' => 'datetime',
+            'deletion_requested_at' => 'datetime',
+            'scheduled_deletion_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Distinct from demo expiry (is_demo/demo_expires_at) — this tracks a
+     * real workspace's owner-initiated deletion request. See
+     * docs/data-lifecycle.md.
+     */
+    public function isPendingDeletion(): bool
+    {
+        return $this->deletion_requested_at !== null;
     }
 
     public function members(): HasMany
@@ -105,5 +129,23 @@ class Workspace extends Model
     public function currentSupportAccessGrant(): ?SupportAccessGrant
     {
         return $this->supportAccessGrants()->active()->orderByDesc('expires_at')->first();
+    }
+
+    public function workspaceExports(): HasMany
+    {
+        return $this->hasMany(WorkspaceExport::class);
+    }
+
+    /**
+     * Safe, identifiers-only Stripe Customer metadata — never CRM content
+     * (messages, customer notes, Meta tokens). See docs/billing.md.
+     */
+    public function stripeMetadata(): array
+    {
+        return [
+            'workspace_id' => (string) $this->id,
+            'app' => 'belezka',
+            'environment' => config('app.env'),
+        ];
     }
 }

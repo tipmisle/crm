@@ -250,9 +250,21 @@ function cancelPending() {
                 </div>
             </SectionCard>
 
+            <SectionCard title="Naročnina" subtitle="Plan, plačilo in način plačila">
+                <Link :href="route('settings.billing.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
+                    Upravljaj naročnino →
+                </Link>
+            </SectionCard>
+
             <SectionCard title="Podpora" subtitle="Dostop za podporo">
                 <Link :href="route('settings.support.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
                     Upravljaj dostop za podporo →
+                </Link>
+            </SectionCard>
+
+            <SectionCard title="Podatki in račun" subtitle="Izvoz podatkov in izbris delovnega prostora">
+                <Link :href="route('settings.privacy.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
+                    Upravljaj podatke in račun →
                 </Link>
             </SectionCard>
         </div>

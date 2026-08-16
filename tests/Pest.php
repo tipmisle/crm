@@ -8,6 +8,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Laravel\Cashier\Subscription;
 use Tests\TestCase;
 
 /*
@@ -62,7 +63,13 @@ function something()
 |--------------------------------------------------------------------------
 */
 
-function createWorkspaceWithUser(array $userAttributes = []): array
+/**
+ * Defaults to an active subscription — the pre-billing-milestone baseline
+ * every existing test suite assumes ("a normal, working workspace"). Pass
+ * withSubscription: false for billing tests that specifically need an
+ * unpaid/no-subscription workspace (see App\Http\Middleware\EnsureWorkspaceHasActiveSubscription).
+ */
+function createWorkspaceWithUser(array $userAttributes = [], bool $withSubscription = true): array
 {
     $workspace = Workspace::create([
         'name' => 'Test Workspace',
@@ -81,7 +88,28 @@ function createWorkspaceWithUser(array $userAttributes = []): array
         'role' => 'owner',
     ]);
 
+    if ($withSubscription) {
+        attachSubscription($workspace, 'active');
+    }
+
     return [$workspace, $user];
+}
+
+function attachSubscription(Workspace $workspace, string $status = 'active', array $overrides = []): Subscription
+{
+    if (! $workspace->stripe_id) {
+        $workspace->forceFill(['stripe_id' => 'cus_test_'.Str::random(10)])->save();
+    }
+
+    return Subscription::create(array_merge([
+        'workspace_id' => $workspace->id,
+        'type' => config('billing.subscription_name'),
+        'stripe_id' => 'sub_test_'.Str::random(10),
+        'stripe_status' => $status,
+        'stripe_price' => config('billing.monthly_price_id') ?? 'price_test',
+        'quantity' => 1,
+        'ends_at' => null,
+    ], $overrides));
 }
 
 function createMetaChannel(
@@ -137,4 +165,16 @@ function createSupportGrant(
         'expires_at' => now()->addMinutes($minutes),
         'scope' => $scope,
     ]);
+}
+
+/**
+ * @return array{0: Workspace, 1: User}
+ */
+function createWorkspaceWithSubscription(string $status = 'active', array $overrides = []): array
+{
+    [$workspace, $user] = createWorkspaceWithUser(withSubscription: false);
+
+    attachSubscription($workspace, $status, $overrides);
+
+    return [$workspace, $user];
 }
