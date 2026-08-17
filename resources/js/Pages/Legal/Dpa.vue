@@ -72,30 +72,39 @@ const toc = [
             <p>
                 Obdelava traja ves čas trajanja uporabniškega razmerja med Upravljavcem in Beležko, torej dokler
                 Upravljavčev delovni prostor obstaja oziroma dokler ni izbrisan v skladu s 15. členom tega dogovora.
+                Trajanje ni vezano na status naročnine — prenehanje ali preklic naročnine samo po sebi ne pomeni
+                prenehanja tega dogovora ali izbrisa podatkov, glejte Pogoje poslovanja.
             </p>
         </section>
 
         <section id="narava">
             <h2>4. Narava in namen obdelave</h2>
             <p>
-                Beležka za Upravljavca zagotavlja gostovanje, shranjevanje, prikaz in organizacijo podatkov strank
-                (sporočila, naročila, termini, opombe) znotraj aplikacije Beležka, izključno za namen zagotavljanja
-                storitve Upravljavcu.
+                Beležka za Upravljavca zagotavlja gostovanje, shranjevanje, prikaz, organizacijo in — kjer to
+                Upravljavec uporablja — izdajanje prodajnih dokumentov v zvezi s podatki strank (sporočila, priloge,
+                naročila, termini, prodajni dokumenti, opombe) znotraj aplikacije Beležka, izključno za namen
+                zagotavljanja storitve Upravljavcu.
             </p>
         </section>
 
         <section id="vrste">
             <h2>5. Vrste osebnih podatkov</h2>
-            <p>
-                Ime, kontaktni podatki (e-pošta, telefon), identifikatorji družbenih omrežij (Instagram/Facebook
-                uporabniško ime), vsebina sporočil in prilog, podatki o naročilih in terminih ter opombe, ki jih o
-                stranki vnese Upravljavec.
-            </p>
+            <p>Glede na to, katere funkcije Upravljavec dejansko uporablja, lahko obdelava vključuje naslednje vrste osebnih podatkov strank:</p>
+            <ul>
+                <li>Ime in kontaktni podatki (e-pošta, telefon).</li>
+                <li>Naslov (ulica, poštna številka, kraj, država).</li>
+                <li>Davčna/ID za DDV številka stranke, kadar jo Upravljavec vnese (npr. za izdajo dokumenta pravni osebi).</li>
+                <li>Identifikatorji družbenih omrežij (Instagram/Facebook uporabniško ime, ID).</li>
+                <li>Vsebina sporočil in prilog v pogovorih.</li>
+                <li>Podatki o naročilih in terminih, vključno s statusom plačila/are (deposit) in podatki o dostavi/sledenju pošiljke (način dostave, št. sledenja, povezava za sledenje), kjer se uporabljajo.</li>
+                <li>Izdani prodajni dokumenti (računi, predračuni, dobropisi/knjigovodske korekcije, priloženi zunanji PDF dokumenti), vključno s podatki prejemnika dokumenta in posameznimi postavkami dokumenta.</li>
+                <li>Opombe in nadaljnja opravila (follow-up), ki jih o stranki vnese Upravljavec.</li>
+            </ul>
         </section>
 
         <section id="kategorije">
             <h2>6. Kategorije posameznikov</h2>
-            <p>Stranke in potencialne stranke Upravljavca, ki z njim komunicirajo prek povezanih kanalov.</p>
+            <p>Stranke in potencialne stranke Upravljavca, ki z njim komunicirajo prek povezanih kanalov, ter prejemniki izdanih prodajnih dokumentov.</p>
         </section>
 
         <section id="navodila">
@@ -103,7 +112,10 @@ const toc = [
             <p>
                 Beležka obdeluje osebne podatke izključno na podlagi dokumentiranih navodil Upravljavca — kar
                 pomeni v okviru funkcionalnosti, ki jih Upravljavec sam upravlja znotraj aplikacije (npr. vnos,
-                urejanje, izvoz, izbris). Beležka podatkov ne uporablja za lastne, od Upravljavca neodvisne namene.
+                urejanje, izdajanje dokumentov, izvoz, izbris). Beležka podatkov ne uporablja za lastne, od
+                Upravljavca neodvisne namene. Če Beležka meni, da bi izvedba katerega od navodil Upravljavca kršila
+                veljavno pravo o varstvu osebnih podatkov, o tem nemudoma obvesti Upravljavca, preden nadaljuje z
+                izvedbo takega navodila.
             </p>
         </section>
 
@@ -125,9 +137,17 @@ const toc = [
             <h2>10. Uporaba podobdelovalcev</h2>
             <p>
                 Upravljavec s tem dogovorom daje splošno pooblastilo Beležki za najem podobdelovalcev, potrebnih za
-                izvajanje storitve. Ažuren seznam trenutnih podobdelovalcev je javno objavljen na strani
-                <a class="text-[var(--color-accent-600)] hover:underline" :href="route('legal.subprocessors')">Podobdelovalci</a>,
-                ki predstavlja tudi mehanizem obveščanja o spremembah tega seznama.
+                izvajanje storitve — izključno tistih, ki dejansko obdelujejo podatke strank Upravljavca (glejte
+                stran <a class="text-[var(--color-accent-600)] hover:underline" :href="route('legal.subprocessors')">Podobdelovalci</a>,
+                1. člen te strani). Ponudniki, ki obdelujejo samo lastne podatke Beležke ali uporabnika Beležke kot
+                takega (npr. obračun naročnine, dostava push obvestil), niso podobdelovalci po tem dogovoru — glejte
+                2. člen strani Podobdelovalci.
+            </p>
+            <p>
+                Preden Beležka za obdelavo podatkov Upravljavčevih strank vključi novega podobdelovalca ali zamenja
+                obstoječega, o tem Upravljavca vnaprej obvesti po e-pošti in/ali z obvestilom v aplikaciji ter mu da
+                razumno možnost, da temu ugovarja. Javno objavljen, ažuren seznam na strani Podobdelovalci dopolnjuje
+                to obveščanje, ni pa edini mehanizem obveščanja.
             </p>
         </section>
 
@@ -135,9 +155,10 @@ const toc = [
             <h2>11. Prenosi izven EGP</h2>
             <p>
                 Če katerikoli podobdelovalec podatke obdeluje izven Evropskega gospodarskega prostora, se to izvaja
-                na podlagi ustreznega prenosnega mehanizma, ki ga določa ta podobdelovalec (npr. standardne
-                pogodbene klavzule). Podrobnosti o posameznih ponudnikih so navedene na strani Podobdelovalci, ko so
-                znane.
+                na podlagi ustreznega prenosnega mehanizma (npr. sklep o ustreznosti ali standardne pogodbene
+                klavzule). Za vsakega podobdelovalca je lokacija obdelave in uporabljeni prenosni mehanizem, kadar je
+                potrjen, naveden na strani Podobdelovalci; kjer to (še) ni potrjeno, je to jasno označeno kot NEEDS
+                OWNER INPUT namesto domnevanega mehanizma.
             </p>
         </section>
 
@@ -155,7 +176,10 @@ const toc = [
             <p>
                 Če Beležka ugotovi kršitev varstva osebnih podatkov, ki zadeva podatke Upravljavčevih strank, o tem
                 Upravljavca obvesti brez nepotrebnega odlašanja in mu zagotovi razpoložljive informacije, potrebne
-                za izpolnitev njegovih morebitnih obveznosti obveščanja.
+                za izpolnitev njegovih morebitnih obveznosti obveščanja. Beležka Upravljavcu, kolikor je to razumno
+                mogoče, pomaga tudi pri izpolnjevanju njegovih drugih obveznosti po členih 32 do 36 GDPR (varnost
+                obdelave, obveščanje o kršitvah, ocena učinka in predhodno posvetovanje), zlasti z zagotavljanjem
+                informacij o naravi obdelave in izvedenih ukrepih.
             </p>
         </section>
 
@@ -173,15 +197,29 @@ const toc = [
                 Ob izbrisu delovnega prostora (opisano v Pogojih poslovanja) se podatki, po vnaprej določenem
                 obdobju za obnovitev, trajno izbrišejo iz aktivne aplikacije. Pred izbrisom lahko Upravljavec svoje
                 podatke izvozi. Izbris iz morebitnih varnostnih kopij sledi ločenemu, infrastrukturnemu časovnemu
-                okviru, ki v tem dokumentu še ni določen.
+                okviru, ki v tem dokumentu še ni določen. Po prenehanju tega dogovora (npr. ob izbrisu delovnega
+                prostora) Beležka podatke po izbiri Upravljavca vrne (izvoz) ali izbriše, kot je opisano zgoraj, v
+                obsegu, kot to dopuščajo morebitne zakonske zahteve po nadaljnji hrambi (npr. za izdane prodajne
+                dokumente, glejte spodaj).
+            </p>
+            <p>
+                <strong>Izbris posamezne stranke</strong> (na zahtevo Upravljavca, npr. zaradi zahteve po izbrisu s
+                strani stranke) pomeni, da se identifikacijski podatki te stranke, vsebina njenih sporočil in prilog
+                ter njene opombe anonimizirajo oziroma izbrišejo iz žive evidence Upravljavca. Izdani prodajni
+                dokumenti (računi, predračuni, dobropisi/storno, zunanji PDF dokumenti), ki so bili za to stranko že
+                izdani, pri tem ostanejo shranjeni kot nespremenjen poslovni/pravni zapis — izbris stranke torej ne
+                pomeni tudi izbrisa že izdanih dokumentov, kadar jih mora Upravljavec obdržati zaradi lastnih
+                računovodskih, davčnih ali drugih zakonskih obveznosti hrambe.
             </p>
         </section>
 
         <section id="revizije">
             <h2>16. Informacije in revizije</h2>
             <p>
-                Beležka Upravljavcu na razumno zahtevo zagotovi informacije, potrebne za dokazovanje skladnosti s
-                tem dogovorom. Obseg in način morebitnega revizijskega pregleda se dogovorita posebej.
+                Beležka Upravljavcu da na voljo informacije, potrebne za dokazovanje skladnosti z obveznostmi iz
+                člena 28 GDPR, in na razumno zahtevo dopusti in prispeva k razumnim revizijam, vključno z inšpekcijskimi
+                pregledi, ki jih izvede Upravljavec ali revizor, ki ga Upravljavec pooblasti. Obseg in način
+                morebitnega revizijskega pregleda se dogovorita posebej.
             </p>
         </section>
 
@@ -197,8 +235,9 @@ const toc = [
             <h2>18. Odgovornosti upravljavca</h2>
             <p>
                 Upravljavec je odgovoren za zakonitost obdelave osebnih podatkov svojih strank, vključno z
-                obstojem ustrezne pravne podlage za njihov vnos v Beležko, in za točnost teh podatkov. Omejitev
-                odgovornosti med strankama ureja 20. člen Pogojev poslovanja.
+                obstojem ustrezne pravne podlage za njihov vnos v Beležko, za točnost teh podatkov ter za vsebinsko
+                pravilnost, zakonsko hrambo in davčno-računovodsko obravnavo izdanih prodajnih dokumentov. Omejitev
+                odgovornosti med strankama ureja 22. člen Pogojev poslovanja.
             </p>
         </section>
 
@@ -234,7 +273,7 @@ const toc = [
             <p>Dostopni žetoni za povezane storitve (npr. Meta) so šifrirani in niso izpostavljeni v API odzivih ali administratorskih pogledih.</p>
 
             <h3>Hramba datotek</h3>
-            <p>Priložene datoteke (npr. slike v pogovorih) so shranjene zasebno in dostopne samo prek avtenticiranih, na delovni prostor vezanih poti — nikoli prek javno dostopnega URL-ja.</p>
+            <p>Priložene datoteke (npr. slike v pogovorih, PDF prodajnih dokumentov) so shranjene zasebno in dostopne samo prek avtenticiranih, na delovni prostor vezanih poti — nikoli prek javno dostopnega URL-ja.</p>
 
             <h3>Varnostne kopije</h3>
             <p>

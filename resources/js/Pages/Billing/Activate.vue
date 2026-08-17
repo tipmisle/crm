@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
@@ -8,8 +9,15 @@ const props = defineProps<{
     isOwner: boolean;
     displayPrice: string | null;
     billingPeriodLabel: string;
+    displayPriceVatIncluded: boolean | null;
     state: string;
 }>();
+
+const vatNote = computed(() => {
+    if (!props.displayPrice || props.displayPriceVatIncluded === null) return null;
+
+    return props.displayPriceVatIncluded ? 'Cena vključuje DDV.' : 'Cena ne vključuje DDV.';
+});
 
 const form = useForm({});
 
@@ -45,6 +53,7 @@ const features = [
                         {{ displayPrice }} <span class="text-sm font-normal text-neutral-500">/ {{ billingPeriodLabel }}</span>
                     </p>
                     <p v-else class="text-sm text-neutral-500">Cena bo prikazana ob nadaljevanju na plačilo.</p>
+                    <p v-if="vatNote" class="mt-1 text-xs text-neutral-500">{{ vatNote }}</p>
 
                     <ul class="mt-3 space-y-1.5 text-sm text-neutral-700">
                         <li v-for="f in features" :key="f" class="flex items-start gap-2">

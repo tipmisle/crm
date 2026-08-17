@@ -57,6 +57,11 @@ class CheckLegalConfig extends Command
             $this->error('Missing required legal config: legal.vat_number (legal.vat_registered is true)');
         }
 
+        if (filled(config('billing.display_price')) && config('billing.display_price_vat_included') === null) {
+            $missing[] = 'billing.display_price_vat_included';
+            $this->error('billing.display_price is set but billing.display_price_vat_included is not — a displayed price with unknown VAT treatment must not ship. Set BILLING_DISPLAY_PRICE_VAT_INCLUDED.');
+        }
+
         foreach (self::ADVISORY as $key) {
             if (blank(config("legal.{$key}"))) {
                 $this->warn("Advisory: legal.{$key} is not set.");

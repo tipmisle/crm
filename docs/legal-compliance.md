@@ -53,10 +53,11 @@ validates `config('legal.*')`:
   keys. Also requires `vat_number` when `vat_registered` is true.
 - **Advisory** (warns, does not fail): `dpo_contact`, `competent_court`.
 
-No CI/deploy pipeline exists in this repository yet to wire this into
-automatically (no `Dockerfile`/Forge/Vapor config found) — run it manually
-before any production deploy, or add it as a step to whatever deploy
-mechanism is eventually chosen (e.g. before `php artisan migrate --force`).
+`.github/workflows/ci.yml` runs the PHP/JS test suites and `npm run build`
+on every push, but does **not** currently invoke `legal:check` or
+`deploy:check` — both remain manual pre-deploy gates, run by the operator
+per the checklist in `docs/production-launch.md` (steps 10–11), not
+enforced automatically in CI.
 
 ## 5. Registration acceptance model
 
@@ -83,14 +84,21 @@ vs. banner) and is out of scope here.
 
 ## 6. Cookie/consent decision record
 
-**No consent banner is implemented.** Audited and confirmed at the time of
-this milestone: no non-essential cookies, no `localStorage`/`sessionStorage`
+**No consent banner is implemented.** Audited and confirmed at this
+milestone: no non-essential cookies, no `localStorage`/`sessionStorage`
 usage, and `resources/js/lib/analytics.ts` is a no-op stub (only pushes to
 `window.dataLayer` if it already exists — no GTM/GA/Meta Pixel script is
-loaded anywhere). The only cookies set are Laravel's session cookie and
-`XSRF-TOKEN`, both strictly necessary — no consent is legally required for
-those under ZEKom-2's necessary-cookie exemption. Building a banner over
-nothing would be decorative, not compliance.
+loaded anywhere). The only cookies set are Laravel's session cookie,
+`XSRF-TOKEN`, and (only if the user ticks "Zapomni si me" at login,
+`LoginRequest`/`Auth::attempt($credentials, $remember)`) Laravel's own
+`remember_web_...` persistent auth cookie — all three are strictly
+necessary for functionality the user explicitly requested, so no consent
+is legally required under ZEKom-2's necessary-cookie exemption. Building a
+banner over nothing would be decorative, not compliance. The Rubik font is
+self-hosted via `@fontsource-variable/rubik` (see `resources/css/app.css`)
+— no remote Google Fonts request is made, so `Legal/Cookies.vue`'s former
+"Pisave tretjih ponudnikov" disclosure is now a statement that the font is
+self-hosted, not a disclosure of a third-party IP request.
 
 **Trigger condition — re-read before adding any of the following:** if
 Google Analytics/GTM, a marketing pixel, or any non-essential client-side
@@ -105,25 +113,88 @@ it) plus `config('legal.cookie_version')`.
 
 ## 7. Subprocessor review process
 
-`config('legal.subprocessors')` is the single source of truth rendered by
-`Legal/Subprocessors.vue`. Only providers actually integrated and verified in
-code are listed — currently Meta (Instagram DM / Facebook Messenger Graph
-API) and a generic "browser push notification providers" entry (Web Push /
-VAPID, talks directly to Google/Mozilla/Apple's own push infrastructure).
+`config('legal.php')` now keeps **two separate lists**, rendered as two
+separate sections by `Legal/Subprocessors.vue` — do not merge them back
+into one:
+
+- `config('legal.subprocessors')` — Article 28 subprocessors that actually
+  receive a workspace's **customer** data. Currently only Meta (Instagram
+  DM / Facebook Messenger Graph API — message content, customer
+  identifiers). This is the list `Legal/Dpa.vue` §10 refers to as
+  authorized subprocessors.
+- `config('legal.account_billing_providers')` — providers that only ever
+  process the Beležka **user's/workspace's own** account or billing data,
+  never a workspace's customer data. Currently Stripe (subscription
+  billing) and the generic "browser push notification providers" entry
+  (Web Push/VAPID endpoint for the logged-in user, not a customer). These
+  are disclosed in `Legal/Privacy.vue` §13 as recipients, but must never be
+  listed as Article 28 subprocessors — they don't process customer data.
+
+Each entry also carries `location`/`transfer_mechanism`/
+`transfer_more_info_url`, left `null` (rendered as "NEEDS OWNER INPUT")
+until confirmed against that provider's own current published terms —
+never inferred or assumed.
 
 **Checklist for future integration PRs**: does this PR add a new external
-service that receives personal data (hosting, email, error tracking,
-billing, analytics, etc.)? If yes: add an entry to
-`config('legal.subprocessors')`, check whether `Legal/Dpa.vue` §11 (Prenosi
-izven EGP) needs updating for a non-EU provider, and confirm whether the
-provider needs disclosing in `Legal/Privacy.vue` §11/§12.
+service that receives personal data? If yes, first ask *whose* data it
+receives:
+- Receives a workspace's **customer** data (hosting, database, backups,
+  email delivery to customers, error tracking that sees message content,
+  etc.) → add to `config('legal.subprocessors')`, update `Legal/Dpa.vue`
+  §11 and the notice-before-use language in §10 if this is a new/replacement
+  provider, and check `Legal/Subprocessors.vue`'s transfer-mechanism column.
+- Receives only the **Beležka user's own** account/billing data → add to
+  `config('legal.account_billing_providers')` instead, and confirm
+  `Legal/Privacy.vue` §13 still accurately describes it.
+
+Per `Legal/Subprocessors.vue` §1 and `Legal/Dpa.vue` §10: the public
+Subprocessors page is **not** the sole notification mechanism for a new or
+replacement Article 28 subprocessor — Beležka commits to notifying the
+workspace owner by email and/or in-app notice in advance, with a
+reasonable opportunity to object, before such a subprocessor starts
+processing that workspace's customer data. No consent-workflow UI is built
+for this yet — it's an operational commitment to notify, not an automated
+gate; document/track how notification is actually sent when this is first
+exercised.
 
 ## 8. NEEDS OWNER INPUT tracker
 
-See the implementation report for the full categorized list (COMPANY /
-COMMERCIAL / INFRASTRUCTURE-SUBPROCESSORS). Living checklist — update as the
-owner supplies each fact, then set the corresponding `LEGAL_*` env var and
-re-run `legal:check`.
+Living checklist — update as the owner supplies each fact, then set the
+corresponding env var and re-run `legal:check` (and `deploy:check` for
+infrastructure/Stripe facts).
+
+**COMPANY / PROVIDER** (`config/legal.php`, blocks `legal:check` until set):
+`LEGAL_COMPANY_NAME`, `LEGAL_REGISTERED_ADDRESS`, `LEGAL_REGISTRATION_NUMBER`,
+`LEGAL_TAX_NUMBER`, `LEGAL_EMAIL`, plus `LEGAL_VAT_NUMBER` if
+`LEGAL_VAT_REGISTERED=true`.
+
+**COMMERCIAL / PRICING** (`config/billing.php`, blocks `legal:check` once a
+price is displayed):
+- `BILLING_DISPLAY_PRICE` — final production monthly price. Unset today;
+  the marketing page and activation page both omit the price line rather
+  than show a placeholder, and both now read from this single config key
+  (`MarketingController::home()` / `Billing\ActivationController::edit()`)
+  — no more separate hardcoded marketing price.
+- `BILLING_DISPLAY_PRICE_VAT_INCLUDED` — whether that price is VAT-inclusive.
+  `legal:check` fails if `BILLING_DISPLAY_PRICE` is set but this is still
+  unset.
+- Confirm no free trial is actually wanted (none is implemented).
+- Payment-failure access policy is currently `blocked`
+  (`BILLING_PAST_DUE_ACCESS_POLICY`) — confirm this is the intended policy.
+
+**INFRASTRUCTURE / TRANSFERS** (`config/legal.php` subprocessor entries,
+`deploy:check`):
+- Hosting/database/backup/email-delivery provider(s) that will actually
+  store production Customer data — not yet chosen; once known, add as an
+  Article 28 subprocessor entry (§7) with location + transfer mechanism.
+- Exact Stripe legal entity/processing region and transfer mechanism for
+  this account.
+- Meta's current processing location and transfer mechanism (never assume
+  a prior audit's finding is still current — re-verify against Meta's own
+  disclosures before publishing).
+- Audit/security-log retention period (`RETENTION_AUDIT_LOG_DAYS`) — still
+  unset; `Legal/Privacy.vue` §15 renders this as NEEDS OWNER INPUT rather
+  than inventing a period.
 
 ## 9. Test coverage map
 
@@ -132,8 +203,16 @@ re-run `legal:check`.
   placeholder for null config.
 - `tests/Feature/Legal/SecurityLeakTest.php` — no `APP_KEY`, Meta app
   secret, or bcrypt hash pattern ever appears in a legal page response.
+- `tests/Feature/Legal/ContentAccuracyTest.php` — no stale "brezplačna
+  uporaba" / "ni vzpostavljenega plačilnega sistema" copy anywhere in
+  Terms/Privacy; no FURS/fiscalization compliance claim; DPA/Subprocessors
+  correctly separate Article 28 subprocessors from account/billing
+  providers; Cookies discloses the remember-me cookie.
 - `tests/Feature/Console/CheckLegalConfigTest.php` — required/advisory/VAT
-  conditional validation, exit codes.
+  conditional validation, exit codes, and the new display-price-VAT gate.
+- `tests/Feature/Marketing/PricingDisplayTest.php` — marketing page and
+  activation page render the same server-sourced price, no hardcoded
+  placeholder string ships.
 - `tests/Feature/Auth/RegistrationTest.php` — registration requires
   `terms_dpa_accepted`.
 - `tests/Feature/LegalAcceptanceTest.php` — registration records exactly
@@ -145,9 +224,13 @@ re-run `legal:check`.
 
 - No consent banner (§6) — correct today, re-evaluate per the trigger
   condition above.
-- Subprocessors list is incomplete pending hosting/email/error-tracking/
-  billing vendor decisions — see NEEDS OWNER INPUT.
+- Article 28 subprocessors list is incomplete pending hosting/email/backup
+  vendor decisions — see NEEDS OWNER INPUT (§8). `account_billing_providers`
+  (Stripe, push) is believed complete as of this milestone.
 - No automated re-acceptance flow for a future material Terms/DPA version
   change (§5) — manual/future work.
-- `legal:check` is not wired into any CI/deploy pipeline (none exists in
-  this repo yet) — run manually before production launch.
+- `legal:check`/`deploy:check` run in CI for tests/build but are not yet
+  wired as blocking CI steps — they remain manual operator steps per
+  `docs/production-launch.md`.
+- Audit/security-log retention period is undecided — tracked as NEEDS OWNER
+  INPUT (§8), not silently assumed.

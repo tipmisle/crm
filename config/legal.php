@@ -35,10 +35,10 @@ return [
     | client-submitted value or a deployment timestamp — bump these
     | explicitly (and only) when a document materially changes.
     */
-    'terms_version' => env('LEGAL_TERMS_VERSION', '2026-08-15'),
-    'dpa_version' => env('LEGAL_DPA_VERSION', '2026-08-15'),
-    'privacy_version' => env('LEGAL_PRIVACY_VERSION', '2026-08-15'),
-    'cookie_version' => env('LEGAL_COOKIE_VERSION', '2026-08-15'),
+    'terms_version' => env('LEGAL_TERMS_VERSION', '2026-08-17'),
+    'dpa_version' => env('LEGAL_DPA_VERSION', '2026-08-17'),
+    'privacy_version' => env('LEGAL_PRIVACY_VERSION', '2026-08-17'),
+    'cookie_version' => env('LEGAL_COOKIE_VERSION', '2026-08-17'),
 
     /*
     |--------------------------------------------------------------------------
@@ -60,32 +60,65 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Subprocessors
+    | Article 28 subprocessors — process the business's CUSTOMER data
     |--------------------------------------------------------------------------
     |
-    | Only providers verified as actually integrated go here — see the
-    | audit in docs/legal-compliance.md. Do NOT add hosting/email/backup/
-    | error-tracking/billing vendors until they are actually chosen and
-    | configured; those are tracked as NEEDS OWNER INPUT instead.
+    | Only providers that actually receive personal data Beležka processes
+    | ON BEHALF OF a workspace's business (i.e. that business's customer
+    | data, under the DPA) go here. This is the Article 28 subprocessor
+    | list referenced by Legal/Dpa.vue §10. Do NOT add a provider here
+    | just because it's integrated somewhere in the app — if it only ever
+    | receives the Beležka USER's own account/billing data, it belongs in
+    | 'account_billing_providers' below instead. See the audit in
+    | docs/legal-compliance.md.
+    |
+    | 'transfer_mechanism'/'transfer_more_info_url': only set once
+    | confirmed against that provider's own current, verifiable published
+    | terms — never guessed or assumed to still be valid. Leave null
+    | (NEEDS OWNER INPUT) rather than invent a certification or safeguard.
+    | Hosting/database/backup vendors that store Customer data MUST be
+    | added here once the production infrastructure choice is known —
+    | tracked as NEEDS OWNER INPUT until then.
     */
     'subprocessors' => [
         [
             'name' => 'Meta Platforms, Inc.',
             'purpose' => 'Povezava z Instagram Direct in Facebook Messenger (sprejemanje in pošiljanje sporočil strank prek povezanih kanalov)',
             'data' => 'Vsebina sporočil, identifikatorji strank (Instagram/Facebook uporabniško ime, ID)',
-            'location' => null,
+            'location' => null, // NEEDS OWNER INPUT — confirm current processing location per Meta's own disclosures
+            'transfer_mechanism' => null, // NEEDS OWNER INPUT — confirm Meta's current EU/EGP transfer safeguard before publishing a specific mechanism
+            'transfer_more_info_url' => null,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Providers/recipients of the Beležka USER's own account/billing data
+    |--------------------------------------------------------------------------
+    |
+    | These providers do not receive a workspace's customer data — they
+    | only ever see the Beležka user's/workspace's own account or billing
+    | identifiers. They are disclosed in Privacy §11/§12 as recipients, but
+    | are NOT Article 28 subprocessors of customer data and must not be
+    | listed as such in the DPA. See docs/legal-compliance.md §7 and the
+    | separation required by Legal/Subprocessors.vue.
+    */
+    'account_billing_providers' => [
+        [
+            'name' => 'Stripe, Inc. / Stripe Payments Europe, Ltd.',
+            'purpose' => 'Obdelava plačil naročnine na Beležko (Stripe Checkout / Customer Portal) in upravljanje plačilnih podatkov',
+            'data' => 'Naziv delovnega prostora, e-poštni naslov lastnika za obračun, podatki o plačilni kartici (obdeluje izključno Stripe — Beležka jih ne vidi in ne shranjuje)',
+            'location' => null, // NEEDS OWNER INPUT — exact Stripe legal entity/region for this account, see docs/billing.md
+            'transfer_mechanism' => null, // NEEDS OWNER INPUT — confirm against Stripe's current DPA/terms before publishing a specific mechanism
+            'transfer_more_info_url' => null,
         ],
         [
             'name' => 'Ponudniki brskalniških push obvestil (Google, Mozilla, Apple)',
-            'purpose' => 'Dostava push obvestil o zapadlih opomnikih do uporabnikovega brskalnika',
-            'data' => 'Endpoint naprave (brez vsebine sporočila ali opombe)',
+            'purpose' => 'Dostava push obvestil o zapadlih opomnikih do brskalnika uporabnika Beležke',
+            'data' => 'Endpoint naprave uporabnika Beležke (brez vsebine sporočila, opombe ali podatkov o stranki)',
             'location' => null,
-        ],
-        [
-            'name' => 'Stripe, Inc. / Stripe Payments Europe, Ltd.',
-            'purpose' => 'Obdelava plačil naročnine na Beležko in upravljanje plačilnih podatkov',
-            'data' => 'Naziv delovnega prostora, e-poštni naslov za obračun, podatki o plačilni kartici (obdeluje izključno Stripe — Beležka jih ne vidi in ne shranjuje)',
-            'location' => null, // NEEDS OWNER INPUT — exact Stripe legal entity/region, see docs/billing.md
+            'transfer_mechanism' => null,
+            'transfer_more_info_url' => null,
         ],
     ],
 

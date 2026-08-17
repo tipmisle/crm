@@ -160,9 +160,13 @@ milestone ships.
 ## 9. NEEDS OWNER INPUT
 
 **COMMERCIAL**
-- Exact monthly price and whether it's shown VAT-inclusive or exclusive
-  (`BILLING_DISPLAY_PRICE` is currently unset; the marketing page's
-  `19 €` is an unrelated, disconnected placeholder — not the answer).
+- Exact monthly price and whether it's shown VAT-inclusive or exclusive.
+  `BILLING_DISPLAY_PRICE`/`BILLING_DISPLAY_PRICE_VAT_INCLUDED` are
+  currently unset — there is now a single config-sourced price
+  (`MarketingController::home()` and `Billing\ActivationController::edit()`
+  both read the same `config('billing.*')` keys), and `legal:check` fails
+  if a price is set without its VAT flag. Neither page shows an invented
+  placeholder price when unset.
 - Confirm no free trial is actually wanted (none is implemented).
 - Cancellation policy specifics: self-serve via Portal vs. contact-only;
   immediate vs. period-end (period-end is what's implemented as the
@@ -177,11 +181,17 @@ milestone ships.
   `company_name`/`registered_address`/etc.
 
 **LEGAL**
-- `resources/js/Pages/Legal/Terms.vue` §8 ("Naročnina in plačilo")
-  currently states the service is free with no payment system and
-  promises advance notice before any charge — this needs an owner-reviewed
-  rewrite once the above are decided, not a silent rewrite with invented
-  terms.
-- The Stripe subprocessor entry added to `config/legal.php` has its
-  `location` field left `null` pending confirmation of the exact Stripe
-  legal entity/region.
+- `resources/js/Pages/Legal/Terms.vue` §9 ("Naročnina in plačilo") now
+  correctly states Beležka is paid, describes Stripe Checkout/Portal,
+  automatic recurring billing, period-end cancellation, and that
+  cancellation does not delete workspace data — see
+  `docs/legal-compliance.md` §8. It intentionally does not hardcode a
+  price; it references the price shown on the activation page
+  (`config('billing.display_price')`) and its VAT treatment
+  (`config('billing.display_price_vat_included')`), both still unset.
+- Stripe is listed under `config('legal.account_billing_providers')`, not
+  the Article 28 `config('legal.subprocessors')` list — Stripe only ever
+  receives the paying workspace's own billing data, never a workspace's
+  customer data. Its `location`/`transfer_mechanism` fields are left
+  `null` pending confirmation of the exact Stripe legal entity/region —
+  see `docs/legal-compliance.md` §7–8.

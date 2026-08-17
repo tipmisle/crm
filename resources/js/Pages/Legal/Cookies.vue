@@ -69,17 +69,28 @@ const toc = [
                         <td>Do izteka seje</td>
                         <td>Da</td>
                     </tr>
+                    <tr>
+                        <td>Piškotek "Zapomni si me" (<code>remember_web_...</code>)</td>
+                        <td>Ohranja vašo prijavo tudi po zaprtju brskalnika, če pri prijavi izrecno obkljukate možnost "Zapomni si me"</td>
+                        <td>Do odjave oz. do izteka (privzeto do 5 let po prijavi)</td>
+                        <td>Da</td>
+                    </tr>
                 </tbody>
             </table>
-            <p>To sta edina piškotka, ki ju stran nastavi. Ne uporabljamo lokalnega shranjevanja (localStorage/sessionStorage) za sledenje.</p>
+            <p>
+                To so edini piškotki, ki jih stran nastavi — piškotek "Zapomni si me" le, če to možnost izrecno
+                izberete ob prijavi. Ne uporabljamo lokalnega shranjevanja (localStorage/sessionStorage) za sledenje.
+            </p>
         </section>
 
         <section id="soglasje">
             <h2>Zakaj ne potrebujemo soglasja</h2>
             <p>
-                Oba zgornja piškotka sta nujno potrebna za delovanje storitve, ki jo izrecno zahtevate (prijava,
-                varna uporaba obrazcev) — zakon (ZEKom-2, ki prenaša evropsko direktivo o zasebnosti in elektronskih
-                komunikacijah) za takšne, strogo nujne piškotke ne zahteva vašega predhodnega soglasja.
+                Vsi zgornji piškotki so nujno potrebni za delovanje storitve, ki jo izrecno zahtevate (prijava,
+                ohranjanje prijave, varna uporaba obrazcev) — zakon (ZEKom-2, ki prenaša evropsko direktivo o
+                zasebnosti in elektronskih komunikacijah) za takšne, strogo nujne piškotke ne zahteva vašega
+                predhodnega soglasja. Ta ugotovitev velja, dokler stran ne uporablja nobenega piškotka ali
+                lokalnega shranjevanja za analitiko ali trženje — glejte naslednji člen.
             </p>
         </section>
 
@@ -97,9 +108,9 @@ const toc = [
         <section id="pisave">
             <h2>Pisave tretjih ponudnikov</h2>
             <p>
-                Stran nalaga pisavo Rubik neposredno s strežnikov Google Fonts. Pri tem vaš brskalnik naveže
-                povezavo na Google-ove strežnike, kar Googlu razkrije vaš naslov IP kot stranski učinek nalaganja
-                pisave. To ni piškotek in ne služi sledenju, ga pa transparentno razkrivamo.
+                Pisava Rubik, ki jo stran uporablja, je gostovana na naših lastnih strežnikih (ni naložena z
+                zunanjih strežnikov Google Fonts ali drugega tretjega ponudnika). Vaš brskalnik zato pri nalaganju
+                pisave ne vzpostavi povezave z zunanjim ponudnikom pisav.
             </p>
         </section>
 

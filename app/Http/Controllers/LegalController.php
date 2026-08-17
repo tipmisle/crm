@@ -19,7 +19,14 @@ class LegalController extends Controller
 
     public function privacy(): Response
     {
-        return Inertia::render('Legal/Privacy', ['legal' => config('legal')]);
+        return Inertia::render('Legal/Privacy', [
+            'legal' => config('legal'),
+            'retention' => [
+                'workspace_grace_days' => config('retention.workspace_grace_days'),
+                'export_hours' => config('retention.export_hours'),
+                'audit_log_days' => config('retention.audit_log_days'),
+            ],
+        ]);
     }
 
     public function cookies(): Response

@@ -44,6 +44,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Display price VAT treatment
+    |--------------------------------------------------------------------------
+    |
+    | Whether display_price above is VAT-inclusive (true) or VAT-exclusive
+    | (false). Left null until explicitly set — a displayed price with an
+    | unknown VAT treatment is worse than no displayed price at all, so
+    | deploy:check fails in production whenever display_price is set but
+    | this is still null. Never infer this from vat_registered.
+    */
+    'display_price_vat_included' => env('BILLING_DISPLAY_PRICE_VAT_INCLUDED') === null
+        ? null
+        : (bool) env('BILLING_DISPLAY_PRICE_VAT_INCLUDED'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Access policies
     |--------------------------------------------------------------------------
     |

@@ -50,3 +50,27 @@ test('legal:check fails when vat_registered is true but vat_number is missing', 
 
     expect(Artisan::call('legal:check'))->toBe(1);
 });
+
+test('legal:check fails when a display price is set without its VAT-inclusion flag', function () {
+    setCompleteLegalConfig();
+    config(['billing.display_price' => '19 €', 'billing.display_price_vat_included' => null]);
+
+    Artisan::call('legal:check');
+
+    expect(Artisan::output())->toContain('billing.display_price_vat_included');
+    expect(Artisan::call('legal:check'))->toBe(1);
+});
+
+test('legal:check passes when a display price is set together with its VAT-inclusion flag', function () {
+    setCompleteLegalConfig();
+    config(['billing.display_price' => '19 €', 'billing.display_price_vat_included' => true]);
+
+    expect(Artisan::call('legal:check'))->toBe(0);
+});
+
+test('legal:check passes when no display price is set at all', function () {
+    setCompleteLegalConfig();
+    config(['billing.display_price' => null, 'billing.display_price_vat_included' => null]);
+
+    expect(Artisan::call('legal:check'))->toBe(0);
+});

@@ -21,6 +21,7 @@ class ActivationController extends Controller
             'isOwner' => WorkspaceMember::isOwnerOf($request->user(), $workspace->id),
             'displayPrice' => config('billing.display_price'),
             'billingPeriodLabel' => config('billing.billing_period_label'),
+            'displayPriceVatIncluded' => config('billing.display_price_vat_included'),
             'state' => $state->for($workspace)->value,
         ]);
     }

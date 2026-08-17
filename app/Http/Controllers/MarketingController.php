@@ -14,6 +14,10 @@ class MarketingController extends Controller
             return redirect()->route('dashboard');
         }
 
-        return Inertia::render('Marketing/Home');
+        return Inertia::render('Marketing/Home', [
+            'displayPrice' => config('billing.display_price'),
+            'billingPeriodLabel' => config('billing.billing_period_label'),
+            'displayPriceVatIncluded' => config('billing.display_price_vat_included'),
+        ]);
     }
 }

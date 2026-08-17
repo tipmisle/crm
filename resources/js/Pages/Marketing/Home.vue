@@ -10,6 +10,18 @@ import CustomerAvatar from '@/Components/Marketing/CustomerAvatar.vue';
 import CakeThumbnail from '@/Components/Marketing/CakeThumbnail.vue';
 import { MARKETING_DEMO_PAYMENT_STATUS_META } from '@/lib/statuses';
 import { trackDemoClick } from '@/lib/analytics';
+
+const props = defineProps<{
+    displayPrice: string | null;
+    billingPeriodLabel: string;
+    displayPriceVatIncluded: boolean | null;
+}>();
+
+const vatNote = computed(() => {
+    if (!props.displayPrice || props.displayPriceVatIncluded === null) return null;
+
+    return props.displayPriceVatIncluded ? 'Cena vključuje DDV.' : 'Cena ne vključuje DDV.';
+});
 import {
     Instagram,
     Facebook,
@@ -170,9 +182,6 @@ const calloutStatusStage = computed(() => (payoffPhase.value >= 5 ? 2 : payoffPh
 const showCalloutNext = computed(() => payoffPhase.value >= 6);
 // 0 = Naročeno, 1 = Ara plačana, 2 = Plačano
 const calloutPaymentStage = computed(() => (payoffPhase.value >= 8 ? 2 : payoffPhase.value >= 7 ? 1 : 0));
-
-// Placeholder — swap when pricing is finalized. Referenced only here.
-const MONTHLY_PRICE = '19 €';
 
 const painCategories = [
     {
@@ -1429,10 +1438,12 @@ const depositPaid = MARKETING_DEMO_PAYMENT_STATUS_META.deposit_paid;
                                 </span>
 
                                 <p class="mt-4 text-sm font-semibold text-neutral-500">Beležka</p>
-                                <div class="mt-1 flex items-baseline gap-1">
-                                    <span class="text-5xl font-semibold tracking-tight text-neutral-900">{{ MONTHLY_PRICE }}</span>
-                                    <span class="text-sm text-neutral-500">/ mesec</span>
+                                <div v-if="displayPrice" class="mt-1 flex items-baseline gap-1">
+                                    <span class="text-5xl font-semibold tracking-tight text-neutral-900">{{ displayPrice }}</span>
+                                    <span class="text-sm text-neutral-500">/ {{ billingPeriodLabel }}</span>
                                 </div>
+                                <p v-else class="mt-1 text-sm text-neutral-500">Cena bo prikazana ob registraciji.</p>
+                                <p v-if="vatNote" class="mt-1 text-xs text-neutral-400">{{ vatNote }}</p>
 
                                 <p class="mt-5 rounded-lg bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
                                     Naročila, termini ali oboje — vključeno.
