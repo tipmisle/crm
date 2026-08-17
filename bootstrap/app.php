@@ -11,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -26,6 +27,22 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(SecurityHeaders::class);
+
+        // Required behind any reverse proxy/load balancer (nginx, Cloudflare,
+        // an ALB, etc.) that terminates TLS in front of the app — without
+        // this, Laravel ignores X-Forwarded-* and generates http:// URLs /
+        // misreads the client IP even though the edge is HTTPS. Unset
+        // TRUSTED_PROXIES (the default) trusts nothing, which is correct for
+        // local development and any deployment with no proxy in front.
+        if ($trustedProxies = env('TRUSTED_PROXIES')) {
+            $middleware->trustProxies(
+                at: $trustedProxies === '*' ? '*' : explode(',', $trustedProxies),
+                headers: Request::HEADER_X_FORWARDED_FOR
+                    | Request::HEADER_X_FORWARDED_HOST
+                    | Request::HEADER_X_FORWARDED_PORT
+                    | Request::HEADER_X_FORWARDED_PROTO,
+            );
+        }
 
         $middleware->web(append: [
             HandleInertiaRequests::class,

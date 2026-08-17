@@ -26,6 +26,14 @@ class ProcessMetaWebhook implements ShouldQueue
 
     public int $tries = 3;
 
+    // Retries space out (30s, 2m, 5m) rather than hammering
+    // MessageIngestionService/the DB immediately on a transient failure.
+    public array $backoff = [30, 120, 300];
+
+    // A stuck ingest (e.g. a slow profile lookup dependency) must not hold
+    // the worker forever — fail it and let the retry/backoff above handle it.
+    public int $timeout = 60;
+
     private readonly string $encryptedPayload;
 
     public function __construct(array $payload)

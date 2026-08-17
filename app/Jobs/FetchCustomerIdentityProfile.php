@@ -26,6 +26,12 @@ class FetchCustomerIdentityProfile implements ShouldQueue
 
     public int $tries = 2;
 
+    public array $backoff = [30];
+
+    // A real network call to Meta's Graph API — must not hold the worker
+    // indefinitely if Meta is slow/unresponsive.
+    public int $timeout = 30;
+
     public function __construct(
         private readonly int $channelId,
         private readonly int $customerIdentityId,
