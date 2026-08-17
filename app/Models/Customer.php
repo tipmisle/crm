@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 
 class Customer extends Model
 {
@@ -117,7 +118,7 @@ class Customer extends Model
     {
         return $this->appointments()
             ->whereIn('status', [AppointmentStatus::Requested->value, AppointmentStatus::Confirmed->value])
-            ->where('appointment_date', '>=', now()->toDateString())
+            ->where('appointment_date', '>=', Carbon::today($this->workspace?->timezone ?? config('app.timezone'))->toDateString())
             ->orderBy('appointment_date')
             ->orderBy('start_time')
             ->first();

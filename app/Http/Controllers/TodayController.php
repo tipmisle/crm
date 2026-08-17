@@ -47,7 +47,7 @@ class TodayController extends Controller
 
             $todaysOrders = Order::query()
                 ->with(['customer', 'channel', 'salesDocuments:id,order_id,type'])
-                ->whereDate('due_date', Carbon::today())
+                ->whereDate('due_date', Carbon::today($workspace->timezone))
                 ->whereIn('status', $openStatuses)
                 ->orderBy('due_time')
                 ->get();
@@ -61,7 +61,7 @@ class TodayController extends Controller
             $overdueOrders = Order::query()
                 ->with(['customer'])
                 ->whereIn('status', $openStatuses)
-                ->whereDate('due_date', '<', Carbon::today())
+                ->whereDate('due_date', '<', Carbon::today($workspace->timezone))
                 ->get();
 
             $attention->push(
@@ -98,8 +98,8 @@ class TodayController extends Controller
             $upcomingOrders = Order::query()
                 ->with(['customer', 'channel', 'salesDocuments:id,order_id,type'])
                 ->whereIn('status', $openStatuses)
-                ->whereDate('due_date', '>', Carbon::today())
-                ->whereDate('due_date', '<=', Carbon::today()->addDays(7))
+                ->whereDate('due_date', '>', Carbon::today($workspace->timezone))
+                ->whereDate('due_date', '<=', Carbon::today($workspace->timezone)->addDays(7))
                 ->orderBy('due_date')
                 ->limit(8)
                 ->get();
@@ -113,7 +113,7 @@ class TodayController extends Controller
 
             $todaysAppointments = Appointment::query()
                 ->with(['customer', 'channel'])
-                ->whereDate('appointment_date', Carbon::today())
+                ->whereDate('appointment_date', Carbon::today($workspace->timezone))
                 ->whereIn('status', $activeStatuses)
                 ->orderBy('start_time')
                 ->get();
@@ -168,8 +168,8 @@ class TodayController extends Controller
             $upcomingAppointments = Appointment::query()
                 ->with(['customer', 'channel'])
                 ->whereIn('status', $activeStatuses)
-                ->whereDate('appointment_date', '>', Carbon::today())
-                ->whereDate('appointment_date', '<=', Carbon::today()->addDays(7))
+                ->whereDate('appointment_date', '>', Carbon::today($workspace->timezone))
+                ->whereDate('appointment_date', '<=', Carbon::today($workspace->timezone)->addDays(7))
                 ->orderBy('appointment_date')
                 ->orderBy('start_time')
                 ->limit(8)
@@ -196,7 +196,7 @@ class TodayController extends Controller
         $followUps = FollowUp::query()
             ->with('followable')
             ->pending()
-            ->where('due_at', '<=', Carbon::now()->endOfDay())
+            ->where('due_at', '<=', Carbon::now($workspace->timezone)->endOfDay()->setTimezone(config('app.timezone')))
             ->orderBy('due_at')
             ->limit(6)
             ->get()
@@ -212,10 +212,10 @@ class TodayController extends Controller
             'upcomingAppointments' => $upcomingAppointments,
             'stats' => $stats->summary(
                 $workspace,
-                Carbon::today()->startOfDay(),
-                Carbon::today()->endOfDay(),
-                Carbon::yesterday()->startOfDay(),
-                Carbon::yesterday()->endOfDay(),
+                Carbon::today($workspace->timezone)->setTimezone(config('app.timezone')),
+                Carbon::today($workspace->timezone)->endOfDay()->setTimezone(config('app.timezone')),
+                Carbon::yesterday($workspace->timezone)->setTimezone(config('app.timezone')),
+                Carbon::yesterday($workspace->timezone)->endOfDay()->setTimezone(config('app.timezone')),
             ),
         ]);
     }

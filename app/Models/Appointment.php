@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 
 class Appointment extends Model
 {
@@ -122,7 +123,13 @@ class Appointment extends Model
 
     public function isUpcoming(): bool
     {
+        // appointment_date is a calendar date, not an instant — "future"
+        // means strictly after today's date in the workspace's own
+        // timezone (matches the original isFuture() semantics: a same-day
+        // appointment is not "upcoming" once today has begun).
+        $timezone = $this->workspace?->timezone ?? config('app.timezone');
+
         return ! in_array($this->status, [AppointmentStatus::Completed, AppointmentStatus::Cancelled, AppointmentStatus::NoShow], true)
-            && $this->appointment_date->isFuture();
+            && $this->appointment_date->gt(Carbon::today($timezone));
     }
 }

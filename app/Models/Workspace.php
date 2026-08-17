@@ -21,6 +21,17 @@ class Workspace extends Model
 {
     use Billable, HasFactory;
 
+    /**
+     * Real workspaces (RegisteredUserController) don't set timezone
+     * explicitly, so this is the actual default new signups get — the
+     * `timezone` column's own DB default ('UTC') only applies if even this
+     * app-level default were bypassed. Demo/seeded workspaces already pass
+     * 'Europe/Ljubljana' explicitly, so this is a no-op for them.
+     */
+    protected $attributes = [
+        'timezone' => 'Europe/Ljubljana',
+    ];
+
     protected $fillable = [
         'name',
         'slug',

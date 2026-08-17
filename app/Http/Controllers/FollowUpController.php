@@ -44,12 +44,21 @@ class FollowUpController extends Controller
             'due_at' => 'required|date',
         ]);
 
+        // The <input type="datetime-local"> value has no timezone info — it's
+        // the wall-clock time the user typed, meant in THEIR workspace's
+        // timezone, not the server's. Parse it as such, then re-express it
+        // in the app's storage timezone (config('app.timezone')) — the
+        // timezone every other absolute timestamp in this app is persisted
+        // and later re-read under (see Eloquent's datetime cast, which
+        // re-interprets stored values using date_default_timezone_get()).
+        $workspace = $request->user()->currentWorkspace;
+
         FollowUp::create([
             'user_id' => auth()->id(),
             'followable_type' => $data['followable_type'],
             'followable_id' => $data['followable_id'],
             'note' => $data['note'],
-            'due_at' => Carbon::parse($data['due_at']),
+            'due_at' => Carbon::parse($data['due_at'], $workspace->timezone)->setTimezone(config('app.timezone')),
         ]);
 
         return back()->with('success', 'Opomnik dodan.');

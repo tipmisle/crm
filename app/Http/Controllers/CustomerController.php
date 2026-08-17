@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -53,7 +54,7 @@ class CustomerController extends Controller
             $upcomingByCustomer = Appointment::query()
                 ->whereIn('customer_id', $customers->getCollection()->pluck('id'))
                 ->whereIn('status', ['requested', 'confirmed'])
-                ->where('appointment_date', '>=', now()->toDateString())
+                ->where('appointment_date', '>=', Carbon::today($workspace->timezone)->toDateString())
                 ->orderBy('appointment_date')
                 ->orderBy('start_time')
                 ->get(['id', 'customer_id', 'service_name', 'appointment_date', 'start_time'])

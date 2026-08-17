@@ -43,6 +43,8 @@ class OrderController extends Controller
      */
     private function applyFilters(Builder $query, Request $request): Builder
     {
+        $timezone = $request->user()->currentWorkspace->timezone;
+
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
@@ -94,12 +96,12 @@ class OrderController extends Controller
 
         $due = $request->get('due');
         if ($due === 'today') {
-            $query->whereDate('due_date', Carbon::today());
+            $query->whereDate('due_date', Carbon::today($timezone));
         } elseif ($due === 'overdue') {
-            $query->whereDate('due_date', '<', Carbon::today())
+            $query->whereDate('due_date', '<', Carbon::today($timezone))
                 ->whereNotIn('status', OrderStatus::openExclusionKeys());
         } elseif ($due === 'week') {
-            $query->whereBetween('due_date', [Carbon::today(), Carbon::today()->addDays(7)]);
+            $query->whereBetween('due_date', [Carbon::today($timezone), Carbon::today($timezone)->addDays(7)]);
         }
 
         return $query;
@@ -115,7 +117,8 @@ class OrderController extends Controller
         $view = $request->get('view', 'list');
 
         if ($view === 'calendar') {
-            $month = Carbon::createFromFormat('Y-m', $request->get('month', Carbon::today()->format('Y-m')))
+            $timezone = $request->user()->currentWorkspace->timezone;
+            $month = Carbon::createFromFormat('Y-m', $request->get('month', Carbon::today($timezone)->format('Y-m')))
                 ->startOfMonth();
 
             $orders = (clone $query)
@@ -162,6 +165,8 @@ class OrderController extends Controller
      */
     public function exportCsv(Request $request): StreamedResponse
     {
+        $timezone = $request->user()->currentWorkspace->timezone;
+
         $query = $this->applyFilters(
             Order::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'product:id,name']),
             $request
@@ -178,7 +183,7 @@ class OrderController extends Controller
 
         $rows = $query->lazy(200)->map(fn (Order $order) => [
             $order->order_number,
-            $order->created_at?->format('Y-m-d H:i'),
+            $order->created_at?->copy()->setTimezone($timezone)->format('Y-m-d H:i'),
             $order->customer?->full_name,
             $order->customer?->email,
             $order->customer?->phone,
@@ -197,7 +202,7 @@ class OrderController extends Controller
             $order->channel?->type,
         ]);
 
-        return Csv::streamDownload('narocila-'.now()->format('Y-m-d').'.csv', $headers, $rows);
+        return Csv::streamDownload('narocila-'.now($timezone)->format('Y-m-d').'.csv', $headers, $rows);
     }
 
     public function create(Request $request): Response

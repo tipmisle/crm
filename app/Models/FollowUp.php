@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\Auth;
 
 class FollowUp extends Model
 {
@@ -57,7 +58,18 @@ class FollowUp extends Model
 
     public function scopeDueToday(Builder $query): Builder
     {
-        return $query->pending()->whereDate('due_at', now()->toDateString());
+        // due_at is an absolute instant, so "today" can't be a whereDate()
+        // on the raw column (that would compare against the app storage
+        // timezone's calendar date). It must mean today's calendar date in
+        // the CURRENT workspace's timezone, converted to an instant range
+        // expressed in the app's storage timezone (see FollowUpController).
+        $timezone = Auth::user()?->currentWorkspace?->timezone ?? config('app.timezone');
+        $localToday = now($timezone)->startOfDay();
+
+        return $query->pending()->whereBetween('due_at', [
+            $localToday->copy()->setTimezone(config('app.timezone')),
+            $localToday->copy()->endOfDay()->setTimezone(config('app.timezone')),
+        ]);
     }
 
     public function isCompleted(): bool

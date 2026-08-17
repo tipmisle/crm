@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 
 class Order extends Model
 {
@@ -138,8 +139,13 @@ class Order extends Model
 
     public function isOverdue(): bool
     {
+        // due_date is a calendar date, not an instant — "past" means
+        // strictly before today's date in the workspace's own timezone,
+        // not before the current instant in server (UTC) time.
+        $timezone = $this->workspace?->timezone ?? config('app.timezone');
+
         return $this->due_date
-            && $this->due_date->isPast()
+            && $this->due_date->lt(Carbon::today($timezone))
             && ! ($this->orderStatus?->is_completed || $this->orderStatus?->is_cancelled);
     }
 

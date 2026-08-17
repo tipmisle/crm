@@ -37,6 +37,8 @@ class AppointmentController extends Controller
      */
     private function applyFilters(Builder $query, Request $request): Builder
     {
+        $timezone = $request->user()->currentWorkspace->timezone;
+
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('appointment_number', 'like', "%{$search}%")
@@ -84,11 +86,11 @@ class AppointmentController extends Controller
 
         $due = $request->get('due');
         if ($due === 'today') {
-            $query->whereDate('appointment_date', Carbon::today());
+            $query->whereDate('appointment_date', Carbon::today($timezone));
         } elseif ($due === 'week') {
-            $query->whereBetween('appointment_date', [Carbon::today(), Carbon::today()->addDays(7)]);
+            $query->whereBetween('appointment_date', [Carbon::today($timezone), Carbon::today($timezone)->addDays(7)]);
         } elseif ($due === 'overdue') {
-            $query->whereDate('appointment_date', '<', Carbon::today())
+            $query->whereDate('appointment_date', '<', Carbon::today($timezone))
                 ->whereNotIn('status', [AppointmentStatus::Completed->value, AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value]);
         }
 
@@ -110,9 +112,10 @@ class AppointmentController extends Controller
             ]);
         }
 
+        $timezone = $request->user()->currentWorkspace->timezone;
         $weekStart = $request->get('week')
-            ? Carbon::parse($request->get('week'))->startOfWeek(Carbon::MONDAY)
-            : Carbon::today()->startOfWeek(Carbon::MONDAY);
+            ? Carbon::parse($request->get('week'), $timezone)->startOfWeek(Carbon::MONDAY)
+            : Carbon::today($timezone)->startOfWeek(Carbon::MONDAY);
 
         $appointments = (clone $query)
             ->whereBetween('appointment_date', [$weekStart->copy(), $weekStart->copy()->endOfWeek(Carbon::SUNDAY)])
@@ -135,6 +138,8 @@ class AppointmentController extends Controller
      */
     public function exportCsv(Request $request): StreamedResponse
     {
+        $timezone = $request->user()->currentWorkspace->timezone;
+
         $query = $this->applyFilters(
             Appointment::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'service:id,name']),
             $request
@@ -165,7 +170,7 @@ class AppointmentController extends Controller
             $appointment->channel?->type,
         ]);
 
-        return Csv::streamDownload('termini-'.now()->format('Y-m-d').'.csv', $headers, $rows);
+        return Csv::streamDownload('termini-'.now($timezone)->format('Y-m-d').'.csv', $headers, $rows);
     }
 
     public function create(Request $request): Response

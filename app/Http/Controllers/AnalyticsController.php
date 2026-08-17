@@ -32,7 +32,7 @@ class AnalyticsController extends Controller
     {
         $workspace = $request->user()->currentWorkspace;
 
-        [$start, $end] = $this->resolveRange($request);
+        [$start, $end] = $this->resolveRange($request, $workspace);
         [$compareKey, $compareStart, $compareEnd, $compareLabel] = $this->resolveCompare($request, $start, $end, $stats);
 
         $revenueSeries = $this->dailyRevenueSeries($workspace, $start, $end);
@@ -50,11 +50,11 @@ class AnalyticsController extends Controller
                 'label' => $compareLabel,
                 'range' => $compareStart ? ['from' => $compareStart->format('Y-m-d'), 'to' => $compareEnd->format('Y-m-d')] : null,
             ],
-            'stats' => $stats->summary($workspace, $start, $end, $compareStart, $compareEnd),
+            'stats' => $stats->summary($workspace, $start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone')), $compareStart?->copy()->setTimezone(config('app.timezone')), $compareEnd?->copy()->setTimezone(config('app.timezone'))),
             'revenueSeries' => $revenueSeries,
             'compareRevenueSeries' => $compareRevenueSeries,
             'channelInquiries' => $this->channelBreakdown(
-                Conversation::whereBetween('created_at', [$start, $end])->with('channel')->get(),
+                Conversation::whereBetween('created_at', [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))])->with('channel')->get(),
                 fn () => 1,
                 fn (string $type) => route('inbox.index', ['channel_type' => $type]),
             ),
@@ -93,11 +93,18 @@ class AnalyticsController extends Controller
     }
 
     /**
+     * Returns Carbon instances in the WORKSPACE's local timezone — suitable
+     * for display (format('Y-m-d') labels, route params) as-is. Callers
+     * must ->copy()->setTimezone(config('app.timezone')) before using them
+     * to bound a query against a stored datetime column (created_at etc) —
+     * that's the timezone those columns are actually persisted/read under.
+     *
      * @return array{0: Carbon, 1: Carbon}
      */
-    private function resolveRange(Request $request): array
+    private function resolveRange(Request $request, $workspace): array
     {
-        $today = Carbon::today();
+        $timezone = $workspace->timezone;
+        $today = Carbon::today($timezone);
         $defaultStart = $today->copy()->subDays(29)->startOfDay();
         $defaultEnd = $today->copy()->endOfDay();
 
@@ -105,8 +112,8 @@ class AnalyticsController extends Controller
         $to = $request->get('to');
 
         try {
-            $start = $from ? Carbon::parse($from)->startOfDay() : $defaultStart;
-            $end = $to ? Carbon::parse($to)->endOfDay() : $defaultEnd;
+            $start = $from ? Carbon::parse($from, $timezone)->startOfDay() : $defaultStart;
+            $end = $to ? Carbon::parse($to, $timezone)->endOfDay() : $defaultEnd;
         } catch (\Exception) {
             return [$defaultStart, $defaultEnd];
         }
@@ -128,21 +135,29 @@ class AnalyticsController extends Controller
 
     private function dailyRevenueSeries($workspace, Carbon $start, Carbon $end): Collection
     {
+        // Grouped in PHP by the WORKSPACE-local calendar day, not a SQL
+        // DATE(created_at) — that would group by the UTC calendar day the
+        // timestamp happens to be stored under, misattributing rows near
+        // local midnight (e.g. 00:30 Ljubljana in winter is still 23:30
+        // UTC the previous day).
+        $timezone = $workspace->timezone;
+        $bounds = [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))];
+
         $orderDaily = $workspace->orders_enabled
-            ? Order::whereBetween('created_at', [$start, $end])
+            ? Order::whereBetween('created_at', $bounds)
                 ->whereNotIn('status', OrderStatus::cancelledKeys())
-                ->selectRaw('DATE(created_at) as day, SUM(price) as total')
-                ->groupBy('day')
-                ->pluck('total', 'day')
+                ->get(['created_at', 'price'])
+                ->groupBy(fn (Order $o) => $o->created_at->copy()->setTimezone($timezone)->format('Y-m-d'))
+                ->map(fn ($rows) => (float) $rows->sum('price'))
             : collect();
 
         $appointmentDaily = $workspace->appointments_enabled
-            ? Appointment::whereBetween('created_at', [$start, $end])
+            ? Appointment::whereBetween('created_at', $bounds)
                 ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
                 ->whereNotNull('price')
-                ->selectRaw('DATE(created_at) as day, SUM(price) as total')
-                ->groupBy('day')
-                ->pluck('total', 'day')
+                ->get(['created_at', 'price'])
+                ->groupBy(fn (Appointment $a) => $a->created_at->copy()->setTimezone($timezone)->format('Y-m-d'))
+                ->map(fn ($rows) => (float) $rows->sum('price'))
             : collect();
 
         $series = collect();
@@ -180,9 +195,10 @@ class AnalyticsController extends Controller
     {
         $orderTotals = [];
         $appointmentTotals = [];
+        $bounds = [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))];
 
         if ($workspace->orders_enabled) {
-            foreach (Order::whereBetween('created_at', [$start, $end])
+            foreach (Order::whereBetween('created_at', $bounds)
                 ->whereNotIn('status', OrderStatus::cancelledKeys())
                 ->with('channel')->get() as $order) {
                 $type = $order->channel?->type ?? ChannelType::Website;
@@ -194,7 +210,7 @@ class AnalyticsController extends Controller
         }
 
         if ($workspace->appointments_enabled) {
-            foreach (Appointment::whereBetween('created_at', [$start, $end])
+            foreach (Appointment::whereBetween('created_at', $bounds)
                 ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
                 ->with('channel')->get() as $appointment) {
                 $type = $appointment->channel?->type ?? ChannelType::Website;
@@ -266,7 +282,7 @@ class AnalyticsController extends Controller
     {
         $rows = [];
 
-        foreach (Order::whereBetween('created_at', [$start, $end])
+        foreach (Order::whereBetween('created_at', [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))])
             ->whereNotIn('status', OrderStatus::cancelledKeys())
             ->with('product')
             ->get() as $order) {
@@ -291,7 +307,7 @@ class AnalyticsController extends Controller
     {
         $rows = [];
 
-        foreach (Appointment::whereBetween('created_at', [$start, $end])
+        foreach (Appointment::whereBetween('created_at', [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))])
             ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
             ->with('service')
             ->get() as $appointment) {
