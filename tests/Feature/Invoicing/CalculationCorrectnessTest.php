@@ -114,6 +114,8 @@ test('order prefill keeps the order final price as the default document total', 
     configureInvoicing($workspace);
     [$order] = createOrderWithConversation($workspace);
     $order->update(['price' => 80]);
+    $order->items()->delete();
+    $order->items()->create(['title' => 'Rojstnodnevna torta', 'quantity' => 1, 'unit_price' => 80]);
 
     $response = $this->actingAs($user)->get(route('orders.documents.create', $order));
 
@@ -142,6 +144,7 @@ test('appointment prefill keeps the appointment final price as the default docum
         'payment_status' => 'unpaid',
         'status' => 'confirmed',
     ]);
+    $appointment->items()->create(['title' => 'Fotografiranje', 'quantity' => 1, 'unit_price' => 120]);
 
     $response = $this->actingAs($user)->get(route('appointments.documents.create', $appointment));
 

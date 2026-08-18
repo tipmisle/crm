@@ -120,8 +120,10 @@ test('booking an appointment from an inbox conversation auto-creates and links a
         'appointment_date' => now()->addDays(2)->toDateString(),
         'start_time' => '10:00',
         'duration_minutes' => 60,
-        'price' => 30,
         'deposit_amount' => 10,
+        'items' => [
+            ['title' => 'BIAB nadgradnja', 'quantity' => 1, 'unit_price' => 30],
+        ],
     ]);
 
     $response->assertRedirect();

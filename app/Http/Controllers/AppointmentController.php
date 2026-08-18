@@ -221,62 +221,71 @@ class AppointmentController extends Controller
 
         $price = collect($data['items'])->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
 
-        $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
-        $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : $conversation?->customer;
+        // Everything below is one business transaction — see
+        // OrderController::store() for why: an auto-created Customer/
+        // CustomerIdentity/conversation link must never commit if the
+        // Appointment (or its items) fails to create, and the Appointment
+        // must never end up with a partial item set.
+        [$appointment, $customer] = DB::transaction(function () use ($data, $price) {
+            $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
+            $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : $conversation?->customer;
 
-        // Same auto-create-and-link logic used by Order::store — an
-        // appointment must never force the owner to create a customer first.
-        if (! $customer && $conversation) {
-            $customer = Customer::create([
-                'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
-                'primary_channel_id' => $conversation->channel_id,
-                'first_contacted_at' => $conversation->created_at,
-                'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
-            ]);
+            // Same auto-create-and-link logic used by Order::store — an
+            // appointment must never force the owner to create a customer first.
+            if (! $customer && $conversation) {
+                $customer = Customer::create([
+                    'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
+                    'primary_channel_id' => $conversation->channel_id,
+                    'first_contacted_at' => $conversation->created_at,
+                    'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
+                ]);
 
-            CustomerIdentity::create([
+                CustomerIdentity::create([
+                    'customer_id' => $customer->id,
+                    'workspace_id' => $customer->workspace_id,
+                    'channel_type' => $conversation->channel->type,
+                    'username' => $conversation->customer_username,
+                    'display_name' => $conversation->customer_display_name,
+                ]);
+
+                $conversation->update(['customer_id' => $customer->id]);
+            }
+
+            if (! $customer && ! empty($data['customer_name'])) {
+                $customer = Customer::create([
+                    'full_name' => $data['customer_name'],
+                    'first_contacted_at' => now(),
+                    'last_interaction_at' => now(),
+                ]);
+            }
+
+            abort_unless($customer, 422, 'Termin potrebuje stranko.');
+
+            $deposit = (float) ($data['deposit_amount'] ?? 0);
+            $paymentStatus = $deposit > 0 ? PaymentStatus::depositDefaultKey() : PaymentStatus::defaultKey();
+
+            $appointment = Appointment::create([
                 'customer_id' => $customer->id,
-                'workspace_id' => $customer->workspace_id,
-                'channel_type' => $conversation->channel->type,
-                'username' => $conversation->customer_username,
-                'display_name' => $conversation->customer_display_name,
+                'conversation_id' => $conversation?->id,
+                'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
+                'service_name' => $data['service_name'],
+                'description' => $data['description'] ?? null,
+                'appointment_date' => $data['appointment_date'],
+                'start_time' => $data['start_time'],
+                'duration_minutes' => $data['duration_minutes'],
+                'price' => $price,
+                'deposit_amount' => $deposit,
+                'amount_paid' => 0,
+                'payment_status' => $paymentStatus,
+                'status' => AppointmentStatus::defaultKey(),
+                'internal_notes' => $data['internal_notes'] ?? null,
+                'customer_notes' => $data['customer_notes'] ?? null,
             ]);
 
-            $conversation->update(['customer_id' => $customer->id]);
-        }
+            $appointment->items()->createMany($data['items']);
 
-        if (! $customer && ! empty($data['customer_name'])) {
-            $customer = Customer::create([
-                'full_name' => $data['customer_name'],
-                'first_contacted_at' => now(),
-                'last_interaction_at' => now(),
-            ]);
-        }
-
-        abort_unless($customer, 422, 'Termin potrebuje stranko.');
-
-        $deposit = (float) ($data['deposit_amount'] ?? 0);
-        $paymentStatus = $deposit > 0 ? PaymentStatus::depositDefaultKey() : PaymentStatus::defaultKey();
-
-        $appointment = Appointment::create([
-            'customer_id' => $customer->id,
-            'conversation_id' => $conversation?->id,
-            'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
-            'service_name' => $data['service_name'],
-            'description' => $data['description'] ?? null,
-            'appointment_date' => $data['appointment_date'],
-            'start_time' => $data['start_time'],
-            'duration_minutes' => $data['duration_minutes'],
-            'price' => $price,
-            'deposit_amount' => $deposit,
-            'amount_paid' => 0,
-            'payment_status' => $paymentStatus,
-            'status' => AppointmentStatus::defaultKey(),
-            'internal_notes' => $data['internal_notes'] ?? null,
-            'customer_notes' => $data['customer_notes'] ?? null,
-        ]);
-
-        $appointment->items()->createMany($data['items']);
+            return [$appointment, $customer];
+        });
 
         ActivityLog::record(
             'appointment_created',
@@ -335,22 +344,27 @@ class AppointmentController extends Controller
             'items.*.unit_price' => 'required_with:items|numeric|min:0',
         ]);
 
+        $items = null;
         if (isset($data['items'])) {
             $items = $data['items'];
             unset($data['items']);
             $data['price'] = collect($items)->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
-
-            DB::transaction(function () use ($appointment, $items) {
-                $appointment->items()->delete();
-                $appointment->items()->createMany($items);
-            });
         }
 
         $previousStatus = $appointment->status;
         $previousDate = $appointment->appointment_date->format('Y-m-d');
         $previousTime = $appointment->start_time;
 
-        $appointment->update($data);
+        // Replacing the item set and updating the appointment's own fields
+        // (price included) happen together — see OrderController::update().
+        DB::transaction(function () use ($appointment, $data, $items) {
+            if (isset($items)) {
+                $appointment->items()->delete();
+                $appointment->items()->createMany($items);
+            }
+
+            $appointment->update($data);
+        });
 
         if (isset($data['status']) && $data['status'] !== $previousStatus) {
             $statusLabel = AppointmentStatus::query()->where('key', $appointment->status)->value('label') ?? $appointment->status;

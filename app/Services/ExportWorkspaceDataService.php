@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\AppointmentItem;
 use App\Models\CatalogItem;
 use App\Models\Message;
+use App\Models\OrderItem;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Models\Workspace;
@@ -52,6 +54,9 @@ class ExportWorkspaceDataService
                     'city' => $c->city,
                     'country' => $c->country,
                     'tax_number' => $c->tax_number,
+                    'is_business' => $c->is_business ? 1 : 0,
+                    'company_name' => $c->company_name,
+                    'vat_registered' => $c->vat_registered ? 1 : 0,
                     'notes' => $c->notes,
                     'tags' => $c->tags ? implode(', ', $c->tags) : null,
                     'first_contacted_at' => $c->first_contacted_at?->toIso8601String(),
@@ -117,9 +122,39 @@ class ExportWorkspaceDataService
                     'deposit_amount' => $a->deposit_amount,
                     'amount_paid' => $a->amount_paid,
                     'payment_status' => $a->payment_status,
-                    'status' => $a->status?->value,
+                    // Appointment.status is a plain string (per-workspace-
+                    // configurable status key), not an enum — no ?->value.
+                    'status' => $a->status,
                     'internal_notes' => $a->internal_notes,
                     'customer_notes' => $a->customer_notes,
+                ];
+            });
+
+            $this->writeCsv($tmpDir.'/order-items.csv', OrderItem::whereIn(
+                'order_id',
+                $workspace->orders()->pluck('id')
+            )->get(), function ($i) {
+                return [
+                    'id' => $i->id,
+                    'order_id' => $i->order_id,
+                    'catalog_item_id' => $i->catalog_item_id,
+                    'title' => $i->title,
+                    'quantity' => $i->quantity,
+                    'unit_price' => $i->unit_price,
+                ];
+            });
+
+            $this->writeCsv($tmpDir.'/appointment-items.csv', AppointmentItem::whereIn(
+                'appointment_id',
+                $workspace->appointments()->pluck('id')
+            )->get(), function ($i) {
+                return [
+                    'id' => $i->id,
+                    'appointment_id' => $i->appointment_id,
+                    'catalog_item_id' => $i->catalog_item_id,
+                    'title' => $i->title,
+                    'quantity' => $i->quantity,
+                    'unit_price' => $i->unit_price,
                 ];
             });
 

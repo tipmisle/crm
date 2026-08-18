@@ -72,7 +72,10 @@ class SalesDocumentController extends Controller
             'pricesIncludeVat' => $settings->prices_include_vat,
             'defaultDueDate' => now()->addDays($settings->default_payment_deadline_days)->format('Y-m-d'),
             'recipient' => [
-                'name' => $customer?->full_name,
+                // B2B customers default the invoice to the company name;
+                // full_name stays the live contact-person identity on the
+                // Customer record and is never overwritten by this.
+                'name' => ($customer?->is_business && $customer?->company_name) ? $customer->company_name : $customer?->full_name,
                 'email' => $customer?->email,
                 'address_line' => $customer?->address_line,
                 'postal_code' => $customer?->postal_code,
@@ -123,8 +126,15 @@ class SalesDocumentController extends Controller
         $customer = $order->customer;
 
         if (($data['save_recipient_to_customer'] ?? false) && $customer) {
+            // For a B2B customer the recipient name is the company, not
+            // the contact person — saving it back must update company_name,
+            // never overwrite full_name (the live Customer identity). For
+            // a private individual, the recipient name IS the customer's
+            // name, so it saves to full_name as before.
+            $nameField = $customer->is_business ? 'company_name' : 'full_name';
+
             $customer->update([
-                'full_name' => $data['recipient']['name'],
+                $nameField => $data['recipient']['name'],
                 'email' => $data['recipient']['email'] ?? $customer->email,
                 'address_line' => $data['recipient']['address_line'] ?? null,
                 'postal_code' => $data['recipient']['postal_code'] ?? null,

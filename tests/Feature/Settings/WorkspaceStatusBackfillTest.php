@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AppointmentStatus;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderStatus;
@@ -107,4 +108,35 @@ test('the standalone dev seeder creates usable, workspace-scoped statuses', func
     // Orders the seeder creates reference real, resolvable statuses.
     $order = Order::withoutGlobalScopes()->where('workspace_id', $workspace->id)->firstOrFail();
     expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->where('key', $order->status)->exists())->toBeTrue();
+});
+
+test('the appointment-statuses backfill migration seeds a workspace with zero rows, on the normal deploy path (not just the console command)', function () {
+    [$workspace] = createWorkspaceWithUser();
+
+    // Simulate a workspace that existed before appointment_statuses did —
+    // zero rows, as if created before both the table and this backfill
+    // migration ever ran.
+    AppointmentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->delete();
+
+    $migration = require database_path('migrations/2026_08_18_000000_backfill_appointment_statuses_for_existing_workspaces.php');
+    $migration->up();
+
+    $statuses = AppointmentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->get();
+
+    expect($statuses)->toHaveCount(6);
+    expect($statuses->firstWhere('is_default', true)?->key)->toBe('requested');
+    expect($statuses->firstWhere('is_completed', true)?->key)->toBe('completed');
+});
+
+test('the appointment-statuses backfill migration never overwrites a workspace that already has appointment statuses', function () {
+    [$workspace] = createWorkspaceWithUser();
+
+    AppointmentStatus::where('workspace_id', $workspace->id)->where('key', 'requested')->update(['label' => 'Prilagojena oznaka']);
+    $countBefore = AppointmentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count();
+
+    $migration = require database_path('migrations/2026_08_18_000000_backfill_appointment_statuses_for_existing_workspaces.php');
+    $migration->up();
+
+    expect(AppointmentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe($countBefore);
+    expect(AppointmentStatus::where('workspace_id', $workspace->id)->where('key', 'requested')->value('label'))->toBe('Prilagojena oznaka');
 });

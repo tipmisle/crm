@@ -164,3 +164,54 @@ test('a member of another workspace cannot edit or delete a payment status they 
 
     expect($statusA->fresh()->label)->toBe('Neplačano');
 });
+
+test('a crafted request cannot flag one payment status with two mutually exclusive roles at once', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'partially_paid')->first();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.payment.update', $status->id), [
+            'is_paid' => true,
+            'is_refunded' => true,
+        ])
+        ->assertStatus(422);
+
+    $status->refresh();
+    expect($status->is_paid)->toBeFalse();
+    expect($status->is_refunded)->toBeFalse();
+});
+
+test('a follow-up request cannot move a second exclusive role onto a payment status that already holds a different one', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'partially_paid')->first();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.payment.update', $status->id), ['is_paid' => true])
+        ->assertRedirect();
+
+    expect($status->fresh()->is_paid)->toBeTrue();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.payment.update', $status->id), ['is_refunded' => true])
+        ->assertStatus(422);
+
+    $status->refresh();
+    expect($status->is_refunded)->toBeFalse();
+    expect($status->is_paid)->toBeTrue();
+
+    expect(PaymentStatus::where('workspace_id', $workspace->id)->where('is_paid', true)->count())->toBe(1);
+});
+
+test('is_deposit_default can still be freely toggled off without triggering the exclusive-role conflict check', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'deposit_due')->first();
+    expect($status->is_deposit_default)->toBeTrue();
+
+    // is_deposit_default is independent/optional — unsetting it (a no-op
+    // per the mandatory-flag rule) must not be blocked by the new
+    // conflicting-role check, which only applies to is_default/is_paid/
+    // is_refunded.
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.payment.update', $status->id), ['is_deposit_default' => false])
+        ->assertRedirect();
+});

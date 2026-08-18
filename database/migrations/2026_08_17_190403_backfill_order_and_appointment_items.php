@@ -55,9 +55,21 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Not reversible: by the time a rollback could run, order_items/
+     * appointment_items may contain rows this migration never created —
+     * real, user-created multi-item orders/appointments added after this
+     * migration ran (each order/appointment can now hold several items,
+     * where before it held at most one). A `delete()` here would silently
+     * destroy that data, and there is no reliable way to distinguish "a
+     * row this backfill inserted" from "a row a user added afterwards"
+     * once both exist in the same table. Forward-only: rolling back to
+     * the single-item schema is not supported past this point. If you
+     * genuinely need to undo the multi-item migration, restore from a
+     * backup taken before it ran instead of rolling back live data.
+     */
     public function down(): void
     {
-        DB::table('order_items')->delete();
-        DB::table('appointment_items')->delete();
+        // Intentionally a no-op — see method docblock.
     }
 };

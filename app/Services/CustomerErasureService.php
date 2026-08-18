@@ -77,6 +77,9 @@ class CustomerErasureService
                 'city' => null,
                 'country' => null,
                 'tax_number' => null,
+                'company_name' => null,
+                'is_business' => false,
+                'vat_registered' => false,
             ]);
         });
 

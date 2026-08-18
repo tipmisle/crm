@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderStatus;
@@ -33,16 +34,45 @@ class CustomerController extends Controller
         // than via the per-instance Customer helper methods used on the
         // Show page — those would be an N+1 (one pair of queries per row)
         // across a full page of customers.
+        //
+        // Each status table is fetched ONCE and the various key sets
+        // (open-exclusion / spend-exclusion / etc.) are derived from that
+        // single result in PHP, rather than calling OrderStatus::/
+        // AppointmentStatus::'s several *Keys() helpers back-to-back —
+        // each one is its own query, and this endpoint is covered by a
+        // fixed query-count regression test.
         if ($workspace->orders_enabled) {
-            $openExclusionKeys = OrderStatus::openExclusionKeys();
+            $orderStatuses = OrderStatus::query()->get(['key', 'is_completed', 'is_cancelled', 'is_refunded']);
+            $openExclusionKeys = $orderStatuses
+                ->filter(fn ($s) => $s->is_completed || $s->is_cancelled || $s->is_refunded)
+                ->pluck('key')->all();
+            // Matches Customer::lifetimeSpend() — exclude cancelled/refunded
+            // orders, but keep completed ones (that's not the same set as
+            // open_orders_count's exclusion above).
+            $spendExclusionKeys = $orderStatuses
+                ->filter(fn ($s) => $s->is_cancelled || $s->is_refunded)
+                ->pluck('key')->all();
+
             $query->withCount('orders')
-                ->withSum('orders as lifetime_spend', 'amount_paid')
+                ->withSum(['orders as lifetime_spend' => fn ($q) => $q->whereNotIn('status', $spendExclusionKeys)], 'amount_paid')
                 ->withCount(['orders as open_orders_count' => fn ($q) => $q->whereNotIn('status', $openExclusionKeys)]);
         }
 
+        $appointmentOpenExclusionKeys = [];
         if ($workspace->appointments_enabled) {
+            $appointmentStatuses = AppointmentStatus::query()
+                ->get(['key', 'is_completed', 'is_cancelled', 'is_no_show', 'is_refunded']);
+
+            $appointmentOpenExclusionKeys = $appointmentStatuses
+                ->filter(fn ($s) => $s->is_completed || $s->is_cancelled || $s->is_no_show || $s->is_refunded)
+                ->pluck('key')->all();
+            // Matches Customer::appointmentsLifetimeSpend().
+            $appointmentSpendExclusionKeys = $appointmentStatuses
+                ->filter(fn ($s) => $s->is_cancelled || $s->is_refunded || $s->is_no_show)
+                ->pluck('key')->all();
+
             $query->withCount('appointments')
-                ->withSum('appointments as appointments_lifetime_spend', 'amount_paid');
+                ->withSum(['appointments as appointments_lifetime_spend' => fn ($q) => $q->whereNotIn('status', $appointmentSpendExclusionKeys)], 'amount_paid');
         }
 
         $customers = $query->orderBy('full_name')->paginate(24)->withQueryString();
@@ -53,7 +83,7 @@ class CustomerController extends Controller
         if ($workspace->appointments_enabled) {
             $upcomingByCustomer = Appointment::query()
                 ->whereIn('customer_id', $customers->getCollection()->pluck('id'))
-                ->whereIn('status', ['requested', 'confirmed'])
+                ->whereNotIn('status', $appointmentOpenExclusionKeys)
                 ->where('appointment_date', '>=', Carbon::today($workspace->timezone)->toDateString())
                 ->orderBy('appointment_date')
                 ->orderBy('start_time')
@@ -147,7 +177,7 @@ class CustomerController extends Controller
             'orders.salesDocuments:id,order_id,type',
             'appointments' => fn ($q) => $q->orderByDesc('appointment_date')->orderByDesc('start_time'),
             'appointments.channel',
-            'appointments.service',
+            'appointments.items.service',
             'conversations' => fn ($q) => $q->orderByDesc('last_message_at'),
             'conversations.channel',
         ]);

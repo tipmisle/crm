@@ -22,7 +22,8 @@ class CustomerExportService
             'identities',
             'conversations.messages',
             'orders.notes',
-            'appointments',
+            'orders.items',
+            'appointments.items',
             'followUps',
             'salesDocuments',
         ]);
@@ -38,6 +39,9 @@ class CustomerExportService
                 'city' => $customer->city,
                 'country' => $customer->country,
                 'tax_number' => $customer->tax_number,
+                'is_business' => $customer->is_business,
+                'company_name' => $customer->company_name,
+                'vat_registered' => $customer->vat_registered,
                 'notes' => $customer->notes,
                 'tags' => $customer->tags,
                 'first_contacted_at' => $customer->first_contacted_at?->toIso8601String(),
@@ -72,6 +76,12 @@ class CustomerExportService
                 'status' => $o->status,
                 'customer_notes' => $o->customer_notes,
                 'notes' => $o->notes->map(fn ($n) => ['body' => $n->body, 'created_at' => $n->created_at?->toIso8601String()])->all(),
+                'items' => $o->items->map(fn ($i) => [
+                    'catalog_item_id' => $i->catalog_item_id,
+                    'title' => $i->title,
+                    'quantity' => $i->quantity,
+                    'unit_price' => $i->unit_price,
+                ])->all(),
             ])->all(),
             'appointments' => $customer->appointments->map(fn ($a) => [
                 'id' => $a->id,
@@ -81,8 +91,16 @@ class CustomerExportService
                 'deposit_amount' => $a->deposit_amount,
                 'amount_paid' => $a->amount_paid,
                 'payment_status' => $a->payment_status,
-                'status' => $a->status?->value,
+                // Appointment.status is a plain string (per-workspace-
+                // configurable status key), not an enum — no ?->value here.
+                'status' => $a->status,
                 'customer_notes' => $a->customer_notes,
+                'items' => $a->items->map(fn ($i) => [
+                    'catalog_item_id' => $i->catalog_item_id,
+                    'title' => $i->title,
+                    'quantity' => $i->quantity,
+                    'unit_price' => $i->unit_price,
+                ])->all(),
             ])->all(),
             'follow_ups' => $customer->followUps->map(fn ($f) => [
                 'note' => $f->note,

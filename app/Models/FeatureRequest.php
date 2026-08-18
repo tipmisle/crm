@@ -20,6 +20,10 @@ class FeatureRequest extends Model
     {
         return [
             'status' => FeatureRequestStatus::class,
+            // Free-text feature descriptions can contain customer-sensitive
+            // details — encrypted at rest, see App\Models\BugReport.
+            // `subject` stays plain so admins can filter/search on it.
+            'message' => 'encrypted',
         ];
     }
 

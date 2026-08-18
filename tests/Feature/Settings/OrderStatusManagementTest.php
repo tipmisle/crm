@@ -227,3 +227,47 @@ test('another workspaces order statuses never appear in a users shared inertia p
         )->isEmpty())
     );
 });
+
+test('a crafted request cannot flag one order status with two mutually exclusive lifecycle roles at once', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'ready')->first();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.order.update', $status->id), [
+            'is_completed' => true,
+            'is_cancelled' => true,
+        ])
+        ->assertStatus(422);
+
+    $status->refresh();
+    expect($status->is_completed)->toBeFalse();
+    expect($status->is_cancelled)->toBeFalse();
+});
+
+test('a follow-up request cannot move a second lifecycle role onto a status that already holds a different one', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'ready')->first();
+
+    // First request: legitimately move is_cancelled onto this status.
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.order.update', $status->id), ['is_cancelled' => true])
+        ->assertRedirect();
+
+    expect($status->fresh()->is_cancelled)->toBeTrue();
+
+    // Second request: move is_completed onto the SAME status, without
+    // mentioning is_cancelled at all. Silently clearing is_cancelled here
+    // would drop the workspace to zero statuses holding that role, so this
+    // must be rejected instead — the conflict has to be resolved first by
+    // moving is_cancelled to a different status.
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.order.update', $status->id), ['is_completed' => true])
+        ->assertStatus(422);
+
+    $status->refresh();
+    expect($status->is_completed)->toBeFalse();
+    expect($status->is_cancelled)->toBeTrue();
+
+    // Exactly one status still holds is_cancelled workspace-wide.
+    expect(OrderStatus::where('workspace_id', $workspace->id)->where('is_cancelled', true)->count())->toBe(1);
+});

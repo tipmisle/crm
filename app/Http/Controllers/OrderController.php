@@ -252,63 +252,72 @@ class OrderController extends Controller
 
         $price = collect($data['items'])->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
 
-        $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
-        $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : $conversation?->customer;
+        // Everything below is one business transaction: an auto-created
+        // Customer/CustomerIdentity/conversation link must never commit if
+        // the Order (or its items) end up failing to create, and the Order
+        // must never end up with a partial item set. ActivityLog is
+        // recorded only after this commits successfully.
+        [$order, $customer] = DB::transaction(function () use ($data, $price) {
+            $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
+            $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : $conversation?->customer;
 
-        if (! $customer && $conversation) {
-            $customer = Customer::create([
-                'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
-                'primary_channel_id' => $conversation->channel_id,
-                'first_contacted_at' => $conversation->created_at,
-                'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
-            ]);
+            if (! $customer && $conversation) {
+                $customer = Customer::create([
+                    'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
+                    'primary_channel_id' => $conversation->channel_id,
+                    'first_contacted_at' => $conversation->created_at,
+                    'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
+                ]);
 
-            CustomerIdentity::create([
+                CustomerIdentity::create([
+                    'customer_id' => $customer->id,
+                    'workspace_id' => $customer->workspace_id,
+                    'channel_type' => $conversation->channel->type,
+                    'username' => $conversation->customer_username,
+                    'display_name' => $conversation->customer_display_name,
+                ]);
+
+                $conversation->update(['customer_id' => $customer->id]);
+            }
+
+            if (! $customer && ! empty($data['customer_name'])) {
+                $customer = Customer::create([
+                    'full_name' => $data['customer_name'],
+                    'first_contacted_at' => now(),
+                    'last_interaction_at' => now(),
+                ]);
+            }
+
+            abort_unless($customer, 422, 'Naročilo potrebuje stranko.');
+
+            $deposit = (float) ($data['deposit_amount'] ?? 0);
+            $paymentStatus = $deposit > 0 ? PaymentStatus::depositDefaultKey() : PaymentStatus::defaultKey();
+
+            $order = Order::create([
                 'customer_id' => $customer->id,
-                'workspace_id' => $customer->workspace_id,
-                'channel_type' => $conversation->channel->type,
-                'username' => $conversation->customer_username,
-                'display_name' => $conversation->customer_display_name,
+                'conversation_id' => $conversation?->id,
+                'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
+                'title' => $data['title'],
+                'description' => $data['description'] ?? null,
+                'due_date' => $data['due_date'] ?? null,
+                'due_time' => $data['due_time'] ?? null,
+                'price' => $price,
+                'deposit_amount' => $deposit,
+                'amount_paid' => 0,
+                'payment_status' => $paymentStatus,
+                'status' => OrderStatus::defaultKey(),
+                'internal_notes' => $data['internal_notes'] ?? null,
+                'customer_notes' => $data['customer_notes'] ?? null,
             ]);
 
-            $conversation->update(['customer_id' => $customer->id]);
-        }
+            $order->items()->createMany($data['items']);
 
-        if (! $customer && ! empty($data['customer_name'])) {
-            $customer = Customer::create([
-                'full_name' => $data['customer_name'],
-                'first_contacted_at' => now(),
-                'last_interaction_at' => now(),
-            ]);
-        }
+            if ($conversation) {
+                $conversation->update(['status' => 'order_confirmed']);
+            }
 
-        abort_unless($customer, 422, 'Naročilo potrebuje stranko.');
-
-        $deposit = (float) ($data['deposit_amount'] ?? 0);
-        $paymentStatus = $deposit > 0 ? PaymentStatus::depositDefaultKey() : PaymentStatus::defaultKey();
-
-        $order = Order::create([
-            'customer_id' => $customer->id,
-            'conversation_id' => $conversation?->id,
-            'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
-            'title' => $data['title'],
-            'description' => $data['description'] ?? null,
-            'due_date' => $data['due_date'] ?? null,
-            'due_time' => $data['due_time'] ?? null,
-            'price' => $price,
-            'deposit_amount' => $deposit,
-            'amount_paid' => 0,
-            'payment_status' => $paymentStatus,
-            'status' => OrderStatus::defaultKey(),
-            'internal_notes' => $data['internal_notes'] ?? null,
-            'customer_notes' => $data['customer_notes'] ?? null,
-        ]);
-
-        $order->items()->createMany($data['items']);
-
-        if ($conversation) {
-            $conversation->update(['status' => 'order_confirmed']);
-        }
+            return [$order, $customer];
+        });
 
         ActivityLog::record('order_created', "Naročilo {$order->order_number} ustvarjeno za {$customer->full_name}", $order);
 
@@ -365,20 +374,27 @@ class OrderController extends Controller
             'items.*.unit_price' => 'required_with:items|numeric|min:0',
         ]);
 
+        $items = null;
         if (isset($data['items'])) {
             $items = $data['items'];
             unset($data['items']);
             $data['price'] = collect($items)->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
-
-            DB::transaction(function () use ($order, $items) {
-                $order->items()->delete();
-                $order->items()->createMany($items);
-            });
         }
 
         $previousStatus = $order->status;
 
-        $order->update($data);
+        // Replacing the item set and updating the order's own fields
+        // (price included) happen together — a failure partway through
+        // must never leave the order with a new price but a stale/empty
+        // item set, or vice versa.
+        DB::transaction(function () use ($order, $data, $items) {
+            if (isset($items)) {
+                $order->items()->delete();
+                $order->items()->createMany($items);
+            }
+
+            $order->update($data);
+        });
 
         if (isset($data['status']) && $data['status'] !== $previousStatus) {
             $label = OrderStatus::where('key', $order->status)->value('label') ?? $order->status;

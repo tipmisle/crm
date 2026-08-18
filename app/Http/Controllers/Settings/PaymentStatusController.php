@@ -67,11 +67,46 @@ class PaymentStatusController extends Controller
             }
         }
 
-        $exclusiveFlag = collect(['is_default', 'is_deposit_default', 'is_paid', 'is_refunded'])->first(fn ($flag) => ! empty($data[$flag]));
+        // is_default/is_paid/is_refunded describe mutually exclusive
+        // payment states — a status can't simultaneously BE "the default
+        // unpaid status" and "the paid status". is_deposit_default is
+        // independent and optional/single where set (see class docblock).
+        $exclusiveRoleFlags = ['is_default', 'is_paid', 'is_refunded'];
+        $allSingletonFlags = ['is_default', 'is_deposit_default', 'is_paid', 'is_refunded'];
 
-        if ($exclusiveFlag) {
-            DB::transaction(function () use ($paymentStatus, $data, $exclusiveFlag) {
-                PaymentStatus::where('id', '!=', $paymentStatus->id)->update([$exclusiveFlag => false]);
+        $flagsToMove = collect($allSingletonFlags)->filter(fn ($flag) => ! empty($data[$flag]))->values();
+
+        $requestedExclusiveFlags = $flagsToMove->intersect($exclusiveRoleFlags);
+
+        abort_if(
+            $requestedExclusiveFlags->count() > 1,
+            422,
+            'Status ne more hkrati imeti več izključujočih se vlog (neplačano, plačano, vračilo).'
+        );
+
+        if ($requestedExclusiveFlags->isNotEmpty()) {
+            // This status must not already hold a DIFFERENT exclusive role
+            // that this request isn't addressing — silently clearing it
+            // here could drop the workspace to zero statuses holding that
+            // role. Require the conflict to be resolved explicitly first
+            // (move the other role to a different status). See
+            // OrderStatusController::update() for the same pattern.
+            $conflicting = collect($exclusiveRoleFlags)
+                ->diff($flagsToMove)
+                ->first(fn ($flag) => (bool) $paymentStatus->{$flag});
+
+            abort_if(
+                $conflicting !== null,
+                422,
+                'Ta status že ima drugo izključujočo se vlogo. Najprej jo premakni na drug status.'
+            );
+        }
+
+        if ($flagsToMove->isNotEmpty()) {
+            DB::transaction(function () use ($paymentStatus, $data, $flagsToMove) {
+                foreach ($flagsToMove as $flag) {
+                    PaymentStatus::where('id', '!=', $paymentStatus->id)->update([$flag => false]);
+                }
                 $paymentStatus->update($data);
             });
 

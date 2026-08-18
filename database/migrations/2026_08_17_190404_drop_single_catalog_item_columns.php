@@ -24,6 +24,15 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Schema-only rollback: the columns come back, but empty. The values
+     * that used to live in them were already copied into order_items/
+     * appointment_items by the backfill migration before this one, which
+     * is itself forward-only (see its own down()) — so there is no source
+     * left to repopulate catalog_item_id/service_id from. Do not treat a
+     * rollback of this migration as restoring the old single-item data
+     * model; it only restores the columns' presence.
+     */
     public function down(): void
     {
         Schema::table('orders', function (Blueprint $table) {

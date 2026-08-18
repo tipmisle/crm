@@ -56,17 +56,51 @@ class OrderStatusController extends Controller
         // to a different one.
         $roleFlags = ['is_default', 'is_completed', 'is_cancelled', 'is_refunded'];
 
+        // is_completed/is_cancelled/is_refunded describe mutually exclusive
+        // terminal lifecycle states — an order can't simultaneously BE
+        // completed and cancelled, so a status can never legitimately hold
+        // more than one of these at once. is_default (the starting state)
+        // is not part of that exclusion group.
+        $lifecycleFlags = ['is_completed', 'is_cancelled', 'is_refunded'];
+
         foreach ($roleFlags as $roleFlag) {
             if (array_key_exists($roleFlag, $data) && ! $data[$roleFlag]) {
                 unset($data[$roleFlag]);
             }
         }
 
-        $flagToMove = collect($roleFlags)->first(fn ($flag) => ! empty($data[$flag]));
+        $flagsToMove = collect($roleFlags)->filter(fn ($flag) => ! empty($data[$flag]))->values();
 
-        if ($flagToMove) {
-            DB::transaction(function () use ($orderStatus, $data, $flagToMove) {
-                OrderStatus::where('id', '!=', $orderStatus->id)->update([$flagToMove => false]);
+        $requestedLifecycleFlags = $flagsToMove->intersect($lifecycleFlags);
+
+        abort_if(
+            $requestedLifecycleFlags->count() > 1,
+            422,
+            'Status ne more hkrati imeti več izključujočih se vlog (zaključeno, preklicano, vračilo).'
+        );
+
+        if ($requestedLifecycleFlags->isNotEmpty()) {
+            // This status must not already hold a DIFFERENT lifecycle role
+            // that this request isn't addressing — silently clearing it
+            // here could drop the workspace to zero statuses holding that
+            // role. Require the conflict to be resolved explicitly first
+            // (move the other role to a different status).
+            $conflicting = collect($lifecycleFlags)
+                ->diff($flagsToMove)
+                ->first(fn ($flag) => (bool) $orderStatus->{$flag});
+
+            abort_if(
+                $conflicting !== null,
+                422,
+                'Ta status že ima drugo izključujočo se vlogo. Najprej jo premakni na drug status.'
+            );
+        }
+
+        if ($flagsToMove->isNotEmpty()) {
+            DB::transaction(function () use ($orderStatus, $data, $flagsToMove) {
+                foreach ($flagsToMove as $flag) {
+                    OrderStatus::where('id', '!=', $orderStatus->id)->update([$flag => false]);
+                }
                 $orderStatus->update($data);
             });
 

@@ -212,3 +212,40 @@ test('another workspaces appointment statuses never appear in a users shared ine
         )->isEmpty())
     );
 });
+
+test('a crafted request cannot flag one appointment status with two mutually exclusive lifecycle roles at once', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = AppointmentStatus::where('workspace_id', $workspace->id)->where('key', 'confirmed')->first();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.appointment.update', $status->id), [
+            'is_completed' => true,
+            'is_no_show' => true,
+        ])
+        ->assertStatus(422);
+
+    $status->refresh();
+    expect($status->is_completed)->toBeFalse();
+    expect($status->is_no_show)->toBeFalse();
+});
+
+test('a follow-up request cannot move a second lifecycle role onto an appointment status that already holds a different one', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $status = AppointmentStatus::where('workspace_id', $workspace->id)->where('key', 'confirmed')->first();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.appointment.update', $status->id), ['is_no_show' => true])
+        ->assertRedirect();
+
+    expect($status->fresh()->is_no_show)->toBeTrue();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.appointment.update', $status->id), ['is_completed' => true])
+        ->assertStatus(422);
+
+    $status->refresh();
+    expect($status->is_completed)->toBeFalse();
+    expect($status->is_no_show)->toBeTrue();
+
+    expect(AppointmentStatus::where('workspace_id', $workspace->id)->where('is_no_show', true)->count())->toBe(1);
+});

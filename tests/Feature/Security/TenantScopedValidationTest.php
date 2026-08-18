@@ -247,11 +247,14 @@ test('creating an order with a catalog_item_id belonging to another workspace is
     $this->actingAs($ownerA)
         ->post(route('orders.store'), [
             'title' => 'Cross-workspace attempt',
-            'price' => 10,
             'customer_name' => 'Someone',
-            'catalog_item_id' => $productB->id,
+            'items' => [
+                ['catalog_item_id' => $productB->id, 'title' => 'B product', 'quantity' => 1, 'unit_price' => 10],
+            ],
         ])
-        ->assertSessionHasErrors('catalog_item_id');
+        ->assertSessionHasErrors('items.0.catalog_item_id');
+
+    expect(Order::withoutGlobalScopes()->where('title', 'Cross-workspace attempt')->exists())->toBeFalse();
 });
 
 test('an order catalog_item_id must actually be a Product, not a Service, even within the same workspace', function () {
@@ -262,11 +265,12 @@ test('an order catalog_item_id must actually be a Product, not a Service, even w
     $this->actingAs($owner)
         ->post(route('orders.store'), [
             'title' => 'Wrong catalog type',
-            'price' => 10,
             'customer_name' => 'Someone',
-            'catalog_item_id' => $service->id,
+            'items' => [
+                ['catalog_item_id' => $service->id, 'title' => 'A service', 'quantity' => 1, 'unit_price' => 10],
+            ],
         ])
-        ->assertSessionHasErrors('catalog_item_id');
+        ->assertSessionHasErrors('items.0.catalog_item_id');
 });
 
 test('creating an appointment with a service_id belonging to another workspace is rejected', function () {
@@ -284,9 +288,11 @@ test('creating an appointment with a service_id belonging to another workspace i
             'appointment_date' => now()->addDay()->toDateString(),
             'start_time' => '10:00',
             'duration_minutes' => 30,
-            'service_id' => $serviceB->id,
+            'items' => [
+                ['catalog_item_id' => $serviceB->id, 'title' => 'B service', 'quantity' => 1, 'unit_price' => 10],
+            ],
         ])
-        ->assertSessionHasErrors('service_id');
+        ->assertSessionHasErrors('items.0.catalog_item_id');
 });
 
 test('an appointment service_id must actually be a Service, not a Product, even within the same workspace', function () {
@@ -303,9 +309,11 @@ test('an appointment service_id must actually be a Service, not a Product, even 
             'appointment_date' => now()->addDay()->toDateString(),
             'start_time' => '10:00',
             'duration_minutes' => 30,
-            'service_id' => $product->id,
+            'items' => [
+                ['catalog_item_id' => $product->id, 'title' => 'A product', 'quantity' => 1, 'unit_price' => 10],
+            ],
         ])
-        ->assertSessionHasErrors('service_id');
+        ->assertSessionHasErrors('items.0.catalog_item_id');
 });
 
 /*

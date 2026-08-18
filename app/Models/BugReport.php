@@ -23,6 +23,11 @@ class BugReport extends Model
         return [
             'status' => BugReportStatus::class,
             'resolved_at' => 'datetime',
+            // Free-text bug descriptions can contain customer-sensitive
+            // details — encrypted at rest like Customer.notes/Order/
+            // Appointment notes (see docs/data-security.md). `subject`
+            // stays plain so admins can filter/search on it.
+            'message' => 'encrypted',
         ];
     }
 
