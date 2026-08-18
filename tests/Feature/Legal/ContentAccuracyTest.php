@@ -137,3 +137,66 @@ test('privacy page states no article 22 automated decision-making applies', func
 
     expect($source)->toContain('člen 22 GDPR');
 });
+
+test('no public legal page source contains unfinished/internal placeholder wording', function () {
+    foreach (['Terms', 'Privacy', 'Cookies', 'Dpa', 'Provider', 'Subprocessors'] as $component) {
+        $source = legalPageSource($component);
+
+        expect($source)->not->toContain('NEEDS OWNER INPUT');
+        expect($source)->not->toContain('še ni določena');
+        expect($source)->not->toContain('še ni določeno');
+        expect($source)->not->toContain('še ni določen');
+        expect($source)->not->toContain('bo določeno');
+        expect($source)->not->toContain('ni potrjeno');
+        expect($source)->not->toContain('dokončno določen');
+    }
+});
+
+test('privacy page discloses the Instagram/Facebook Messenger integration clearly', function () {
+    $source = legalPageSource('Privacy');
+
+    expect($source)->toContain('Instagram');
+    expect($source)->toContain('Facebook Messenger');
+    expect($source)->toContain('Povezava z Instagramom in Facebook Messengerjem');
+});
+
+test('privacy page states the Meta integration is optional and initiated by the workspace', function () {
+    $source = legalPageSource('Privacy');
+    $normalized = preg_replace('/\s+/', ' ', $source);
+
+    expect($normalized)->toContain('Povezava je neobvezna in jo vedno vzpostavi delovni prostor sam');
+});
+
+test('privacy page states Beležka does not sell Meta-derived data or build ad profiles from message content', function () {
+    $source = legalPageSource('Privacy');
+    $normalized = preg_replace('/\s+/', ' ', $source);
+
+    expect($normalized)->toContain('ne prodajamo');
+    expect($normalized)->toContain('ne uporabljamo za oblikovanje oglaševalskih profilov strank');
+});
+
+test('privacy page does not claim Meta is a confirmed Article 28 subprocessor', function () {
+    $source = legalPageSource('Privacy');
+
+    expect($source)->not->toContain('Meta je podobdelovalec');
+    expect($source)->not->toContain('Meta je Article 28 podobdelovalec');
+});
+
+test('privacy contact email renders when configured', function () {
+    config(['legal.legal_email' => 'info@belezka.com']);
+
+    $response = $this->get(route('legal.privacy'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page->where('legal.legal_email', 'info@belezka.com'));
+});
+
+test('external-platform classification for Meta remains distinct from Article 28 subprocessors', function () {
+    $subprocessorNames = collect(config('legal.subprocessors'))->pluck('name');
+    expect($subprocessorNames->filter(fn ($name) => str_contains($name, 'Meta')))->toBeEmpty();
+
+    $metaPlatform = collect(config('legal.external_platforms'))->first(fn ($p) => str_contains($p['name'], 'Meta'));
+
+    expect($metaPlatform)->not->toBeNull();
+    expect($metaPlatform['role_note'])->not->toContain('je Article 28 podobdelovalec');
+});

@@ -36,8 +36,8 @@ return [
     | explicitly (and only) when a document materially changes.
     */
     'terms_version' => env('LEGAL_TERMS_VERSION', '2026-08-17'),
-    'dpa_version' => env('LEGAL_DPA_VERSION', '2026-08-17'),
-    'privacy_version' => env('LEGAL_PRIVACY_VERSION', '2026-08-17'),
+    'dpa_version' => env('LEGAL_DPA_VERSION', '2026-08-18'),
+    'privacy_version' => env('LEGAL_PRIVACY_VERSION', '2026-08-18'),
     'cookie_version' => env('LEGAL_COOKIE_VERSION', '2026-08-17'),
 
     /*

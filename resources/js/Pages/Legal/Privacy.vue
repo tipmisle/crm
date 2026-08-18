@@ -22,23 +22,24 @@ const toc = [
     { id: 'upravljavec', label: '1. Kdo je upravljavec' },
     { id: 'podatki', label: '2. Katere podatke obdelujemo' },
     { id: 'registracija', label: '3. Registracija in uporabniški račun' },
-    { id: 'obvezni-podatki', label: '4. Obvezni podatki za sklenitev pogodbe' },
-    { id: 'nameni', label: '5. Namen obdelave' },
-    { id: 'podlage', label: '6. Pravne podlage' },
-    { id: 'avtomatizirano', label: '7. Avtomatizirano odločanje in oblikovanje profilov' },
-    { id: 'podpora', label: '8. Podpora' },
-    { id: 'varnostni-podatki', label: '9. Varnostni in revizijski podatki' },
-    { id: 'demo', label: '10. Demo' },
-    { id: 'placila', label: '11. Plačila in obračun naročnine' },
-    { id: 'analitika', label: '12. Analitika / sledenje' },
-    { id: 'prejemniki', label: '13. Prejemniki in podobdelovalci' },
-    { id: 'prenosi', label: '14. Prenosi v tretje države' },
-    { id: 'hramba', label: '15. Hramba podatkov' },
-    { id: 'pravice', label: '16. Pravice posameznika' },
-    { id: 'pritozba', label: '17. Pravica do pritožbe' },
-    { id: 'varnost', label: '18. Varnost' },
-    { id: 'spremembe', label: '19. Spremembe politike' },
-    { id: 'kontakt', label: '20. Kontakt' },
+    { id: 'meta-integracija', label: '4. Povezava z Instagramom in Facebook Messengerjem' },
+    { id: 'obvezni-podatki', label: '5. Obvezni podatki za sklenitev pogodbe' },
+    { id: 'nameni', label: '6. Namen obdelave' },
+    { id: 'podlage', label: '7. Pravne podlage' },
+    { id: 'avtomatizirano', label: '8. Avtomatizirano odločanje in oblikovanje profilov' },
+    { id: 'podpora', label: '9. Podpora' },
+    { id: 'varnostni-podatki', label: '10. Varnostni in revizijski podatki' },
+    { id: 'demo', label: '11. Demo' },
+    { id: 'placila', label: '12. Plačila in obračun naročnine' },
+    { id: 'analitika', label: '13. Analitika / sledenje' },
+    { id: 'prejemniki', label: '14. Prejemniki in podobdelovalci' },
+    { id: 'prenosi', label: '15. Prenosi v tretje države' },
+    { id: 'hramba', label: '16. Hramba podatkov' },
+    { id: 'pravice', label: '17. Pravice posameznika' },
+    { id: 'pritozba', label: '18. Pravica do pritožbe' },
+    { id: 'varnost', label: '19. Varnost' },
+    { id: 'spremembe', label: '20. Spremembe politike' },
+    { id: 'kontakt', label: '21. Kontakt' },
 ];
 </script>
 
@@ -91,8 +92,51 @@ const toc = [
             </p>
         </section>
 
+        <section id="meta-integracija">
+            <h2>4. Povezava z Instagramom in Facebook Messengerjem</h2>
+            <p>
+                Delovni prostor se lahko po lastni izbiri poveže s svojim Instagram in/ali Facebook računom, da prek
+                Beležke sprejema in pošilja sporočila strank. Povezavo vedno vzpostavi uporabnik delovnega prostora
+                sam — Beležka je ne vzpostavi samodejno. Ko je povezava vzpostavljena, Beležka prek pooblaščenih
+                Meta API-jev obdeluje podatke, potrebne za delovanje te povezave, med drugim:
+            </p>
+            <ul>
+                <li>identifikatorje in prikazne podatke povezane Facebook strani oziroma Instagram poslovnega računa;</li>
+                <li>tehnične dostopne identifikatorje, potrebne za delovanje odobrene povezave (shranjeni šifrirano, glejte Prilogo A DPA);</li>
+                <li>platformski identifikator pošiljatelja (stranke), s katerim Meta označi posamezen pogovor;</li>
+                <li>uporabniško ime in/ali prikazno ime pošiljatelja, kadar ga Meta zagotovi;</li>
+                <li>vsebino sporočil;</li>
+                <li>sklice oziroma povezave (URL) do prilog, kot jih zagotovi Meta;</li>
+                <li>časovne žige sporočil/pogovorov in drugo tehnično metapodatkovje, ki spremlja posamezno sporočilo.</li>
+            </ul>
+            <p>Te podatke obdelujemo za naslednje namene:</p>
+            <ul>
+                <li>prikaz pogovorov znotraj Beležke;</li>
+                <li>omogočanje odgovora povezanega podjetja stranki;</li>
+                <li>povezavo pogovora z ustreznim zapisom stranke;</li>
+                <li>podporo delovnim tokovom naročil/terminov, povezanih s to stranko;</li>
+                <li>vodenje zgodovine sporočil ter delovanje in varnostno podporo same integracije.</li>
+            </ul>
+            <p>
+                Podatkov, pridobljenih prek te povezave, ne prodajamo, prav tako jih ne uporabljamo za oblikovanje
+                oglaševalskih profilov strank. Povezava je neobvezna in jo vedno vzpostavi delovni prostor sam;
+                prekinitev povezave ustavi nadaljnjo uporabo te konkretne povezave, ne pomeni pa samodejnega izbrisa
+                podatkov, ki so že bili zakonito shranjeni v delovnem prostoru. Za shranjene podatke stranke, vključno
+                s tistimi, pridobljenimi prek te povezave, veljajo enaka orodja za izvoz in izbris/anonimizacijo kot
+                za ostale podatke stranke (glejte 3. člen zgoraj in 17. člen spodaj), enako pa velja tudi ob izbrisu
+                celotnega delovnega prostora.
+            </p>
+            <p>
+                Za te podatke velja ista razmejitev vlog kot za ostale podatke strank iz 3. člena zgoraj — upravljavec
+                je podjetje, ki je povezavo vzpostavilo, Beležka pa jih obdeluje v njegovem imenu. Kakšno vlogo ima
+                Meta sama v zvezi s to povezavo, je opisano na strani
+                <a class="text-[var(--color-accent-600)] hover:underline" :href="route('legal.subprocessors')">Podobdelovalci</a>
+                (3. člen); zanjo veljajo tudi lastni pogoji uporabe in politika zasebnosti Meta.
+            </p>
+        </section>
+
         <section id="obvezni-podatki">
-            <h2>4. Obvezni podatki za sklenitev pogodbe</h2>
+            <h2>5. Obvezni podatki za sklenitev pogodbe</h2>
             <p>
                 Ime, e-poštni naslov in geslo so obvezni podatki za sklenitev pogodbe o uporabi Beležke — brez njih
                 registracija ni mogoča. Za aktivacijo plačljive naročnine (9. člen Pogojev poslovanja) je nujna tudi
@@ -104,7 +148,7 @@ const toc = [
         </section>
 
         <section id="nameni">
-            <h2>5. Namen obdelave</h2>
+            <h2>6. Namen obdelave</h2>
             <p>
                 Vaše podatke obdelujemo za: ustvarjanje in vodenje uporabniškega računa, aktivacijo in obračun
                 naročnine, zagotavljanje delovanja storitve, komunikacijo v zvezi s podporo, varnost in
@@ -113,7 +157,7 @@ const toc = [
         </section>
 
         <section id="podlage">
-            <h2>6. Pravne podlage</h2>
+            <h2>7. Pravne podlage</h2>
             <p>
                 Obdelavo podatkov v zvezi z vašim računom in naročnino izvajamo na podlagi izvajanja pogodbe (uporaba
                 storitve, ki ste jo zahtevali z registracijo in aktivacijo naročnine), varnostne in revizijske
@@ -125,7 +169,7 @@ const toc = [
         </section>
 
         <section id="avtomatizirano">
-            <h2>7. Avtomatizirano odločanje in oblikovanje profilov</h2>
+            <h2>8. Avtomatizirano odločanje in oblikovanje profilov</h2>
             <p>
                 Beležka v zvezi z vašim uporabniškim računom ne izvaja avtomatiziranega odločanja, ki bi imelo
                 pravne učinke v zvezi z vami ali na podoben način bistveno vplivalo na vas, niti oblikovanja profilov
@@ -134,7 +178,7 @@ const toc = [
         </section>
 
         <section id="podpora">
-            <h2>8. Podpora</h2>
+            <h2>9. Podpora</h2>
             <p>
                 Če nam pišete v zvezi s podporo, obdelamo vsebino vaše komunikacije, da vam lahko pomagamo. Podpora
                 nima stalnega dostopa do vsebine vaših pogovorov s strankami — tak dostop mora lastnik delovnega
@@ -143,7 +187,7 @@ const toc = [
         </section>
 
         <section id="varnostni-podatki">
-            <h2>9. Varnostni in revizijski podatki</h2>
+            <h2>10. Varnostni in revizijski podatki</h2>
             <p>
                 Za varnost sistema beležimo varnostno-revizijsko sled (kdo, kdaj, katero dejanje) — ti zapisi ne
                 vsebujejo vsebine vaših sporočil ali opomb, temveč samo identifikatorje in dejanja.
@@ -151,7 +195,7 @@ const toc = [
         </section>
 
         <section id="demo">
-            <h2>10. Demo</h2>
+            <h2>11. Demo</h2>
             <p>
                 Preizkus demo različice ne zahteva registracije in ne zahteva nobenih identifikacijskih podatkov o
                 vas — ustvari se ločen, umeten demo delovni prostor z vzorčnimi (izmišljenimi) podatki, ki se
@@ -163,7 +207,7 @@ const toc = [
         </section>
 
         <section id="placila">
-            <h2>11. Plačila in obračun naročnine</h2>
+            <h2>12. Plačila in obračun naročnine</h2>
             <p>
                 Uporaba Beležke je plačljiva (glejte 9. člen Pogojev poslovanja). Plačila naročnine obdelujemo
                 izključno prek ponudnika plačilnih storitev Stripe (Stripe, Inc. / Stripe Payments Europe, Ltd.) —
@@ -186,7 +230,7 @@ const toc = [
         </section>
 
         <section id="analitika">
-            <h2>12. Analitika / sledenje</h2>
+            <h2>13. Analitika / sledenje</h2>
             <p>
                 Na spletni strani trenutno ne uporabljamo orodij za analitiko ali sledenje obiskovalcem. Podrobnosti
                 (vključno s piškotki, ki jih dejansko uporabljamo) najdete v
@@ -195,7 +239,7 @@ const toc = [
         </section>
 
         <section id="prejemniki">
-            <h2>13. Prejemniki in podobdelovalci</h2>
+            <h2>14. Prejemniki in podobdelovalci</h2>
             <p>
                 Vaših podatkov ne prodajamo. Za obdelavo vaših lastnih podatkov (npr. obračun naročnine prek Stripe,
                 dostava push obvestil vam osebno) in za obdelavo podatkov vaših strank v vašem imenu (Article 28
@@ -206,18 +250,19 @@ const toc = [
         </section>
 
         <section id="prenosi">
-            <h2>14. Prenosi v tretje države</h2>
+            <h2>15. Prenosi v tretje države</h2>
             <p>
                 Nekateri ponudniki, na katere se zanašamo (npr. Meta Platforms, Inc. in Stripe), lahko podatke
                 obdelujejo tudi izven Evropskega gospodarskega prostora. Za vsakega takega ponudnika na strani
                 <a class="text-[var(--color-accent-600)] hover:underline" :href="route('legal.subprocessors')">Podobdelovalci</a>
-                navajamo, kadar je znano, lokacijo obdelave in ustrezen prenosni mehanizem (npr. sklep o ustreznosti
-                ali standardne pogodbene klavzule); dokler to ni potrjeno, ne navajamo domnevanega mehanizma.
+                navajamo lokacijo obdelave in ustrezen prenosni mehanizem (npr. sklep o ustreznosti ali standardne
+                pogodbene klavzule), kadar sta znana in preverjena pri tem ponudniku; sicer namesto tega ne navajamo
+                domnevanega mehanizma.
             </p>
         </section>
 
         <section id="hramba">
-            <h2>15. Hramba podatkov</h2>
+            <h2>16. Hramba podatkov</h2>
             <p>
                 Podatke vašega računa in delovnega prostora hranimo, dokler je vaš delovni prostor aktiven. Ob
                 izbrisu delovnega prostora (ločen postopek od preklica naročnine, glejte Pogoje poslovanja) se
@@ -233,22 +278,39 @@ const toc = [
                     hranimo jih v skladu z našo interno varnostno politiko, ki upošteva tudi morebitno zakonsko
                     določeno najkrajšo hrambo takih zapisov.
                 </template>
-                Hramba varnostnih kopij je infrastrukturna odločitev, ki v tem dokumentu še ni določena.
+                Varnostne kopije se hranijo omejen čas v skladu z veljavno politiko hrambe in se po izteku obdobja
+                hrambe izbrišejo oziroma prepišejo.
             </p>
         </section>
 
         <section id="pravice">
-            <h2>16. Pravice posameznika</h2>
+            <h2>17. Pravice posameznika</h2>
             <p>
                 Glede podatkov, za katere smo upravljavec (vaš uporabniški račun in obračun naročnine), imate
                 pravico do dostopa, popravka, izbrisa, omejitve obdelave, prenosljivosti podatkov in ugovora
                 obdelavi, kadar ta temelji na zakonitem interesu. Privolitev za push obvestila lahko kadarkoli
                 prekličete v nastavitvah brskalnika.
             </p>
+            <p>
+                Svoj lastni uporabniški račun lahko trajno izbrišete v Nastavitvah profila. Izbris celotnega
+                delovnega prostora, vključno s podatki strank, ki jih vsebuje, sprožite v razdelku Nastavitve →
+                Zasebnost — glejte 16. člen zgoraj za potek in rok za preklic. Za izvoz ali izbris/anonimizacijo
+                podatkov posamezne stranke ima vaše podjetje na voljo ustrezno orodje neposredno pri zapisu te
+                stranke znotraj Beležke.
+            </p>
+            <p>
+                Če ste stranka podjetja, ki uporablja Beležko (torej se z vami dopisuje prek Beležke, izdaja
+                dokumente ali vodi vaša naročila/termine), Beležka za te podatke ni upravljavec — s svojo zahtevo
+                glede teh podatkov se praviloma obrnite neposredno na to podjetje, ki podatke o vas vodi. Beležki
+                lahko pri tem ostane vloga izvajalca tehničnega orodja, ki ga podjetje uporabi za odziv na vašo
+                zahtevo. Izdani prodajni dokumenti, ki jih mora podjetje hraniti zaradi lastnih računovodskih,
+                davčnih ali drugih zakonskih obveznosti, se ob izbrisu stranke ne izbrišejo — glejte Dogovor o
+                obdelavi osebnih podatkov, 15. člen.
+            </p>
         </section>
 
         <section id="pritozba">
-            <h2>17. Pravica do pritožbe pri Informacijskem pooblaščencu</h2>
+            <h2>18. Pravica do pritožbe pri Informacijskem pooblaščencu</h2>
             <p>
                 Če menite, da obdelava vaših osebnih podatkov krši predpise, imate pravico vložiti pritožbo pri
                 <a class="text-[var(--color-accent-600)] hover:underline" :href="legal.supervisory_authority_url" target="_blank" rel="noopener">
@@ -258,7 +320,7 @@ const toc = [
         </section>
 
         <section id="varnost">
-            <h2>18. Varnost</h2>
+            <h2>19. Varnost</h2>
             <p>
                 Za zaščito podatkov uporabljamo ukrepe kot so: šifriranje posebej občutljivih vsebin (npr. besedila
                 sporočil in opomb strank) na strežniku, ločevanje podatkov med delovnimi prostori, omejen in
@@ -268,14 +330,14 @@ const toc = [
         </section>
 
         <section id="spremembe">
-            <h2>19. Spremembe politike</h2>
+            <h2>20. Spremembe politike</h2>
             <p>
                 To politiko lahko občasno posodobimo. Datum zadnje spremembe je naveden na vrhu strani.
             </p>
         </section>
 
         <section id="kontakt">
-            <h2>20. Kontakt</h2>
+            <h2>21. Kontakt</h2>
             <p v-if="legal.legal_email">
                 Za vprašanja v zvezi z obdelavo osebnih podatkov nas kontaktirajte na
                 <a class="text-[var(--color-accent-600)] hover:underline" :href="`mailto:${legal.legal_email}`">{{ legal.legal_email }}</a

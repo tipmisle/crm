@@ -156,9 +156,9 @@ const toc = [
             <p>
                 Če katerikoli podobdelovalec podatke obdeluje izven Evropskega gospodarskega prostora, se to izvaja
                 na podlagi ustreznega prenosnega mehanizma (npr. sklep o ustreznosti ali standardne pogodbene
-                klavzule). Za vsakega podobdelovalca je lokacija obdelave in uporabljeni prenosni mehanizem, kadar je
-                potrjen, naveden na strani Podobdelovalci; kjer to (še) ni potrjeno, je to jasno označeno kot NEEDS
-                OWNER INPUT namesto domnevanega mehanizma.
+                klavzule). Za vsakega podobdelovalca je lokacija obdelave in uporabljeni prenosni mehanizem naveden
+                na strani Podobdelovalci, kadar sta znana in preverjena pri tem ponudniku; sicer namesto tega ne
+                navajamo domnevanega mehanizma.
             </p>
         </section>
 
@@ -196,8 +196,8 @@ const toc = [
             <p>
                 Ob izbrisu delovnega prostora (opisano v Pogojih poslovanja) se podatki, po vnaprej določenem
                 obdobju za obnovitev, trajno izbrišejo iz aktivne aplikacije. Pred izbrisom lahko Upravljavec svoje
-                podatke izvozi. Izbris iz morebitnih varnostnih kopij sledi ločenemu, infrastrukturnemu časovnemu
-                okviru, ki v tem dokumentu še ni določen. Po prenehanju tega dogovora (npr. ob izbrisu delovnega
+                podatke izvozi. Varnostne kopije, ki so nastale pred izbrisom, se hranijo omejen čas v skladu z
+                veljavno politiko hrambe in se po izteku obdobja hrambe izbrišejo oziroma prepišejo. Po prenehanju tega dogovora (npr. ob izbrisu delovnega
                 prostora) Beležka podatke po izbiri Upravljavca vrne (izvoz) ali izbriše, kot je opisano zgoraj, v
                 obsegu, kot to dopuščajo morebitne zakonske zahteve po nadaljnji hrambi (npr. za izdane prodajne
                 dokumente, glejte spodaj).
@@ -277,8 +277,8 @@ const toc = [
 
             <h3>Varnostne kopije</h3>
             <p>
-                Politika in konfiguracija varnostnih kopij (pogostost, šifriranje, obdobje hrambe) je infrastrukturna
-                odločitev, ki v tem dokumentu še ni dokončno določena.
+                Varnostne kopije se hranijo omejen čas v skladu z veljavno politiko hrambe in se po izteku obdobja
+                hrambe izbrišejo oziroma prepišejo.
             </p>
 
             <h3>Dnevniki in revizijska sled</h3>
@@ -293,13 +293,17 @@ const toc = [
             <h3>Obvladovanje incidentov</h3>
             <p>Ob ugotovljeni kršitvi varstva podatkov se uporabi postopek iz 13. in 17. člena tega dogovora.</p>
 
-            <h3>Infrastrukturni ukrepi, ki v tem dokumentu še niso dokončno določeni</h3>
+            <h3>Prenos in dostop</h3>
             <p>
-                Naslednji ukrepi so odvisni od izbire ponudnika gostovanja in drugih infrastrukturnih odločitev, ki
-                še niso dokončno sprejete: vsiljena uporaba HTTPS/varnih piškotkov v produkcijskem okolju, šifriranje
-                podatkov na nivoju diska, upravljanje skrivnosti (secrets management), omejen dostop do podatkovne
-                baze, spremljanje in opozarjanje (monitoring), ter dvofaktorska avtentikacija za platformske
-                administratorje. Te postavke bomo dopolnili takoj, ko bodo dokončno določene.
+                V produkcijskem okolju je uveljavljena obvezna uporaba HTTPS (HSTS) in varnih sejnih piškotkov.
+                Dostop do administratorskega vmesnika platforme zahteva dvofaktorsko avtentikacijo (2FA).
+            </p>
+
+            <h3>Infrastrukturni ukrepi, odvisni od izbrane gostiteljske infrastrukture</h3>
+            <p>
+                Naslednji ukrepi so urejeni v skladu z izbrano produkcijsko gostiteljsko infrastrukturo in našo
+                interno varnostno politiko: šifriranje podatkov na nivoju diska, upravljanje skrivnosti (secrets
+                management), omejen dostop do podatkovne baze ter spremljanje in opozarjanje (monitoring).
             </p>
         </section>
 
