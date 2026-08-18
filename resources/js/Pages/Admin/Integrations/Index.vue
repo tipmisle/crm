@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import Badge from '@/Components/Badge.vue';
 import Pagination from '@/Components/Pagination.vue';
+import { useConfirm } from '@/composables/useConfirm';
 import { formatDateTime } from '@/lib/format';
 
 interface Row {
@@ -19,12 +20,14 @@ interface Row {
 
 const props = defineProps<{ integrations: { data: Row[]; links: any[] }; filters: { status?: string } }>();
 
+const { confirm } = useConfirm();
+
 function setStatus(status: string | undefined) {
     router.get(route('admin.integrations.index'), { status }, { preserveState: true });
 }
 
-function clearError(row: Row) {
-    if (!confirm('Počisti napako te integracije?')) return;
+async function clearError(row: Row) {
+    if (!(await confirm('Počisti napako te integracije?'))) return;
     router.post(route('admin.integrations.clear-error', row.id));
 }
 </script>

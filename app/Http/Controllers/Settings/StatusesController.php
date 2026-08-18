@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\PaymentStatus;
@@ -26,6 +27,7 @@ class StatusesController extends Controller
                 'is_default' => $status->is_default,
                 'is_completed' => $status->is_completed,
                 'is_cancelled' => $status->is_cancelled,
+                'is_refunded' => $status->is_refunded,
                 'in_use' => $status->orders_count > 0,
             ]);
 
@@ -44,13 +46,32 @@ class StatusesController extends Controller
                     'is_default' => $status->is_default,
                     'is_deposit_default' => $status->is_deposit_default,
                     'is_outstanding' => $status->is_outstanding,
+                    'is_paid' => $status->is_paid,
+                    'is_refunded' => $status->is_refunded,
                     'in_use' => $inUse,
                 ];
             });
 
+        $appointmentStatuses = AppointmentStatus::query()->ordered()->withCount('appointments')->get()
+            ->map(fn (AppointmentStatus $status) => [
+                'id' => $status->id,
+                'key' => $status->key,
+                'label' => $status->label,
+                'color' => $status->color,
+                'bg' => $status->bg,
+                'sort_order' => $status->sort_order,
+                'is_default' => $status->is_default,
+                'is_completed' => $status->is_completed,
+                'is_cancelled' => $status->is_cancelled,
+                'is_no_show' => $status->is_no_show,
+                'is_refunded' => $status->is_refunded,
+                'in_use' => $status->appointments_count > 0,
+            ]);
+
         return Inertia::render('Settings/Statuses', [
             'orderStatuses' => $orderStatuses,
             'paymentStatuses' => $paymentStatuses,
+            'appointmentStatuses' => $appointmentStatuses,
         ]);
     }
 }

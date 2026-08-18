@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\AppointmentStatus;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +20,6 @@ class Appointment extends Model
         'conversation_id',
         'channel_id',
         'assigned_user_id',
-        'service_id',
         'service_name',
         'description',
         'appointment_date',
@@ -40,10 +38,11 @@ class Appointment extends Model
     protected function casts(): array
     {
         return [
-            'status' => AppointmentStatus::class,
-            // payment_status is a plain string referencing a workspace-
-            // editable PaymentStatus row's `key` (shared with Order) — see
-            // paymentStatusRecord() below. No enum cast.
+            // status/payment_status are plain strings referencing
+            // workspace-editable AppointmentStatus/PaymentStatus rows'
+            // `key` — see appointmentStatusRecord()/paymentStatusRecord()
+            // below. No enum cast: the set of valid values is per-workspace,
+            // not fixed.
             'appointment_date' => 'date',
             'price' => 'decimal:2',
             'deposit_amount' => 'decimal:2',
@@ -93,9 +92,9 @@ class Appointment extends Model
         return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
-    public function service(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(Service::class);
+        return $this->hasMany(AppointmentItem::class)->orderBy('id');
     }
 
     /** See Order::orderStatus() for why this is scoped by workspace_id as well as key, and why it must stay lazy-only (never eager-loaded via with()/load()). */
@@ -104,6 +103,14 @@ class Appointment extends Model
         return $this->belongsTo(PaymentStatus::class, 'payment_status', 'key')
             ->withoutGlobalScopes()
             ->where('payment_statuses.workspace_id', $this->workspace_id);
+    }
+
+    /** See Order::orderStatus() for why this is scoped by workspace_id as well as key, and why it must stay lazy-only. */
+    public function appointmentStatusRecord(): BelongsTo
+    {
+        return $this->belongsTo(AppointmentStatus::class, 'status', 'key')
+            ->withoutGlobalScopes()
+            ->where('appointment_statuses.workspace_id', $this->workspace_id);
     }
 
     public function followUps(): MorphMany
@@ -129,7 +136,7 @@ class Appointment extends Model
         // appointment is not "upcoming" once today has begun).
         $timezone = $this->workspace?->timezone ?? config('app.timezone');
 
-        return ! in_array($this->status, [AppointmentStatus::Completed, AppointmentStatus::Cancelled, AppointmentStatus::NoShow], true)
+        return ! in_array($this->status, AppointmentStatus::openExclusionKeys(), true)
             && $this->appointment_date->gt(Carbon::today($timezone));
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\AppointmentStatus;
 use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +24,9 @@ class Customer extends Model
         'city',
         'country',
         'tax_number',
+        'is_business',
+        'company_name',
+        'vat_registered',
         'notes',
         'tags',
         'primary_channel_id',
@@ -36,6 +38,8 @@ class Customer extends Model
     {
         return [
             'tags' => 'array',
+            'is_business' => 'boolean',
+            'vat_registered' => 'boolean',
             // Application-encrypted — see docs/data-security.md. Free-text
             // notes may contain health or other sensitive disclosures.
             'notes' => 'encrypted',
@@ -86,7 +90,9 @@ class Customer extends Model
 
     public function lifetimeSpend(): float
     {
-        return (float) $this->orders()->sum('amount_paid');
+        return (float) $this->orders()
+            ->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()])
+            ->sum('amount_paid');
     }
 
     public function openOrdersCount(): int
@@ -101,23 +107,25 @@ class Customer extends Model
 
     public function appointmentsLifetimeSpend(): float
     {
-        return (float) $this->appointments()->sum('amount_paid');
+        return (float) $this->appointments()
+            ->whereNotIn('status', [...AppointmentStatus::cancelledKeys(), ...AppointmentStatus::refundedKeys(), ...AppointmentStatus::noShowKeys()])
+            ->sum('amount_paid');
     }
 
     public function previousAppointmentsCount(): int
     {
-        return $this->appointments()->where('status', AppointmentStatus::Completed->value)->count();
+        return $this->appointments()->whereIn('status', AppointmentStatus::completedKeys())->count();
     }
 
     public function noShowAppointmentsCount(): int
     {
-        return $this->appointments()->where('status', AppointmentStatus::NoShow->value)->count();
+        return $this->appointments()->whereIn('status', AppointmentStatus::noShowKeys())->count();
     }
 
     public function upcomingAppointment(): ?Appointment
     {
         return $this->appointments()
-            ->whereIn('status', [AppointmentStatus::Requested->value, AppointmentStatus::Confirmed->value])
+            ->whereNotIn('status', AppointmentStatus::openExclusionKeys())
             ->where('appointment_date', '>=', Carbon::today($this->workspace?->timezone ?? config('app.timezone'))->toDateString())
             ->orderBy('appointment_date')
             ->orderBy('start_time')
@@ -127,7 +135,7 @@ class Customer extends Model
     public function lastAppointment(): ?Appointment
     {
         return $this->appointments()
-            ->where('status', AppointmentStatus::Completed->value)
+            ->whereIn('status', AppointmentStatus::completedKeys())
             ->orderByDesc('appointment_date')
             ->first();
     }

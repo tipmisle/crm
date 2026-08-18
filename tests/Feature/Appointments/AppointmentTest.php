@@ -94,7 +94,7 @@ test('an appointment can be created for an existing customer', function () {
     $response->assertRedirect(route('appointments.show', $appointment));
     expect($appointment)->not->toBeNull();
     expect($appointment->customer_id)->toBe($customer->id);
-    expect($appointment->status->value)->toBe('requested');
+    expect($appointment->status)->toBe('requested');
     expect($appointment->appointment_number)->toStartWith('APT-');
 });
 
@@ -172,13 +172,13 @@ test('appointment status can change through its lifecycle', function () {
         ->patch(route('appointments.update', $appointment), ['status' => 'confirmed'])
         ->assertRedirect();
 
-    expect($appointment->fresh()->status->value)->toBe('confirmed');
+    expect($appointment->fresh()->status)->toBe('confirmed');
 
     $this->actingAs($user)
         ->patch(route('appointments.update', $appointment), ['status' => 'no_show'])
         ->assertRedirect();
 
-    expect($appointment->fresh()->status->value)->toBe('no_show');
+    expect($appointment->fresh()->status)->toBe('no_show');
 
     expect(
         ActivityLog::where('subject_type', Appointment::class)
@@ -218,7 +218,7 @@ test('rescheduling an appointment is logged as an activity, not a status', funct
 
     $appointment->refresh();
     expect($appointment->appointment_date->format('Y-m-d'))->toBe($newDate);
-    expect($appointment->status->value)->toBe('confirmed'); // status unchanged by reschedule
+    expect($appointment->status)->toBe('confirmed'); // status unchanged by reschedule
 
     expect(
         ActivityLog::where('subject_type', Appointment::class)

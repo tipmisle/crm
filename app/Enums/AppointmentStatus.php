@@ -9,6 +9,7 @@ enum AppointmentStatus: string
     case Completed = 'completed';
     case Cancelled = 'cancelled';
     case NoShow = 'no_show';
+    case Refunded = 'refunded';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum AppointmentStatus: string
             self::Completed => 'Zaključeno',
             self::Cancelled => 'Preklicano',
             self::NoShow => 'Ni se zglasil/a',
+            self::Refunded => 'Vračilo',
         };
     }
 
@@ -29,6 +31,7 @@ enum AppointmentStatus: string
             self::Completed,
             self::Cancelled,
             self::NoShow,
+            self::Refunded,
         ];
     }
 }

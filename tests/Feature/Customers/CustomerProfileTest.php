@@ -23,6 +23,34 @@ test('a new customer can be created with the full address/tax field set shared w
     expect($customer->tax_number)->toBe('SI12345678');
 });
 
+test('a customer defaults to a private person unless explicitly marked as a business', function () {
+    [, $user] = createWorkspaceWithUser();
+
+    $this->actingAs($user)->post(route('customers.store'), ['full_name' => 'Ana Novak'])->assertRedirect();
+
+    expect(Customer::first()->is_business)->toBeFalse();
+});
+
+test('a customer can be marked as a business and it persists through an update', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+
+    $customer = Customer::create([
+        'workspace_id' => $workspace->id,
+        'full_name' => 'Podjetje d.o.o.',
+        'first_contacted_at' => now(),
+        'last_interaction_at' => now(),
+    ]);
+
+    $this->actingAs($user)->patch(route('customers.update', $customer), [
+        'is_business' => true,
+        'tax_number' => 'SI87654321',
+    ])->assertRedirect();
+
+    $customer->refresh();
+    expect($customer->is_business)->toBeTrue();
+    expect($customer->tax_number)->toBe('SI87654321');
+});
+
 test('updating a customer changes the one record read everywhere it is shown', function () {
     [$workspace, $user] = createWorkspaceWithUser();
 

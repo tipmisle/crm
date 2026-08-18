@@ -432,7 +432,6 @@ class StudioNolaSeeder extends Seeder
                     'customer_id' => $customer->id,
                     'conversation_id' => $conversation?->id,
                     'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
-                    'service_id' => $service->id,
                     'service_name' => $serviceName,
                     'description' => null,
                     'appointment_date' => $date,
@@ -445,6 +444,13 @@ class StudioNolaSeeder extends Seeder
                     'status' => $status,
                     'internal_notes' => rand(0, 4) === 0 ? 'Stranka je prosila za natančno isti odtenek kot zadnjič.' : null,
                     'customer_notes' => rand(0, 4) === 0 ? 'Občutljiva koža okoli nohtov, previdno pri odstranjevanju.' : null,
+                ]);
+
+                $appointment->items()->create([
+                    'catalog_item_id' => $service->id,
+                    'title' => $serviceName,
+                    'quantity' => 1,
+                    'unit_price' => $price,
                 ]);
 
                 $this->backdate($appointment, $createdAt);

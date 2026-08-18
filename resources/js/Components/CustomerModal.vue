@@ -55,7 +55,7 @@ function submit() {
 
                 <form class="space-y-4 px-5 py-4" @submit.prevent="submit">
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Polno ime</label>
+                        <label class="mb-1.5 block text-sm font-medium text-neutral-700">Ime</label>
                         <input
                             v-model="form.full_name"
                             type="text"

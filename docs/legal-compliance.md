@@ -163,24 +163,34 @@ Living checklist — update as the owner supplies each fact, then set the
 corresponding env var and re-run `legal:check` (and `deploy:check` for
 infrastructure/Stripe facts).
 
-**COMPANY / PROVIDER** (`config/legal.php`, blocks `legal:check` until set):
-`LEGAL_COMPANY_NAME`, `LEGAL_REGISTERED_ADDRESS`, `LEGAL_REGISTRATION_NUMBER`,
-`LEGAL_TAX_NUMBER`, `LEGAL_EMAIL`, plus `LEGAL_VAT_NUMBER` if
-`LEGAL_VAT_REGISTERED=true`.
+**COMPANY / PROVIDER — RESOLVED.** Finalized production values (see
+`.env.example` comments):
+`LEGAL_COMPANY_NAME="Web8, Josip Rajković s.p."`,
+`LEGAL_COMPANY_LEGAL_FORM="samostojni podjetnik (s.p.)"`,
+`LEGAL_REGISTERED_ADDRESS="Zelena pot 3, 1241 Kamnik, Slovenija"`,
+`LEGAL_REGISTRATION_NUMBER="8829888000"`, `LEGAL_TAX_NUMBER="30631564"`,
+`LEGAL_VAT_REGISTERED=true`, `LEGAL_VAT_NUMBER="SI30631564"`,
+`LEGAL_EMAIL="info@belezka.com"`, `LEGAL_SUPPORT_EMAIL="info@belezka.com"`,
+`LEGAL_COMPETENT_COURT="Okrožno sodišče v Ljubljani"`. `LEGAL_DPO_CONTACT`
+stays blank — the business has no formally designated DPO; `Legal/Provider.vue`
+omits that row entirely rather than showing the owner's personal name.
 
-**COMMERCIAL / PRICING** (`config/billing.php`, blocks `legal:check` once a
-price is displayed):
-- `BILLING_DISPLAY_PRICE` — final production monthly price. Unset today;
-  the marketing page and activation page both omit the price line rather
-  than show a placeholder, and both now read from this single config key
-  (`MarketingController::home()` / `Billing\ActivationController::edit()`)
-  — no more separate hardcoded marketing price.
-- `BILLING_DISPLAY_PRICE_VAT_INCLUDED` — whether that price is VAT-inclusive.
-  `legal:check` fails if `BILLING_DISPLAY_PRICE` is set but this is still
-  unset.
+**COMMERCIAL / PRICING — RESOLVED for launch.** See `docs/billing.md` §9
+for the full picture:
+- `BILLING_DISPLAY_PRICE="9,90 €"`, `BILLING_DISPLAY_PRICE_VAT_INCLUDED=true`,
+  `BILLING_PERIOD_LABEL="mesečno"`. `legal:check` now requires both
+  `billing.display_price` and `billing.display_price_vat_included` — a
+  missing launch price/VAT treatment fails the check, not just an
+  inconsistent pair. Production checkout (`ActivationController::checkout()`)
+  additionally refuses to start when `APP_ENV=production` and either value
+  is unset.
 - Confirm no free trial is actually wanted (none is implemented).
 - Payment-failure access policy is currently `blocked`
   (`BILLING_PAST_DUE_ACCESS_POLICY`) — confirm this is the intended policy.
+- Multi-workspace pricing (first workspace 9,90 €/month, each additional
+  +6,90 €/month) is a decided future product direction, not implemented —
+  see `docs/billing.md` §9. Current launch is strictly 1 subscription = 1
+  workspace.
 
 **INFRASTRUCTURE / TRANSFERS** (`config/legal.php` subprocessor entries,
 `deploy:check`):

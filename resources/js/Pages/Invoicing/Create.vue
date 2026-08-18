@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
+import DateInput from '@/Components/DateInput.vue';
 import { formatMoney } from '@/lib/format';
 import type { Order } from '@/types/models';
 import { Plus, Trash2 } from 'lucide-vue-next';
@@ -32,6 +33,7 @@ const typeLabel = computed(() => (props.type === 'proforma' ? 'Predračun' : 'Ra
 
 const form = useForm({
     type: props.type,
+    document_number: props.nextNumberPreview,
     issued_at: new Date().toISOString().slice(0, 10),
     service_date: '',
     due_date: props.defaultDueDate,
@@ -114,132 +116,150 @@ const showRoute = computed(() =>
             </div>
         </template>
 
-        <div class="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
-            <p v-if="!settingsConfigured" class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+            <p v-if="!settingsConfigured" class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 Najprej nastavi
                 <Link :href="route('settings.invoicing.edit')" class="font-medium underline">podatke o računih</Link>
                 (naziv podjetja in IBAN).
             </p>
 
-            <SectionCard :title="typeLabel" :subtitle="`Naslednja številka: ${nextNumberPreview}`">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
-                        <label class="block text-xs text-neutral-500">Datum izdaje</label>
-                        <input v-model="form.issued_at" type="date" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-neutral-500">Datum opravljene storitve (neobvezno)</label>
-                        <input v-model="form.service_date" type="date" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-neutral-500">Rok plačila</label>
-                        <input v-model="form.due_date" type="date" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                </div>
-            </SectionCard>
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div class="space-y-6 lg:col-span-2">
+                    <SectionCard :title="typeLabel">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-xs text-neutral-500">Številka dokumenta</label>
+                                <input
+                                    v-model="form.document_number"
+                                    type="text"
+                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                    :class="form.errors.document_number && 'border-red-300'"
+                                />
+                                <p v-if="form.errors.document_number" class="mt-1 text-xs text-red-600">{{ form.errors.document_number }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Datum izdaje</label>
+                                <DateInput v-model="form.issued_at" class="mt-1" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Datum opravljene storitve (neobvezno)</label>
+                                <DateInput v-model="form.service_date" class="mt-1" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Rok plačila</label>
+                                <DateInput v-model="form.due_date" class="mt-1" />
+                            </div>
+                        </div>
+                    </SectionCard>
 
-            <SectionCard title="Prejemnik">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs text-neutral-500">Ime / naziv</label>
-                        <input v-model="form.recipient.name" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" :class="form.errors['recipient.name'] && 'border-red-300'" />
-                        <p v-if="form.errors['recipient.name']" class="mt-1 text-xs text-red-600">{{ form.errors['recipient.name'] }}</p>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-neutral-500">E-pošta</label>
-                        <input v-model="form.recipient.email" type="email" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-neutral-500">Davčna št. (neobvezno)</label>
-                        <input v-model="form.recipient.tax_number" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs text-neutral-500">Naslov</label>
-                        <input v-model="form.recipient.address_line" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-neutral-500">Poštna številka</label>
-                        <input v-model="form.recipient.postal_code" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                    <div>
-                        <label class="block text-xs text-neutral-500">Kraj</label>
-                        <input v-model="form.recipient.city" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-                    </div>
-                </div>
-                <div class="mt-3 flex items-center gap-2">
-                    <input id="save_recipient" v-model="form.save_recipient_to_customer" type="checkbox" class="h-4 w-4 rounded border-neutral-300" />
-                    <label for="save_recipient" class="text-sm text-neutral-700">Shrani podatke pri stranki</label>
-                </div>
-            </SectionCard>
+                    <SectionCard title="Prejemnik">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs text-neutral-500">Ime / naziv</label>
+                                <input v-model="form.recipient.name" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" :class="form.errors['recipient.name'] && 'border-red-300'" />
+                                <p v-if="form.errors['recipient.name']" class="mt-1 text-xs text-red-600">{{ form.errors['recipient.name'] }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">E-pošta</label>
+                                <input v-model="form.recipient.email" type="email" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Davčna št. (neobvezno)</label>
+                                <input v-model="form.recipient.tax_number" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs text-neutral-500">Naslov</label>
+                                <input v-model="form.recipient.address_line" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Poštna številka</label>
+                                <input v-model="form.recipient.postal_code" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-neutral-500">Kraj</label>
+                                <input v-model="form.recipient.city" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center gap-2">
+                            <input id="save_recipient" v-model="form.save_recipient_to_customer" type="checkbox" class="h-4 w-4 rounded border-neutral-300" />
+                            <label for="save_recipient" class="text-sm text-neutral-700">Shrani podatke pri stranki</label>
+                        </div>
+                    </SectionCard>
 
-            <SectionCard title="Postavke" :subtitle="priceModeLabel ? `Cene na postavkah so vnesene ${priceModeLabel}.` : undefined">
-                <div class="space-y-3">
-                    <div v-for="(item, index) in form.line_items" :key="index" class="grid grid-cols-12 items-end gap-2">
-                        <div class="col-span-4">
-                            <label class="block text-xs text-neutral-500">Opis</label>
-                            <input v-model="item.description" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-neutral-500">Količina</label>
-                            <input v-model.number="item.quantity" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-neutral-500">Enota</label>
-                            <input v-model="item.unit" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs text-neutral-500">Cena/enoto{{ priceModeLabel ? ` (${priceModeLabel})` : '' }}</label>
-                            <input v-model.number="item.unit_price" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
-                        </div>
-                        <div v-if="vatRegistered" class="col-span-1">
-                            <label class="block text-xs text-neutral-500">DDV %</label>
-                            <input v-model.number="item.vat_rate" type="number" step="1" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
-                        </div>
-                        <div class="col-span-1 flex justify-end">
-                            <button type="button" class="rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600" @click="removeLine(index)">
-                                <Trash2 :size="15" />
+                    <SectionCard title="Postavke" :subtitle="priceModeLabel ? `Cene na postavkah so vnesene ${priceModeLabel}.` : undefined">
+                        <div class="space-y-3">
+                            <div v-for="(item, index) in form.line_items" :key="index" class="grid grid-cols-12 items-end gap-2">
+                                <div class="col-span-4">
+                                    <label class="block text-xs text-neutral-500">Opis</label>
+                                    <input v-model="item.description" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs text-neutral-500">Količina</label>
+                                    <input v-model.number="item.quantity" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs text-neutral-500">Enota</label>
+                                    <input v-model="item.unit" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs text-neutral-500">Cena/enoto{{ priceModeLabel ? ` (${priceModeLabel})` : '' }}</label>
+                                    <input v-model.number="item.unit_price" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div v-if="vatRegistered" class="col-span-1">
+                                    <label class="block text-xs text-neutral-500">DDV %</label>
+                                    <input v-model.number="item.vat_rate" type="number" step="1" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-1 flex justify-end">
+                                    <button type="button" class="rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600" @click="removeLine(index)">
+                                        <Trash2 :size="15" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="button" class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-500)] hover:underline" @click="addLine">
+                                <Plus :size="14" /> Dodaj postavko
                             </button>
+
+                            <p v-if="form.errors.line_items" class="text-xs text-red-600">{{ form.errors.line_items }}</p>
                         </div>
-                    </div>
-
-                    <button type="button" class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-500)] hover:underline" @click="addLine">
-                        <Plus :size="14" /> Dodaj postavko
-                    </button>
-
-                    <p v-if="form.errors.line_items" class="text-xs text-red-600">{{ form.errors.line_items }}</p>
+                    </SectionCard>
                 </div>
 
-                <div class="mt-5 ml-auto w-full max-w-xs space-y-1.5 text-sm">
-                    <div v-if="vatRegistered" class="flex justify-between text-neutral-500">
-                        <span>Osnova</span><span>{{ formatMoney(subtotal) }}</span>
-                    </div>
-                    <div v-if="vatRegistered" class="flex justify-between text-neutral-500">
-                        <span>DDV</span><span>{{ formatMoney(vatTotal) }}</span>
-                    </div>
-                    <div class="flex justify-between border-t border-neutral-200 pt-1.5 font-semibold text-neutral-900">
-                        <span>Skupaj</span><span>{{ formatMoney(total) }}</span>
+                <div class="lg:col-span-1">
+                    <div class="space-y-6 lg:sticky lg:top-6">
+                        <SectionCard title="Povzetek">
+                            <div class="space-y-1.5 text-sm">
+                                <div v-if="vatRegistered" class="flex justify-between text-neutral-500">
+                                    <span>Osnova</span><span>{{ formatMoney(subtotal) }}</span>
+                                </div>
+                                <div v-if="vatRegistered" class="flex justify-between text-neutral-500">
+                                    <span>DDV</span><span>{{ formatMoney(vatTotal) }}</span>
+                                </div>
+                                <div class="flex justify-between border-t border-neutral-200 pt-1.5 font-semibold text-neutral-900">
+                                    <span>Skupaj</span><span>{{ formatMoney(total) }}</span>
+                                </div>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="Opombe (neobvezno)">
+                            <textarea v-model="form.notes" rows="2" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
+                        </SectionCard>
+
+                        <p v-if="Object.keys(form.errors).length" class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                            Preveri vnesene podatke — nekaj polj ni veljavnih.
+                        </p>
+
+                        <button
+                            type="button"
+                            :disabled="form.processing || !settingsConfigured"
+                            class="flex w-full items-center justify-center rounded-md bg-[var(--color-ink-900)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
+                            @click="submit"
+                        >
+                            Izdaj {{ typeLabel.toLowerCase() }}
+                        </button>
+                        <Link :href="showRoute" class="block text-center text-sm text-neutral-500 hover:text-neutral-700">Prekliči</Link>
                     </div>
                 </div>
-            </SectionCard>
-
-            <SectionCard title="Opombe (neobvezno)">
-                <textarea v-model="form.notes" rows="2" class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" />
-            </SectionCard>
-
-            <p v-if="Object.keys(form.errors).length" class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                Preveri vnesene podatke — nekaj polj ni veljavnih.
-            </p>
-
-            <div class="flex items-center gap-3">
-                <button
-                    type="button"
-                    :disabled="form.processing || !settingsConfigured"
-                    class="rounded-md bg-[var(--color-ink-900)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
-                    @click="submit"
-                >
-                    Izdaj {{ typeLabel.toLowerCase() }}
-                </button>
-                <Link :href="showRoute" class="text-sm text-neutral-500 hover:text-neutral-700">Prekliči</Link>
             </div>
         </div>
     </AppLayout>

@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\BugReportController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\FeatureRequestController;
 use App\Http\Controllers\Admin\IntegrationController;
 use App\Http\Controllers\Admin\SupportContentController;
 use App\Http\Controllers\Admin\UserController;
@@ -30,6 +32,12 @@ Route::middleware(['auth', 'platform.admin'])->prefix('admin')->name('admin.')->
     Route::get('/integrations', [IntegrationController::class, 'index'])->name('integrations.index');
 
     Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
+
+    Route::get('/bug-reports', [BugReportController::class, 'index'])->name('bug-reports.index');
+    Route::patch('/bug-reports/{bugReport}', [BugReportController::class, 'update'])->name('bug-reports.update');
+
+    Route::get('/feature-requests', [FeatureRequestController::class, 'index'])->name('feature-requests.index');
+    Route::patch('/feature-requests/{featureRequest}', [FeatureRequestController::class, 'update'])->name('feature-requests.update');
 
     // Leaving support mode is never gated — an admin must always be able to
     // drop out of customer-content access immediately.

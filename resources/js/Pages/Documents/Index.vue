@@ -4,9 +4,10 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import Pagination from '@/Components/Pagination.vue';
+import DateRangePicker from '@/Components/Charts/DateRangePicker.vue';
 import { formatMoney, formatDate } from '@/lib/format';
 import type { SalesDocument } from '@/types/models';
-import { Search, FileText } from 'lucide-vue-next';
+import { Search, FileText, Download } from 'lucide-vue-next';
 
 const props = defineProps<{
     documents: { data: SalesDocument[]; links: { url: string | null; label: string; active: boolean }[] };
@@ -49,6 +50,11 @@ watch(search, () => {
 });
 watch([type, sent, source, issuedFrom, issuedTo], applyFilters);
 
+function setRange(range: { from: string; to: string }) {
+    issuedFrom.value = range.from;
+    issuedTo.value = range.to;
+}
+
 function typeLabel(doc: SalesDocument): string {
     return doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : doc.type === 'storno' ? 'Dobropis (storno)' : 'Drugo';
 }
@@ -82,9 +88,10 @@ function subjectLabel(doc: SalesDocument): string | null {
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-end gap-2">
                 <div class="relative min-w-56 flex-1">
-                    <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <label class="mb-1 block text-[11px] font-medium text-neutral-500">Iskanje</label>
+                    <Search :size="14" class="absolute left-3 top-[calc(50%+8px)] -translate-y-1/2 text-neutral-400" />
                     <input
                         v-model="search"
                         type="text"
@@ -93,48 +100,59 @@ function subjectLabel(doc: SalesDocument): string | null {
                     />
                 </div>
 
-                <select v-model="type" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none">
-                    <option value="">Vse vrste</option>
-                    <option value="invoice">Račun</option>
-                    <option value="proforma">Predračun</option>
-                    <option value="storno">Dobropis (storno)</option>
-                    <option value="other">Drugo</option>
-                </select>
+                <div>
+                    <label class="mb-1 block text-[11px] font-medium text-neutral-500">Vrsta</label>
+                    <select v-model="type" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none">
+                        <option value="">Vse vrste</option>
+                        <option value="invoice">Račun</option>
+                        <option value="proforma">Predračun</option>
+                        <option value="storno">Dobropis (storno)</option>
+                        <option value="other">Drugo</option>
+                    </select>
+                </div>
 
-                <select v-model="sent" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none">
-                    <option value="">Poslano — vsi</option>
-                    <option value="sent">Poslano</option>
-                    <option value="not_sent">Ni poslano</option>
-                </select>
+                <div>
+                    <label class="mb-1 block text-[11px] font-medium text-neutral-500">Poslano</label>
+                    <select v-model="sent" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none">
+                        <option value="">Vsi</option>
+                        <option value="sent">Poslano</option>
+                        <option value="not_sent">Ni poslano</option>
+                    </select>
+                </div>
 
-                <select v-model="source" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none">
-                    <option value="">Vir — vsi</option>
-                    <option value="issued">Izdano v Beležki</option>
-                    <option value="external">Zunanji dokument</option>
-                </select>
+                <div>
+                    <label class="mb-1 block text-[11px] font-medium text-neutral-500">Vir</label>
+                    <select v-model="source" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none">
+                        <option value="">Vsi</option>
+                        <option value="issued">Izdano v Beležki</option>
+                        <option value="external">Zunanji dokument</option>
+                    </select>
+                </div>
 
-                <input v-model="issuedFrom" type="date" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none" />
-                <span class="text-xs text-neutral-400">–</span>
-                <input v-model="issuedTo" type="date" class="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 outline-none" />
+                <div>
+                    <label class="mb-1 block text-[11px] font-medium text-neutral-500">Obdobje</label>
+                    <DateRangePicker :from="issuedFrom" :to="issuedTo" allow-all @change="setRange" />
+                </div>
             </div>
 
             <div v-if="documents.data.length" class="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04]">
-                <table class="w-full min-w-[860px] text-sm">
-                    <thead class="border-b border-neutral-100 bg-neutral-50 text-left text-xs font-medium text-neutral-500">
+                <table class="w-full min-w-[860px] text-xs">
+                    <thead class="border-b border-neutral-100 bg-neutral-50 text-left text-[11px] font-medium text-neutral-500">
                         <tr>
-                            <th class="px-4 py-2.5">Dokument</th>
-                            <th class="px-4 py-2.5">Vrsta</th>
-                            <th class="px-4 py-2.5">Stranka</th>
-                            <th class="px-4 py-2.5">Povezano</th>
-                            <th class="px-4 py-2.5">Izdano</th>
-                            <th class="px-4 py-2.5">Znesek</th>
-                            <th class="px-4 py-2.5">Status</th>
-                            <th class="px-4 py-2.5">Poslano</th>
+                            <th class="px-4 py-2">Dokument</th>
+                            <th class="px-4 py-2">Vrsta</th>
+                            <th class="px-4 py-2">Stranka</th>
+                            <th class="px-4 py-2">Povezano</th>
+                            <th class="px-4 py-2">Izdano</th>
+                            <th class="px-4 py-2">Znesek</th>
+                            <th class="px-4 py-2">Status</th>
+                            <th class="px-4 py-2">Poslano</th>
+                            <th class="px-4 py-2"></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="doc in documents.data" :key="doc.id" class="border-b border-neutral-50 last:border-0 hover:bg-neutral-50">
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-2.5">
                                 <a
                                     :href="route('documents.download', doc.id)"
                                     target="_blank"
@@ -142,43 +160,54 @@ function subjectLabel(doc: SalesDocument): string | null {
                                     class="flex items-center gap-1.5 font-medium text-neutral-800 hover:text-[var(--color-accent-600)] hover:underline"
                                     title="Odpri / prenesi dokument"
                                 >
-                                    <FileText :size="14" class="shrink-0 text-neutral-400" />
+                                    <FileText :size="13" class="shrink-0 text-neutral-400" />
                                     {{ doc.document_number ?? doc.external_document_number ?? '—' }}
                                 </a>
-                                <p v-if="doc.type === 'storno' && doc.corrects_document" class="mt-0.5 text-xs text-neutral-400">
+                                <p v-if="doc.type === 'storno' && doc.corrects_document" class="mt-0.5 text-[11px] text-neutral-400">
                                     Storno računa {{ doc.corrects_document.document_number }}
                                 </p>
                             </td>
-                            <td class="px-4 py-3 text-neutral-600">
+                            <td class="px-4 py-2.5 text-neutral-600">
                                 {{ typeLabel(doc) }}
-                                <span v-if="doc.source === 'external'" class="ml-1 text-xs text-neutral-400">(zunanji)</span>
+                                <span v-if="doc.source === 'external'" class="ml-1 text-[11px] text-neutral-400">(zunanji)</span>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-2.5">
                                 <Link v-if="doc.customer" :href="route('customers.show', doc.customer.id)" class="text-neutral-700 hover:text-[var(--color-accent-600)] hover:underline">
                                     {{ doc.customer.full_name }}
                                 </Link>
                                 <span v-else class="text-neutral-400">—</span>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-2.5">
                                 <Link v-if="subjectRoute(doc)" :href="subjectRoute(doc)!" class="text-neutral-600 hover:text-[var(--color-accent-600)] hover:underline">
                                     {{ subjectLabel(doc) }}
                                 </Link>
                                 <span v-else class="text-neutral-400">—</span>
                             </td>
-                            <td class="px-4 py-3 text-neutral-500">{{ formatDate(doc.issued_at) }}</td>
-                            <td class="px-4 py-3 font-medium text-neutral-900">{{ formatMoney(doc.total) }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-2.5 text-neutral-500">{{ formatDate(doc.issued_at) }}</td>
+                            <td class="px-4 py-2.5 font-medium text-neutral-900">{{ formatMoney(doc.total) }}</td>
+                            <td class="px-4 py-2.5">
                                 <span
                                     v-if="doc.status_label"
-                                    class="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700"
+                                    class="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700"
                                 >
                                     {{ doc.status_label }}
                                 </span>
                                 <span v-else class="text-neutral-500">Izdano</span>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-2.5">
                                 <span v-if="doc.sent_at" class="text-neutral-600">{{ formatDate(doc.sent_at) }}</span>
                                 <span v-else class="text-neutral-400">Ni poslano</span>
+                            </td>
+                            <td class="px-4 py-2.5 text-right">
+                                <a
+                                    :href="route('documents.download', doc.id)"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="inline-flex items-center rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                                    title="Prenesi PDF"
+                                >
+                                    <Download :size="14" />
+                                </a>
                             </td>
                         </tr>
                     </tbody>

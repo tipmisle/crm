@@ -3,7 +3,10 @@ import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import Badge from '@/Components/Badge.vue';
+import { useConfirm } from '@/composables/useConfirm';
 import { formatDateTime } from '@/lib/format';
+
+const { confirm } = useConfirm();
 
 const props = defineProps<{
     user: {
@@ -20,9 +23,9 @@ const props = defineProps<{
     memberships: Array<{ id: number; name: string; is_demo: boolean }>;
 }>();
 
-function toggleActive() {
+async function toggleActive() {
     const action = props.user.is_active ? 'deaktivirati' : 'ponovno aktivirati';
-    if (!confirm(`Ali res želiš ${action} ta račun?`)) return;
+    if (!(await confirm(`Ali res želiš ${action} ta račun?`, { danger: props.user.is_active }))) return;
 
     router.post(route(props.user.is_active ? 'admin.users.deactivate' : 'admin.users.reactivate', props.user.id));
 }

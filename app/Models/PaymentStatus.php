@@ -26,6 +26,8 @@ class PaymentStatus extends Model
         'is_default',
         'is_deposit_default',
         'is_outstanding',
+        'is_paid',
+        'is_refunded',
     ];
 
     protected function casts(): array
@@ -35,6 +37,8 @@ class PaymentStatus extends Model
             'is_default' => 'boolean',
             'is_deposit_default' => 'boolean',
             'is_outstanding' => 'boolean',
+            'is_paid' => 'boolean',
+            'is_refunded' => 'boolean',
         ];
     }
 

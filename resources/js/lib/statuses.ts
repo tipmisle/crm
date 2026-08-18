@@ -1,4 +1,4 @@
-import type { AppointmentStatus, ConversationStatus } from '@/types/models';
+import type { ConversationStatus } from '@/types/models';
 
 /**
  * Order/payment statuses are workspace-editable (Settings → Statusi) and come
@@ -25,16 +25,6 @@ export const MARKETING_DEMO_PAYMENT_STATUS_META: Record<string, { label: string;
     partially_paid: { label: 'Delno plačano', color: '#6A3CCB', bg: '#EBE5FD' },
     paid: { label: 'Plačano', color: '#15803D', bg: '#DCFCE7' },
 };
-
-export const APPOINTMENT_STATUS_META: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
-    requested: { label: 'Povpraševanje', color: '#B45309', bg: '#FEF3C7' },
-    confirmed: { label: 'Potrjeno', color: '#0E7490', bg: '#E0F7FA' },
-    completed: { label: 'Zaključeno', color: '#15803D', bg: '#DCFCE7' },
-    cancelled: { label: 'Preklicano', color: '#B91C1C', bg: '#FEE2E2' },
-    no_show: { label: 'Ni se zglasil/a', color: '#78716C', bg: '#F5F5F4' },
-};
-
-export const APPOINTMENT_STATUS_ORDER: AppointmentStatus[] = ['requested', 'confirmed', 'completed', 'cancelled', 'no_show'];
 
 export const CONVERSATION_STATUS_META: Record<ConversationStatus, { label: string; color: string; bg: string }> = {
     new_enquiry: { label: 'Novo povpraševanje', color: '#6A3CCB', bg: '#EBE5FD' },

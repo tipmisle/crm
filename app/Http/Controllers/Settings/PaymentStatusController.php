@@ -45,9 +45,29 @@ class PaymentStatusController extends Controller
             'is_default' => 'sometimes|boolean',
             'is_deposit_default' => 'sometimes|boolean',
             'is_outstanding' => 'sometimes|boolean',
+            'is_paid' => 'sometimes|boolean',
+            'is_refunded' => 'sometimes|boolean',
         ]);
 
-        $exclusiveFlag = ! empty($data['is_default']) ? 'is_default' : (! empty($data['is_deposit_default']) ? 'is_deposit_default' : null);
+        // Neplačano/Plačano/Vračilo (is_default/is_paid/is_refunded) are
+        // fixed identities, not just protected from deletion — unlike order/
+        // appointment statuses, their label/color can't be edited either.
+        if ($paymentStatus->is_default || $paymentStatus->is_paid || $paymentStatus->is_refunded) {
+            unset($data['label'], $data['color'], $data['bg']);
+        }
+
+        // is_default/is_paid/is_refunded are each a single-status role
+        // (radio buttons in the UI, never unchecked directly) — a workspace
+        // must always have exactly one status filling each role, so a false
+        // value for one of these is a no-op rather than leaving zero
+        // statuses flagged.
+        foreach (['is_default', 'is_paid', 'is_refunded'] as $mandatoryFlag) {
+            if (array_key_exists($mandatoryFlag, $data) && ! $data[$mandatoryFlag]) {
+                unset($data[$mandatoryFlag]);
+            }
+        }
+
+        $exclusiveFlag = collect(['is_default', 'is_deposit_default', 'is_paid', 'is_refunded'])->first(fn ($flag) => ! empty($data[$flag]));
 
         if ($exclusiveFlag) {
             DB::transaction(function () use ($paymentStatus, $data, $exclusiveFlag) {
@@ -66,6 +86,12 @@ class PaymentStatusController extends Controller
     public function destroy(Request $request, PaymentStatus $paymentStatus): RedirectResponse
     {
         abort_if(PaymentStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status plačila.');
+
+        abort_if(
+            $paymentStatus->is_default || $paymentStatus->is_paid || $paymentStatus->is_refunded,
+            422,
+            'Ta status je obvezen (neplačano, plačano ali vračilo) in ga ni mogoče izbrisati. Najprej premakni to oznako na drug status.'
+        );
 
         $workspace = $request->user()->currentWorkspace;
 

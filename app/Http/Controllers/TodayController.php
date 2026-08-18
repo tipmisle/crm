@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\FollowUp;
@@ -52,11 +52,13 @@ class TodayController extends Controller
                 ->orderBy('due_time')
                 ->get();
 
-            $depositsUnpaidCount = Order::query()
-                ->whereIn('status', $openStatuses)
-                ->whereIn('payment_status', PaymentStatus::outstandingKeys())
-                ->where('deposit_amount', '>', 0)
-                ->count();
+            $depositsUnpaidCount = $workspace->accepts_deposit
+                ? Order::query()
+                    ->whereIn('status', $openStatuses)
+                    ->whereIn('payment_status', PaymentStatus::outstandingKeys())
+                    ->where('deposit_amount', '>', 0)
+                    ->count()
+                : 0;
 
             $overdueOrders = Order::query()
                 ->with(['customer'])
@@ -109,7 +111,10 @@ class TodayController extends Controller
         $upcomingAppointments = collect();
 
         if ($workspace->appointments_enabled) {
-            $activeStatuses = [AppointmentStatus::Requested->value, AppointmentStatus::Confirmed->value];
+            $activeStatuses = array_diff(
+                AppointmentStatus::query()->pluck('key')->all(),
+                AppointmentStatus::openExclusionKeys()
+            );
 
             $todaysAppointments = Appointment::query()
                 ->with(['customer', 'channel'])
@@ -118,13 +123,15 @@ class TodayController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
-            $awaitingConfirmationCount = Appointment::query()->where('status', AppointmentStatus::Requested->value)->count();
+            $awaitingConfirmationCount = Appointment::query()->where('status', AppointmentStatus::defaultKey())->count();
 
-            $appointmentDepositsUnpaidCount = Appointment::query()
-                ->whereIn('status', $activeStatuses)
-                ->whereIn('payment_status', PaymentStatus::outstandingKeys())
-                ->where('deposit_amount', '>', 0)
-                ->count();
+            $appointmentDepositsUnpaidCount = $workspace->accepts_deposit
+                ? Appointment::query()
+                    ->whereIn('status', $activeStatuses)
+                    ->whereIn('payment_status', PaymentStatus::outstandingKeys())
+                    ->where('deposit_amount', '>', 0)
+                    ->count()
+                : 0;
 
             $attention->push(
                 [
@@ -147,7 +154,7 @@ class TodayController extends Controller
                     'count' => $awaitingConfirmationCount,
                     'href' => route('appointments.index', [
                         'view' => 'list',
-                        'status' => AppointmentStatus::Requested->value,
+                        'status' => AppointmentStatus::defaultKey(),
                     ]),
                 ],
                 [

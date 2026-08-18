@@ -39,6 +39,13 @@ class BillingController extends Controller
             'cancelAtPeriodEnd' => $subscription?->onGracePeriod() ?? false,
             'pmType' => $workspace->pm_type,
             'pmLastFour' => $workspace->pm_last_four,
+            'invoices' => $workspace->invoices()->map(fn ($invoice) => [
+                'id' => $invoice->id,
+                'date' => $invoice->date()->toDateString(),
+                'total' => $invoice->total(),
+                'paid' => (bool) $invoice->paid,
+                'pdfUrl' => $invoice->invoice_pdf,
+            ])->values(),
         ]);
     }
 

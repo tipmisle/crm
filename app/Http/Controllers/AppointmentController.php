@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AppointmentStatus;
 use App\Models\ActivityLog;
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerIdentity;
@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -69,7 +70,7 @@ class AppointmentController extends Controller
         }
 
         if ($serviceId = $request->get('service_id')) {
-            $query->where('service_id', $serviceId);
+            $query->whereHas('items', fn ($q) => $q->where('catalog_item_id', $serviceId));
         }
 
         if ($channelType = $request->get('channel_type')) {
@@ -91,7 +92,7 @@ class AppointmentController extends Controller
             $query->whereBetween('appointment_date', [Carbon::today($timezone), Carbon::today($timezone)->addDays(7)]);
         } elseif ($due === 'overdue') {
             $query->whereDate('appointment_date', '<', Carbon::today($timezone))
-                ->whereNotIn('status', [AppointmentStatus::Completed->value, AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value]);
+                ->whereNotIn('status', AppointmentStatus::openExclusionKeys());
         }
 
         return $query;
@@ -99,7 +100,7 @@ class AppointmentController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = $this->applyFilters(Appointment::query()->with(['customer', 'channel', 'service']), $request);
+        $query = $this->applyFilters(Appointment::query()->with(['customer', 'channel', 'items']), $request);
 
         $view = $request->get('view', 'list');
 
@@ -141,15 +142,16 @@ class AppointmentController extends Controller
         $timezone = $request->user()->currentWorkspace->timezone;
 
         $query = $this->applyFilters(
-            Appointment::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'service:id,name']),
+            Appointment::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'items']),
             $request
         )->orderByDesc('appointment_date')->orderByDesc('start_time');
 
         $paymentStatusLabels = PaymentStatus::query()->pluck('label', 'key');
+        $appointmentStatusLabels = AppointmentStatus::query()->pluck('label', 'key');
 
         $headers = [
             'Št. termina', 'Datum termina', 'Ura', 'Trajanje', 'Stranka', 'Email', 'Telefon',
-            'Storitev', 'Status', 'Status plačila', 'Cena', 'Ara', 'Plačano', 'Preostanek', 'Vir/kanal',
+            'Storitve', 'Status', 'Status plačila', 'Cena', 'Ara', 'Plačano', 'Preostanek', 'Vir/kanal',
         ];
 
         $rows = $query->lazy(200)->map(fn (Appointment $appointment) => [
@@ -160,8 +162,8 @@ class AppointmentController extends Controller
             $appointment->customer?->full_name,
             $appointment->customer?->email,
             $appointment->customer?->phone,
-            $appointment->service?->name ?? $appointment->service_name,
-            $appointment->status->label(),
+            $appointment->items->map(fn ($item) => $item->quantity == 1 ? $item->title : "{$item->title} ×{$item->quantity}")->join(', '),
+            $appointmentStatusLabels[$appointment->status] ?? $appointment->status,
             $paymentStatusLabels[$appointment->payment_status] ?? $appointment->payment_status,
             $appointment->price,
             $appointment->deposit_amount,
@@ -193,11 +195,6 @@ class AppointmentController extends Controller
         $workspaceId = $request->user()->current_workspace_id;
 
         $data = $request->validate([
-            // A service_id must be a Service (not a Product — both share
-            // the catalog_items table) belonging to THIS workspace; a plain
-            // exists:catalog_items,id would accept either type from any
-            // workspace.
-            'service_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'service'))],
             'service_name' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'customer_id' => ['nullable', Rule::exists('customers', 'id')->where('workspace_id', $workspaceId)],
@@ -206,13 +203,23 @@ class AppointmentController extends Controller
             'appointment_date' => 'required|date',
             'start_time' => 'required',
             'duration_minutes' => 'required|integer|min:5',
-            'price' => 'nullable|numeric|min:0',
             'deposit_amount' => 'nullable|numeric|min:0',
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
+            'items' => 'required|array|min:1',
+            // A catalog_item_id must be a Service (not a Product — both
+            // share the catalog_items table) belonging to THIS workspace;
+            // a plain exists:catalog_items,id would accept either type from
+            // any workspace.
+            'items.*.catalog_item_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'service'))],
+            'items.*.title' => 'required|string|max:255',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.unit_price' => 'required|numeric|min:0',
         ], [
             'customer_name.required_without_all' => 'Termin potrebuje stranko.',
         ]);
+
+        $price = collect($data['items'])->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
 
         $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
         $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : $conversation?->customer;
@@ -255,20 +262,21 @@ class AppointmentController extends Controller
             'customer_id' => $customer->id,
             'conversation_id' => $conversation?->id,
             'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
-            'service_id' => $data['service_id'] ?? null,
             'service_name' => $data['service_name'],
             'description' => $data['description'] ?? null,
             'appointment_date' => $data['appointment_date'],
             'start_time' => $data['start_time'],
             'duration_minutes' => $data['duration_minutes'],
-            'price' => $data['price'] ?? null,
+            'price' => $price,
             'deposit_amount' => $deposit,
             'amount_paid' => 0,
             'payment_status' => $paymentStatus,
-            'status' => AppointmentStatus::Requested,
+            'status' => AppointmentStatus::defaultKey(),
             'internal_notes' => $data['internal_notes'] ?? null,
             'customer_notes' => $data['customer_notes'] ?? null,
         ]);
+
+        $appointment->items()->createMany($data['items']);
 
         ActivityLog::record(
             'appointment_created',
@@ -281,7 +289,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): Response
     {
-        $appointment->load(['customer.appointments', 'customer.primaryChannel', 'conversation.channel', 'channel', 'service', 'salesDocuments.correctsDocument:id,document_number,issued_at,type', 'salesDocuments.correction:id,document_number,corrects_document_id,type', 'workspace']);
+        $appointment->load(['customer.appointments', 'customer.primaryChannel', 'conversation.channel', 'channel', 'items.service', 'salesDocuments.correctsDocument:id,document_number,issued_at,type', 'salesDocuments.correction:id,document_number,corrects_document_id,type', 'workspace']);
 
         $mockNotificationsEnabled = app()->isLocal() || $appointment->workspace?->is_demo;
         $appointment->setAttribute('can_notify_customer', (bool) $appointment->conversation
@@ -291,6 +299,7 @@ class AppointmentController extends Controller
 
         return Inertia::render('Appointments/Show', [
             'appointment' => $appointment,
+            'services' => Service::where('active', true)->orderBy('name')->get(),
             'followUps' => $appointment->followUps()->orderBy('due_at')->get(),
             'activity' => ActivityLog::where('subject_type', Appointment::class)
                 ->where('subject_id', $appointment->id)
@@ -302,24 +311,40 @@ class AppointmentController extends Controller
 
     public function update(Request $request, Appointment $appointment): RedirectResponse
     {
-        // payment_status supports fully-custom workspace keys (checked
-        // against the CURRENT workspace's PaymentStatus rows); status is
-        // the fixed App\Enums\AppointmentStatus set — appointments don't
-        // have a workspace-editable status list.
+        // payment_status and status both support fully-custom workspace
+        // keys (checked against the CURRENT workspace's PaymentStatus/
+        // AppointmentStatus rows).
+        $workspaceId = $appointment->workspace_id;
+
         $data = $request->validate([
             'service_name' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:2000',
             'appointment_date' => 'sometimes|date',
             'start_time' => 'sometimes',
             'duration_minutes' => 'sometimes|integer|min:5',
-            'price' => 'nullable|numeric|min:0',
             'deposit_amount' => 'sometimes|numeric|min:0',
             'amount_paid' => 'sometimes|numeric|min:0',
             'payment_status' => ['sometimes', 'string', Rule::exists('payment_statuses', 'key')->where('workspace_id', $appointment->workspace_id)],
-            'status' => ['sometimes', Rule::enum(AppointmentStatus::class)],
+            'status' => ['sometimes', 'string', Rule::exists('appointment_statuses', 'key')->where('workspace_id', $appointment->workspace_id)],
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
+            'items' => 'sometimes|array|min:1',
+            'items.*.catalog_item_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'service'))],
+            'items.*.title' => 'required_with:items|string|max:255',
+            'items.*.quantity' => 'required_with:items|numeric|min:0.01',
+            'items.*.unit_price' => 'required_with:items|numeric|min:0',
         ]);
+
+        if (isset($data['items'])) {
+            $items = $data['items'];
+            unset($data['items']);
+            $data['price'] = collect($items)->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
+
+            DB::transaction(function () use ($appointment, $items) {
+                $appointment->items()->delete();
+                $appointment->items()->createMany($items);
+            });
+        }
 
         $previousStatus = $appointment->status;
         $previousDate = $appointment->appointment_date->format('Y-m-d');
@@ -327,10 +352,12 @@ class AppointmentController extends Controller
 
         $appointment->update($data);
 
-        if (isset($data['status']) && $data['status'] !== $previousStatus->value) {
+        if (isset($data['status']) && $data['status'] !== $previousStatus) {
+            $statusLabel = AppointmentStatus::query()->where('key', $appointment->status)->value('label') ?? $appointment->status;
+
             ActivityLog::record(
                 'status_changed',
-                "Termin {$appointment->appointment_number} označen kot {$appointment->status->label()}",
+                "Termin {$appointment->appointment_number} označen kot {$statusLabel}",
                 $appointment
             );
         }

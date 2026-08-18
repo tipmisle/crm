@@ -42,6 +42,41 @@ test('a request cannot override the price id used for checkout', function () {
     expect($checkoutRequest['params']['line_items'][0]['price'])->not->toBe('price_attacker_injected');
 });
 
+test('production checkout refuses to start when the display price is not configured', function () {
+    config(['app.env' => 'production', 'billing.display_price' => null, 'billing.display_price_vat_included' => true]);
+    [$workspace, $owner] = createWorkspaceWithUser(withSubscription: false);
+
+    $fake = new FakeStripeHttpClient;
+    ApiRequestor::setHttpClient($fake);
+
+    $this->actingAs($owner)->post(route('billing.activate.checkout'))->assertStatus(500);
+    expect($fake->requests)->toBeEmpty();
+});
+
+test('production checkout refuses to start when the VAT treatment of the display price is not configured', function () {
+    config(['app.env' => 'production', 'billing.display_price' => '9,90 €', 'billing.display_price_vat_included' => null]);
+    [$workspace, $owner] = createWorkspaceWithUser(withSubscription: false);
+
+    $fake = new FakeStripeHttpClient;
+    ApiRequestor::setHttpClient($fake);
+
+    $this->actingAs($owner)->post(route('billing.activate.checkout'))->assertStatus(500);
+    expect($fake->requests)->toBeEmpty();
+});
+
+test('checkout still works outside production even when the display price is unset', function () {
+    config(['billing.display_price' => null, 'billing.display_price_vat_included' => null]);
+    [$workspace, $owner] = createWorkspaceWithUser(withSubscription: false);
+
+    $fake = new FakeStripeHttpClient;
+    ApiRequestor::setHttpClient($fake);
+
+    $response = $this->actingAs($owner)->post(route('billing.activate.checkout'));
+
+    $response->assertRedirect();
+    expect($response->headers->get('Location'))->toContain('checkout.stripe.com');
+});
+
 test('a non-owner member cannot initiate checkout', function () {
     [$workspace, $owner] = createWorkspaceWithUser(withSubscription: false);
     $member = User::factory()->create(['current_workspace_id' => $workspace->id]);

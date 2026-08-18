@@ -14,13 +14,14 @@ export type ConversationStatus =
     | 'closed';
 
 /**
- * Order status and payment status are workspace-editable (Settings → Statusi
- * naročil in plačil) — the actual list of keys/labels/colors in use comes
- * from the shared Inertia props `orderStatuses`/`paymentStatuses`
- * (`StatusOption[]`), not from a fixed union.
+ * Order/payment/appointment status are workspace-editable (Settings →
+ * Statusi) — the actual list of keys/labels/colors in use comes from the
+ * shared Inertia props `orderStatuses`/`paymentStatuses`/
+ * `appointmentStatuses` (`StatusOption[]`), not from a fixed union.
  */
 export type OrderStatus = string;
 export type PaymentStatus = string;
+export type AppointmentStatus = string;
 
 export interface StatusOption {
     id: number;
@@ -31,11 +32,12 @@ export interface StatusOption {
     is_default: boolean;
     is_completed?: boolean;
     is_cancelled?: boolean;
+    is_no_show?: boolean;
+    is_refunded?: boolean;
     is_deposit_default?: boolean;
     is_outstanding?: boolean;
+    is_paid?: boolean;
 }
-
-export type AppointmentStatus = 'requested' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 
 export type MessageSenderType = 'customer' | 'business' | 'system';
 export type MessageType = 'text' | 'image' | 'note' | 'system';
@@ -89,6 +91,9 @@ export interface Customer {
     city?: string | null;
     country?: string | null;
     tax_number?: string | null;
+    is_business?: boolean;
+    company_name?: string | null;
+    vat_registered?: boolean;
     notes: string | null;
     tags: string[] | null;
     primary_channel_id: number | null;
@@ -156,6 +161,16 @@ export interface OrderNote {
     created_at: string;
 }
 
+export interface OrderItem {
+    id: number;
+    order_id: number;
+    catalog_item_id: number | null;
+    product?: Product;
+    title: string;
+    quantity: string | number;
+    unit_price: string | number;
+}
+
 export interface Order {
     id: number;
     order_number: string;
@@ -166,8 +181,7 @@ export interface Order {
     can_notify_customer?: boolean;
     channel_id: number | null;
     channel?: Channel;
-    catalog_item_id: number | null;
-    product?: Product;
+    items: OrderItem[];
     title: string;
     description: string | null;
     due_date: string | null;
@@ -266,6 +280,16 @@ export interface Product {
     active: boolean;
 }
 
+export interface AppointmentItem {
+    id: number;
+    appointment_id: number;
+    catalog_item_id: number | null;
+    service?: Service;
+    title: string;
+    quantity: string | number;
+    unit_price: string | number;
+}
+
 export interface Appointment {
     id: number;
     appointment_number: string;
@@ -276,8 +300,7 @@ export interface Appointment {
     can_notify_customer?: boolean;
     channel_id: number | null;
     channel?: Channel;
-    service_id: number | null;
-    service?: Service;
+    items: AppointmentItem[];
     service_name: string;
     description: string | null;
     appointment_date: string;

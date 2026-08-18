@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { formatMoney } from '@/lib/format';
-import ChannelIcon from '@/Components/ChannelIcon.vue';
 import type { ChannelType } from '@/types/models';
 
 interface BarItem {
@@ -46,16 +45,14 @@ function share(value: number): string {
             class="relative block"
             :class="item.href && 'group -mx-1.5 rounded-md px-1.5 py-0.5 transition hover:bg-neutral-50'"
         >
-            <div class="mb-1 flex items-center justify-between gap-2 text-sm">
+            <div class="mb-1 flex items-center justify-between gap-2 text-xs">
                 <span class="flex min-w-0 items-center gap-2 truncate font-medium text-neutral-800">
-                    <ChannelIcon v-if="item.channelType" :type="item.channelType" size="sm" />
-                    <span v-else class="h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: item.color ?? 'var(--color-accent-500)' }" />
                     <span class="truncate" :class="item.href && 'group-hover:underline'">{{ item.label }}</span>
-                    <span v-if="item.meta" class="shrink-0 text-xs font-normal text-neutral-400">· {{ item.meta }}</span>
+                    <span v-if="item.meta" class="shrink-0 text-[11px] font-normal text-neutral-400">· {{ item.meta }}</span>
                 </span>
                 <span class="shrink-0 text-neutral-500">
                     <span class="font-medium text-neutral-900">{{ formatValue(item.value) }}</span>
-                    <span class="ml-1 text-xs text-neutral-400">({{ share(item.value) }})</span>
+                    <span class="ml-1 text-[11px] text-neutral-400">({{ share(item.value) }})</span>
                 </span>
             </div>
             <div class="h-1 overflow-hidden rounded-full bg-neutral-100/70">
@@ -63,8 +60,8 @@ function share(value: number): string {
                     class="h-full rounded-full"
                     :style="{
                         width: `${(item.value / maxValue) * 100}%`,
-                        backgroundColor: item.color ?? 'var(--color-accent-500)',
-                        opacity: 0.45,
+                        backgroundColor: item.channelType ? '#D1D5DB' : (item.color ?? '#D1D5DB'),
+                        opacity: 0.6,
                     }"
                 />
             </div>

@@ -115,6 +115,9 @@ class CustomerController extends Controller
             'postal_code' => 'nullable|string|max:20',
             'city' => 'nullable|string|max:120',
             'country' => 'nullable|string|max:120',
+            'is_business' => 'sometimes|boolean',
+            'company_name' => 'nullable|string|max:255',
+            'vat_registered' => 'sometimes|boolean',
             'tax_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:2000',
         ]);
@@ -126,6 +129,10 @@ class CustomerController extends Controller
         ]);
 
         ActivityLog::record('customer_created', "Stranka {$customer->full_name} je bila dodana", $customer);
+
+        if ($request->boolean('quick_add')) {
+            return back()->with('success', 'Stranka dodana.');
+        }
 
         return redirect()->route('customers.show', $customer);
     }
@@ -166,6 +173,9 @@ class CustomerController extends Controller
                 'city' => $customer->city,
                 'country' => $customer->country,
                 'tax_number' => $customer->tax_number,
+                'is_business' => $customer->is_business,
+                'company_name' => $customer->company_name,
+                'vat_registered' => $customer->vat_registered,
                 'notes' => $customer->notes,
                 'tags' => $customer->tags,
                 'primary_channel_id' => $customer->primary_channel_id,
@@ -198,6 +208,9 @@ class CustomerController extends Controller
             'postal_code' => 'nullable|string|max:20',
             'city' => 'nullable|string|max:120',
             'country' => 'nullable|string|max:120',
+            'is_business' => 'sometimes|boolean',
+            'company_name' => 'nullable|string|max:255',
+            'vat_registered' => 'sometimes|boolean',
             'tax_number' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:2000',
         ]);

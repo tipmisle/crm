@@ -31,6 +31,7 @@ class OrderStatus extends Model
         'is_default',
         'is_completed',
         'is_cancelled',
+        'is_refunded',
     ];
 
     protected function casts(): array
@@ -40,6 +41,7 @@ class OrderStatus extends Model
             'is_default' => 'boolean',
             'is_completed' => 'boolean',
             'is_cancelled' => 'boolean',
+            'is_refunded' => 'boolean',
         ];
     }
 
@@ -55,13 +57,14 @@ class OrderStatus extends Model
 
     /**
      * Keys that should be excluded from "open"/"active" order queries —
-     * anything flagged completed or cancelled. See Customer::openOrdersCount(),
-     * TodayController, OrderController's overdue filter.
+     * anything flagged completed, cancelled, or refunded. See
+     * Customer::openOrdersCount(), TodayController, OrderController's
+     * overdue filter.
      */
     public static function openExclusionKeys(): array
     {
         return static::query()
-            ->where(fn (Builder $q) => $q->where('is_completed', true)->orWhere('is_cancelled', true))
+            ->where(fn (Builder $q) => $q->where('is_completed', true)->orWhere('is_cancelled', true)->orWhere('is_refunded', true))
             ->pluck('key')
             ->all();
     }
@@ -78,6 +81,16 @@ class OrderStatus extends Model
     public static function completedKeys(): array
     {
         return static::query()->where('is_completed', true)->pluck('key')->all();
+    }
+
+    /**
+     * Keys flagged refunded — a payment was taken and is being returned,
+     * distinct from is_cancelled (never paid). Excluded from revenue math
+     * alongside cancelledKeys() — see RevenueStatsService.
+     */
+    public static function refundedKeys(): array
+    {
+        return static::query()->where('is_refunded', true)->pluck('key')->all();
     }
 
     /**

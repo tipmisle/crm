@@ -16,6 +16,8 @@ function setCompleteLegalConfig(): void
         'legal.cookie_version' => '2026-08-15',
         'legal.vat_registered' => false,
         'legal.vat_number' => null,
+        'billing.display_price' => '9,90 €',
+        'billing.display_price_vat_included' => true,
     ]);
 }
 
@@ -68,9 +70,22 @@ test('legal:check passes when a display price is set together with its VAT-inclu
     expect(Artisan::call('legal:check'))->toBe(0);
 });
 
-test('legal:check passes when no display price is set at all', function () {
+test('legal:check fails when the launch display price is missing', function () {
     setCompleteLegalConfig();
-    config(['billing.display_price' => null, 'billing.display_price_vat_included' => null]);
+    config(['billing.display_price' => null]);
 
-    expect(Artisan::call('legal:check'))->toBe(0);
+    Artisan::call('legal:check');
+
+    expect(Artisan::output())->toContain('Missing required billing config: billing.display_price');
+    expect(Artisan::call('legal:check'))->toBe(1);
+});
+
+test('legal:check fails when the VAT treatment of the launch price is missing', function () {
+    setCompleteLegalConfig();
+    config(['billing.display_price_vat_included' => null]);
+
+    Artisan::call('legal:check');
+
+    expect(Artisan::output())->toContain('Missing required billing config: billing.display_price_vat_included');
+    expect(Artisan::call('legal:check'))->toBe(1);
 });

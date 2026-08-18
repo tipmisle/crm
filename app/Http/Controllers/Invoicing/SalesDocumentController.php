@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Invoicing;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Appointment;
+use App\Models\AppointmentItem;
 use App\Models\InvoiceSettings;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\SalesDocument;
 use App\Services\Invoicing\SalesDocumentCalculationService;
 use App\Services\Invoicing\SalesDocumentNumberingService;
@@ -33,20 +35,26 @@ class SalesDocumentController extends Controller
 
     public function createForAppointment(Request $request, Appointment $appointment): Response
     {
-        $this->appointment = $appointment->load('customer');
+        $this->appointment = $appointment->load(['customer', 'items']);
 
         return $this->create($request, $this->appointmentAsOrder($appointment));
     }
 
     public function storeForAppointment(Request $request, Appointment $appointment): RedirectResponse
     {
-        $this->appointment = $appointment->load('customer');
+        $this->appointment = $appointment->load(['customer', 'items']);
 
         return $this->store($request, $this->appointmentAsOrder($appointment));
     }
 
     public function create(Request $request, Order $order): Response
     {
+        // A real Order needs its items loaded; the synthetic Order built by
+        // appointmentAsOrder() already has an `items` relation set in
+        // memory (not persisted), so a fresh load() would wipe it out.
+        if (! $order->relationLoaded('items')) {
+            $order->load('items');
+        }
         $order->load('customer');
         $workspace = $request->user()->currentWorkspace;
         $settings = InvoiceSettings::forWorkspace($workspace->id);
@@ -72,13 +80,13 @@ class SalesDocumentController extends Controller
                 'country' => $customer?->country,
                 'tax_number' => $customer?->tax_number,
             ],
-            'defaultLineItems' => [[
-                'description' => $order->title,
-                'quantity' => 1,
+            'defaultLineItems' => $order->items->map(fn (OrderItem $item) => [
+                'description' => $item->title,
+                'quantity' => (float) $item->quantity,
                 'unit' => 'kos',
-                'unit_price' => (float) $order->price,
+                'unit_price' => (float) $item->unit_price,
                 'vat_rate' => $settings->vat_registered ? 22 : 0,
-            ]],
+            ])->all(),
         ]);
     }
 
@@ -91,6 +99,7 @@ class SalesDocumentController extends Controller
 
         $data = $request->validate([
             'type' => 'required|in:proforma,invoice',
+            'document_number' => ['nullable', 'string', 'max:50', 'regex:/\d+$/'],
             'issued_at' => 'required|date',
             'service_date' => 'nullable|date',
             'due_date' => 'nullable|date',
@@ -178,8 +187,19 @@ class SalesDocumentController extends Controller
                 $sellerSnapshot, $customerSnapshot, $lineItems, $paymentSnapshot,
                 $subtotal, $vatTotal, $total, $request, $calculation, $pdfService, &$writtenPdfPath,
             ) {
+                // Only treat this as a manual override when it actually differs
+                // from what auto-numbering would assign — keeps the untouched
+                // (prepopulated) case byte-identical to plain auto-increment,
+                // so it never pays the extra existence check or risks a race
+                // turning into a user-facing "number taken" error.
+                $override = null;
+                if (! empty($data['document_number']) && $data['document_number'] !== $settings->nextNumberPreview($data['type'])) {
+                    preg_match('/^(.*?)(\d+)$/', $data['document_number'], $matches);
+                    $override = ['prefix' => $matches[1], 'number' => (int) $matches[2]];
+                }
+
                 $numbering = app(SalesDocumentNumberingService::class);
-                $issued = $numbering->issueNumber($settings, $data['type']);
+                $issued = $numbering->issueNumber($settings, $data['type'], $override);
 
                 $document = SalesDocument::create([
                     'workspace_id' => $workspace->id,
@@ -301,6 +321,11 @@ class SalesDocumentController extends Controller
         $order->id = $appointment->id;
         $order->order_number = $appointment->appointment_number;
         $order->setRelation('customer', $appointment->customer);
+        $order->setRelation('items', $appointment->items->map(fn (AppointmentItem $item) => new OrderItem([
+            'title' => $item->title,
+            'quantity' => $item->quantity,
+            'unit_price' => $item->unit_price,
+        ])));
 
         return $order;
     }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import CustomerTypeToggle from '@/Components/CustomerTypeToggle.vue';
 
 const form = useForm({
     full_name: '',
@@ -11,6 +12,9 @@ const form = useForm({
     city: '',
     country: '',
     tax_number: '',
+    is_business: false,
+    company_name: '',
+    vat_registered: false,
     notes: '',
 });
 
@@ -32,7 +36,22 @@ function submit() {
 
             <form class="mt-6 space-y-5" @submit.prevent="submit">
                 <div>
-                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Polno ime</label>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Vrsta stranke</label>
+                    <CustomerTypeToggle v-model="form.is_business" />
+                </div>
+
+                <div v-if="form.is_business">
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Ime podjetja</label>
+                    <input
+                        v-model="form.company_name"
+                        type="text"
+                        class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                    />
+                    <p v-if="form.errors.company_name" class="mt-1 text-xs text-red-500">{{ form.errors.company_name }}</p>
+                </div>
+
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-neutral-700">Ime</label>
                     <input
                         v-model="form.full_name"
                         type="text"
@@ -102,7 +121,7 @@ function submit() {
                         />
                         <p v-if="form.errors.country" class="mt-1 text-xs text-red-500">{{ form.errors.country }}</p>
                     </div>
-                    <div>
+                    <div v-if="form.is_business">
                         <label class="mb-1.5 block text-sm font-medium text-neutral-700">Davčna številka</label>
                         <input
                             v-model="form.tax_number"
@@ -110,6 +129,23 @@ function submit() {
                             class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                         />
                         <p v-if="form.errors.tax_number" class="mt-1 text-xs text-red-500">{{ form.errors.tax_number }}</p>
+
+                        <label
+                            class="mt-2 flex cursor-pointer items-center justify-between gap-3 rounded-md border border-neutral-200 px-3 py-2 transition select-none"
+                            :class="form.vat_registered ? 'border-[var(--color-accent-300)] bg-[var(--color-accent-50)]' : 'hover:bg-neutral-50'"
+                        >
+                            <span class="text-sm text-neutral-700">Zavezanec za DDV?</span>
+                            <span
+                                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors"
+                                :class="form.vat_registered ? 'bg-[var(--color-ink-900)]' : 'bg-neutral-300'"
+                            >
+                                <span
+                                    class="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform"
+                                    :class="form.vat_registered ? 'translate-x-4.5' : 'translate-x-1'"
+                                />
+                            </span>
+                            <input v-model="form.vat_registered" type="checkbox" class="sr-only" />
+                        </label>
                     </div>
                 </div>
 

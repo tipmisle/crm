@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AppointmentStatus;
 use App\Models\Conversation;
 use App\Models\OrderStatus;
 use App\Models\PaymentStatus;
@@ -45,11 +46,15 @@ class HandleInertiaRequests extends Middleware
             : null;
 
         $orderStatuses = $user?->current_workspace_id
-            ? OrderStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_completed', 'is_cancelled'])
+            ? OrderStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_completed', 'is_cancelled', 'is_refunded'])
             : null;
 
         $paymentStatuses = $user?->current_workspace_id
             ? PaymentStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_deposit_default', 'is_outstanding'])
+            : null;
+
+        $appointmentStatuses = $user?->current_workspace_id
+            ? AppointmentStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_completed', 'is_cancelled', 'is_no_show', 'is_refunded'])
             : null;
 
         return [
@@ -69,6 +74,7 @@ class HandleInertiaRequests extends Middleware
             'billing' => $billing,
             'orderStatuses' => $orderStatuses,
             'paymentStatuses' => $paymentStatuses,
+            'appointmentStatuses' => $appointmentStatuses,
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

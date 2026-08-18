@@ -3,6 +3,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import Badge from '@/Components/Badge.vue';
+import { useConfirm } from '@/composables/useConfirm';
 import { formatDateTime } from '@/lib/format';
 
 interface Workspace {
@@ -44,6 +45,8 @@ const props = defineProps<{
     } | null;
 }>();
 
+const { confirm } = useConfirm();
+
 const usageLabels: Record<string, string> = {
     members: 'Člani',
     customers: 'Stranke',
@@ -62,8 +65,8 @@ function startSupportSession() {
     form.post(route('admin.workspaces.support.start', props.workspace.id));
 }
 
-function deleteDemo() {
-    if (!confirm(`Izbriši demo delovni prostor "${props.workspace.name}"? Tega dejanja ni mogoče razveljaviti.`)) return;
+async function deleteDemo() {
+    if (!(await confirm(`Izbriši demo delovni prostor "${props.workspace.name}"? Tega dejanja ni mogoče razveljaviti.`, { danger: true }))) return;
     router.delete(route('admin.workspaces.destroy-demo', props.workspace.id));
 }
 </script>

@@ -4,7 +4,7 @@ import { computed, onMounted, onUnmounted, watch } from 'vue';
 const props = withDefaults(
     defineProps<{
         show?: boolean;
-        maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+        maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
         closeable?: boolean;
     }>(),
     {
@@ -50,28 +50,31 @@ const maxWidthClass = computed(() => {
         lg: 'sm:max-w-lg',
         xl: 'sm:max-w-xl',
         '2xl': 'sm:max-w-2xl',
+        '3xl': 'sm:max-w-3xl',
     }[props.maxWidth];
 });
 </script>
 
 <template>
-    <Transition
-        enter-active-class="transition duration-150 ease-out"
-        enter-from-class="opacity-0"
-        leave-active-class="transition duration-100 ease-in"
-        leave-to-class="opacity-0"
-    >
-        <div
-            v-if="show"
-            class="fixed inset-0 z-50 overflow-y-auto bg-[var(--color-ink-900)]/40 px-4 py-6 sm:px-0"
-            @click.self="close"
+    <Teleport to="body">
+        <Transition
+            enter-active-class="transition duration-150 ease-out"
+            enter-from-class="opacity-0"
+            leave-active-class="transition duration-100 ease-in"
+            leave-to-class="opacity-0"
         >
             <div
-                class="mb-6 transform overflow-hidden rounded-lg bg-white shadow-xl transition-all sm:mx-auto sm:w-full"
-                :class="maxWidthClass"
+                v-if="show"
+                class="fixed inset-0 z-50 flex min-h-full items-center justify-center overflow-y-auto bg-[var(--color-ink-900)]/40 px-4 py-6 sm:px-0"
+                @click.self="close"
             >
-                <slot />
+                <div
+                    class="my-auto w-full transform overflow-hidden rounded-lg bg-white shadow-xl transition-all"
+                    :class="maxWidthClass"
+                >
+                    <slot />
+                </div>
             </div>
-        </div>
-    </Transition>
+        </Transition>
+    </Teleport>
 </template>

@@ -45,6 +45,10 @@ class Csv
 
     private static function sanitizeCell(mixed $value): string
     {
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
+        }
+
         $value = (string) ($value ?? '');
 
         if ($value !== '' && in_array($value[0], self::FORMULA_TRIGGER_CHARS, true)) {

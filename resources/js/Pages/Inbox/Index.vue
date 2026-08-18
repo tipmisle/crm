@@ -9,17 +9,13 @@ import Badge from '@/Components/Badge.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import MessageBubble from '@/Components/MessageBubble.vue';
 import EmptyState from '@/Components/EmptyState.vue';
-import FollowUpModal from '@/Components/FollowUpModal.vue';
-import EditCustomerModal from '@/Components/EditCustomerModal.vue';
-import Modal from '@/Components/Modal.vue';
+import CustomerContactCard from '@/Components/CustomerContactCard.vue';
 import { relativeTime, formatMoney, formatDate, formatTime } from '@/lib/format';
 import { CONVERSATION_STATUS_META } from '@/lib/statuses';
 import { channelMeta } from '@/lib/channels';
 import {
     Send,
     Plus,
-    Bell,
-    StickyNote,
     UserRound,
     Inbox as InboxIcon,
     ExternalLink,
@@ -29,7 +25,6 @@ import {
     CalendarPlus,
     ArrowLeft,
     Info,
-    Pencil,
 } from 'lucide-vue-next';
 import type { Channel, ChannelType, ConversationStatus, Message } from '@/types/models';
 
@@ -55,6 +50,10 @@ interface CustomerContext {
     city: string | null;
     country: string | null;
     tax_number: string | null;
+    is_business: boolean;
+    company_name: string | null;
+    vat_registered: boolean;
+    first_contacted_at: string | null;
     notes: string | null;
     identities: { channel_type: string; username: string | null }[];
     total_orders_count: number;
@@ -87,6 +86,7 @@ const props = defineProps<{
     conversations: ConversationListItem[];
     conversation: ConversationDetail | null;
     filters?: { channel_type?: string };
+    hasConnectedChannel: boolean;
 }>();
 
 const messageForm = useForm({ body: '' });
@@ -218,21 +218,6 @@ function createCustomer() {
     });
 }
 
-const followUpOpen = ref(false);
-const editCustomerOpen = ref(false);
-const noteModalOpen = ref(false);
-const noteForm = useForm({ note: '' });
-
-function submitNote() {
-    if (!props.conversation) return;
-    noteForm.post(route('inbox.notes.store', props.conversation.id), {
-        onSuccess: () => {
-            noteForm.reset();
-            noteModalOpen.value = false;
-        },
-    });
-}
-
 // Below lg, the three panes (list / thread / customer info) become three
 // separate full-width screens — a conversation list, a chat, and an info
 // drawer — the way a mobile messaging app works, instead of three squeezed
@@ -240,11 +225,6 @@ function submitNote() {
 // is always visible as its own column regardless of this flag.
 const customerPanelOpen = ref(false);
 watch(() => props.conversation?.id, () => (customerPanelOpen.value = false));
-
-const followableId = computed(() => props.conversation?.customer?.id ?? props.conversation?.id ?? 0);
-const followableType = computed(() =>
-    props.conversation?.customer ? 'App\\Models\\Customer' : 'App\\Models\\Conversation',
-);
 
 const activeChannelFilter = computed(() => props.filters?.channel_type as ChannelType | undefined);
 const activeChannelFilterLabel = computed(() =>
@@ -303,7 +283,8 @@ const activeChannelFilterLabel = computed(() =>
                     </div>
                 </Link>
 
-                <EmptyState v-if="!conversations.length" title="Ni še pogovorov" />
+                <EmptyState v-if="!conversations.length && !hasConnectedChannel" title="Ni povezanih sporočil" />
+                <EmptyState v-else-if="!conversations.length" title="Ni še pogovorov" />
             </div>
 
             <div class="flex-1 flex-col" :class="conversation ? 'flex' : 'hidden lg:flex'">
@@ -438,6 +419,21 @@ const activeChannelFilterLabel = computed(() =>
                     </div>
                 </template>
 
+                <div v-else-if="!hasConnectedChannel" class="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-accent-100)] text-[var(--color-accent-600)]">
+                        <InboxIcon :size="22" />
+                    </div>
+                    <div>
+                        <p class="text-base font-semibold text-neutral-900">Poveži Instagram ali Facebook</p>
+                        <p class="mx-auto mt-1 max-w-xs text-sm text-neutral-500">Ko povežeš račun, bodo sporočila strank prihajala sem.</p>
+                    </div>
+                    <Link
+                        :href="route('settings.edit')"
+                        class="mt-2 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--color-ink-800)]"
+                    >
+                        Poveži Instagram ali Facebook
+                    </Link>
+                </div>
                 <EmptyState v-else title="Izberi pogovor" description="Izberi pogovor s seznama, da vidiš potek sporočil.">
                     <template #icon><InboxIcon :size="28" /></template>
                 </EmptyState>
@@ -472,39 +468,11 @@ const activeChannelFilterLabel = computed(() =>
                 </button>
 
                 <template v-if="conversation.customer">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="flex min-w-0 items-center gap-3">
-                            <Avatar :name="conversation.customer.full_name" :src="conversation.avatar_url" size="lg" />
-                            <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold text-neutral-900">{{ conversation.customer.full_name }}</p>
-                                <p class="truncate text-xs text-neutral-500">{{ conversation.customer_username }}</p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            class="flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-700"
-                            @click="editCustomerOpen = true"
-                        >
-                            <Pencil :size="12" /> Uredi
-                        </button>
-                    </div>
-
-                    <div class="mt-4 space-y-1.5 text-sm">
-                        <p class="text-neutral-700"><span class="text-neutral-400">E-pošta: </span>{{ conversation.customer.email ?? '—' }}</p>
-                        <p class="text-neutral-700"><span class="text-neutral-400">Telefon: </span>{{ conversation.customer.phone ?? '—' }}</p>
-                        <p v-if="conversation.customer.address_line || conversation.customer.city" class="text-neutral-700">
-                            <span class="text-neutral-400">Naslov: </span
-                            >{{ [conversation.customer.address_line, [conversation.customer.postal_code, conversation.customer.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') }}
-                        </p>
-                    </div>
-
-                    <div v-if="conversation.customer.notes" class="mt-3 rounded-md bg-neutral-50 p-2.5 text-xs text-neutral-600">
-                        {{ conversation.customer.notes }}
-                    </div>
+                    <CustomerContactCard :customer="conversation.customer" show-name show-notes />
 
                     <div v-if="ordersEnabled" class="mt-5 rounded-lg border border-neutral-200 p-3">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Poslovni podatki</h3>
-                        <div class="mt-2 space-y-1.5 text-sm text-neutral-700">
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Poslovni podatki</h3>
+                        <div class="mt-2 space-y-1.5 text-xs text-neutral-700">
                             <p>
                                 Prejšnjih naročil:
                                 <Link
@@ -528,8 +496,8 @@ const activeChannelFilterLabel = computed(() =>
                     </div>
 
                     <div v-if="appointmentsEnabled" class="mt-5 rounded-lg border border-neutral-200 p-3">
-                        <h3 class="text-xs font-semibold text-neutral-500 uppercase">Termini</h3>
-                        <div class="mt-2 space-y-1.5 text-sm text-neutral-700">
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Termini</h3>
+                        <div class="mt-2 space-y-1.5 text-xs text-neutral-700">
                             <p>
                                 Prejšnjih terminov:
                                 <Link
@@ -568,25 +536,10 @@ const activeChannelFilterLabel = computed(() =>
                         <Link
                             v-if="appointmentsEnabled"
                             :href="route('appointments.create', { customer_id: conversation.customer.id, conversation_id: conversation.id })"
-                            class="flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-                            :class="ordersEnabled ? 'bg-neutral-700' : 'bg-[var(--color-ink-900)] hover:bg-[var(--color-ink-800)]'"
+                            class="flex items-center justify-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--color-ink-800)]"
                         >
                             <CalendarPlus :size="14" /> Rezerviraj termin
                         </Link>
-                        <button
-                            type="button"
-                            class="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                            @click="noteModalOpen = true"
-                        >
-                            <StickyNote :size="14" /> Dodaj opombo
-                        </button>
-                        <button
-                            type="button"
-                            class="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                            @click="followUpOpen = true"
-                        >
-                            <Bell :size="14" /> Nastavi opomnik
-                        </button>
                         <Link
                             :href="route('customers.show', conversation.customer.id)"
                             class="flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
@@ -638,45 +591,5 @@ const activeChannelFilterLabel = computed(() =>
             </div>
         </div>
 
-        <FollowUpModal
-            v-if="conversation"
-            :show="followUpOpen"
-            :followable-type="followableType"
-            :followable-id="followableId"
-            :default-note="`Opomnik za ${conversation.customer?.full_name ?? conversation.customer_display_name}`"
-            @close="followUpOpen = false"
-        />
-
-        <EditCustomerModal
-            v-if="conversation?.customer"
-            :show="editCustomerOpen"
-            :customer="conversation.customer"
-            show-name
-            @close="editCustomerOpen = false"
-        />
-
-        <Modal :show="noteModalOpen" max-width="sm" @close="noteModalOpen = false">
-            <form class="p-6" @submit.prevent="submitNote">
-                <h2 class="text-base font-semibold text-neutral-900">Dodaj opombo</h2>
-                <textarea
-                    v-model="noteForm.note"
-                    rows="4"
-                    placeholder="Dodaj opombo o tej stranki …"
-                    class="mt-3 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
-                />
-                <div class="mt-4 flex justify-end gap-2">
-                    <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100" @click="noteModalOpen = false">
-                        Prekliči
-                    </button>
-                    <button
-                        type="submit"
-                        :disabled="noteForm.processing"
-                        class="rounded-md bg-[var(--color-ink-900)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-ink-800)] disabled:opacity-50"
-                    >
-                        Shrani opombo
-                    </button>
-                </div>
-            </form>
-        </Modal>
     </AppLayout>
 </template>

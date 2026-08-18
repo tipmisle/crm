@@ -5,6 +5,7 @@ import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import Modal from '@/Components/Modal.vue';
+import { useConfirm } from '@/composables/useConfirm';
 import { GripVertical, Plus, Trash2 } from 'lucide-vue-next';
 
 interface StatusRow {
@@ -17,18 +18,25 @@ interface StatusRow {
     is_default: boolean;
     is_completed?: boolean;
     is_cancelled?: boolean;
+    is_no_show?: boolean;
+    is_refunded?: boolean;
     is_deposit_default?: boolean;
     is_outstanding?: boolean;
+    is_paid?: boolean;
     in_use: boolean;
 }
 
 const props = defineProps<{
     orderStatuses: StatusRow[];
     paymentStatuses: StatusRow[];
+    appointmentStatuses: StatusRow[];
 }>();
+
+const { confirm } = useConfirm();
 
 const orderList = ref<StatusRow[]>([...props.orderStatuses]);
 const paymentList = ref<StatusRow[]>([...props.paymentStatuses]);
+const appointmentList = ref<StatusRow[]>([...props.appointmentStatuses]);
 
 function reorderOrder() {
     router.post(
@@ -46,6 +54,14 @@ function reorderPayment() {
     );
 }
 
+function reorderAppointment() {
+    router.post(
+        route('settings.statuses.appointment.reorder'),
+        { ids: appointmentList.value.map((s) => s.id) },
+        { preserveScroll: true, preserveState: true },
+    );
+}
+
 function updateOrderStatus(status: StatusRow, data: Partial<StatusRow>) {
     router.patch(route('settings.statuses.order.update', status.id), data, { preserveScroll: true });
 }
@@ -54,20 +70,78 @@ function updatePaymentStatus(status: StatusRow, data: Partial<StatusRow>) {
     router.patch(route('settings.statuses.payment.update', status.id), data, { preserveScroll: true });
 }
 
-const reassign = ref<{ type: 'order' | 'payment'; status: StatusRow; reassignTo: string; processing: boolean; error: string } | null>(null);
+function updateAppointmentStatus(status: StatusRow, data: Partial<StatusRow>) {
+    router.patch(route('settings.statuses.appointment.update', status.id), data, { preserveScroll: true });
+}
+
+// A workspace must always have exactly one order status filling each of
+// these 4 fixed roles, and one payment status filling each of these 3 — see
+// Settings\OrderStatusController/PaymentStatusController::destroy(), which
+// rejects deleting whichever status currently holds a role. A status either
+// IS one of these fixed roles (shown as a plain badge, no selector — its
+// identity makes the role obvious) or it's a plain status offering a
+// dropdown to become one, which moves the role off whatever status held it
+// before.
+const ORDER_ROLES: { flag: 'is_default' | 'is_completed' | 'is_cancelled' | 'is_refunded'; label: string }[] = [
+    { flag: 'is_default', label: 'privzet' },
+    { flag: 'is_completed', label: 'zaključeno' },
+    { flag: 'is_cancelled', label: 'preklicano' },
+    { flag: 'is_refunded', label: 'vračilo' },
+];
+
+const PAYMENT_ROLES: { flag: 'is_default' | 'is_paid' | 'is_refunded'; label: string }[] = [
+    { flag: 'is_default', label: 'privzet' },
+    { flag: 'is_paid', label: 'plačano' },
+    { flag: 'is_refunded', label: 'vračilo' },
+];
+
+const APPOINTMENT_ROLES: { flag: 'is_default' | 'is_completed' | 'is_cancelled' | 'is_no_show' | 'is_refunded'; label: string }[] = [
+    { flag: 'is_default', label: 'privzet' },
+    { flag: 'is_completed', label: 'zaključeno' },
+    { flag: 'is_cancelled', label: 'preklicano' },
+    { flag: 'is_no_show', label: 'ni se zglasil/a' },
+    { flag: 'is_refunded', label: 'vračilo' },
+];
+
+function orderRole(status: StatusRow) {
+    return ORDER_ROLES.find((role) => status[role.flag]) ?? null;
+}
+
+function paymentRole(status: StatusRow) {
+    return PAYMENT_ROLES.find((role) => status[role.flag]) ?? null;
+}
+
+function appointmentRole(status: StatusRow) {
+    return APPOINTMENT_ROLES.find((role) => status[role.flag]) ?? null;
+}
+
+function isOrderStatusProtected(status: StatusRow) {
+    return orderRole(status) !== null;
+}
+
+function isPaymentStatusProtected(status: StatusRow) {
+    return paymentRole(status) !== null;
+}
+
+function isAppointmentStatusProtected(status: StatusRow) {
+    return appointmentRole(status) !== null;
+}
+
+const reassign = ref<{ type: 'order' | 'payment' | 'appointment'; status: StatusRow; reassignTo: string; processing: boolean; error: string } | null>(null);
 
 const reassignOptions = computed(() => {
     if (!reassign.value) return [];
-    const list = reassign.value.type === 'order' ? orderList.value : paymentList.value;
+    const list = reassign.value.type === 'order' ? orderList.value : reassign.value.type === 'payment' ? paymentList.value : appointmentList.value;
     return list.filter((s) => s.id !== reassign.value!.status.id);
 });
 
-function deleteOrderStatus(status: StatusRow) {
+async function deleteOrderStatus(status: StatusRow) {
+    if (isOrderStatusProtected(status)) return;
     if (status.in_use) {
         reassign.value = { type: 'order', status, reassignTo: '', processing: false, error: '' };
         return;
     }
-    if (!confirm(`Izbrišeš status naročila "${status.label}"?`)) return;
+    if (!(await confirm(`Izbrišeš status naročila "${status.label}"?`, { danger: true }))) return;
     router.delete(route('settings.statuses.order.destroy', status.id), {
         preserveScroll: true,
         onSuccess: () => {
@@ -76,12 +150,13 @@ function deleteOrderStatus(status: StatusRow) {
     });
 }
 
-function deletePaymentStatus(status: StatusRow) {
+async function deletePaymentStatus(status: StatusRow) {
+    if (isPaymentStatusProtected(status)) return;
     if (status.in_use) {
         reassign.value = { type: 'payment', status, reassignTo: '', processing: false, error: '' };
         return;
     }
-    if (!confirm(`Izbrišeš status plačila "${status.label}"?`)) return;
+    if (!(await confirm(`Izbrišeš status plačila "${status.label}"?`, { danger: true }))) return;
     router.delete(route('settings.statuses.payment.destroy', status.id), {
         preserveScroll: true,
         onSuccess: () => {
@@ -90,11 +165,27 @@ function deletePaymentStatus(status: StatusRow) {
     });
 }
 
+async function deleteAppointmentStatus(status: StatusRow) {
+    if (isAppointmentStatusProtected(status)) return;
+    if (status.in_use) {
+        reassign.value = { type: 'appointment', status, reassignTo: '', processing: false, error: '' };
+        return;
+    }
+    if (!(await confirm(`Izbrišeš status termina "${status.label}"?`, { danger: true }))) return;
+    router.delete(route('settings.statuses.appointment.destroy', status.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            appointmentList.value = appointmentList.value.filter((s) => s.id !== status.id);
+        },
+    });
+}
+
 function confirmReassignAndDelete() {
     if (!reassign.value || !reassign.value.reassignTo) return;
 
     const { type, status, reassignTo } = reassign.value;
-    const routeName = type === 'order' ? 'settings.statuses.order.destroy' : 'settings.statuses.payment.destroy';
+    const routeName =
+        type === 'order' ? 'settings.statuses.order.destroy' : type === 'payment' ? 'settings.statuses.payment.destroy' : 'settings.statuses.appointment.destroy';
 
     reassign.value.processing = true;
 
@@ -104,8 +195,10 @@ function confirmReassignAndDelete() {
         onSuccess: () => {
             if (type === 'order') {
                 orderList.value = orderList.value.filter((s) => s.id !== status.id);
-            } else {
+            } else if (type === 'payment') {
                 paymentList.value = paymentList.value.filter((s) => s.id !== status.id);
+            } else {
+                appointmentList.value = appointmentList.value.filter((s) => s.id !== status.id);
             }
             reassign.value = null;
         },
@@ -120,6 +213,7 @@ function confirmReassignAndDelete() {
 
 const newOrderForm = useForm({ label: '', color: '#4B5563', bg: '#F1F2F4' });
 const newPaymentForm = useForm({ label: '', color: '#4B5563', bg: '#F1F2F4' });
+const newAppointmentForm = useForm({ label: '', color: '#4B5563', bg: '#F1F2F4' });
 
 function addOrderStatus() {
     if (!newOrderForm.label.trim()) return;
@@ -142,6 +236,17 @@ function addPaymentStatus() {
         },
     });
 }
+
+function addAppointmentStatus() {
+    if (!newAppointmentForm.label.trim()) return;
+    newAppointmentForm.post(route('settings.statuses.appointment.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            newAppointmentForm.reset();
+            router.reload({ only: ['appointmentStatuses'], onSuccess: (page: any) => (appointmentList.value = [...page.props.appointmentStatuses]) });
+        },
+    });
+}
 </script>
 
 <template>
@@ -149,134 +254,200 @@ function addPaymentStatus() {
 
     <AppLayout>
         <template #header>
-            <h1 class="text-sm font-semibold text-neutral-900">Statusi naročil in plačil</h1>
+            <h1 class="text-sm font-semibold text-neutral-900">Statusi naročil, plačil in terminov</h1>
         </template>
 
-        <div class="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-            <SectionCard
-                title="Statusi naročil"
-                subtitle="Poimenuj, prebarvaj, dodaj ali odstrani statuse, ki jih uporabljaš za naročila"
-            >
-                <draggable v-model="orderList" item-key="id" handle=".drag-handle" class="space-y-2" @change="reorderOrder">
-                    <template #item="{ element: status }: { element: StatusRow }">
-                        <div class="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2.5">
-                            <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300" />
-                            <input
-                                type="color"
-                                :value="status.bg"
-                                class="h-7 w-7 shrink-0 cursor-pointer rounded border border-neutral-200"
-                                @change="updateOrderStatus(status, { bg: ($event.target as HTMLInputElement).value })"
-                            />
-                            <input
-                                :value="status.label"
-                                type="text"
-                                class="min-w-0 flex-1 rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none focus:border-neutral-400"
-                                @change="updateOrderStatus(status, { label: ($event.target as HTMLInputElement).value })"
-                            />
-                            <label class="flex shrink-0 items-center gap-1 text-xs text-neutral-500" title="Privzet status za nova naročila">
-                                <input
-                                    type="radio"
-                                    name="order-default"
-                                    :checked="status.is_default"
-                                    @change="updateOrderStatus(status, { is_default: true })"
-                                />
-                                privzet
-                            </label>
-                            <label class="flex shrink-0 items-center gap-1 text-xs text-neutral-500" title="Šteje kot zaključeno naročilo">
-                                <input
-                                    type="checkbox"
-                                    :checked="status.is_completed"
-                                    @change="updateOrderStatus(status, { is_completed: ($event.target as HTMLInputElement).checked })"
-                                />
-                                zaključeno
-                            </label>
-                            <label class="flex shrink-0 items-center gap-1 text-xs text-neutral-500" title="Šteje kot preklicano naročilo">
-                                <input
-                                    type="checkbox"
-                                    :checked="status.is_cancelled"
-                                    @change="updateOrderStatus(status, { is_cancelled: ($event.target as HTMLInputElement).checked })"
-                                />
-                                preklicano
-                            </label>
-                            <button
-                                type="button"
-                                :title="status.in_use ? 'Status je v uporabi — izberi, kam prestaviti obstoječa naročila' : 'Izbriši status'"
-                                class="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
-                                @click="deleteOrderStatus(status)"
-                            >
-                                <Trash2 :size="14" />
-                            </button>
-                        </div>
-                    </template>
-                </draggable>
-
-                <form class="mt-3 flex items-center gap-2" @submit.prevent="addOrderStatus">
-                    <input
-                        v-model="newOrderForm.label"
-                        type="text"
-                        placeholder="Nov status naročila…"
-                        class="flex-1 rounded-md border border-neutral-200 px-3 py-1.5 text-sm outline-none focus:border-neutral-400"
-                    />
-                    <button
-                        type="submit"
-                        :disabled="newOrderForm.processing"
-                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+        <div class="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <SectionCard
+                    title="Statusi naročil"
+                    subtitle="Poimenuj, prebarvaj, dodaj ali odstrani statuse, ki jih uporabljaš za naročila"
+                >
+                    <draggable
+                        v-model="orderList"
+                        item-key="id"
+                        handle=".drag-handle"
+                        class="divide-y divide-neutral-100 overflow-hidden rounded-lg border border-neutral-200"
+                        @change="reorderOrder"
                     >
-                        <Plus :size="14" /> Dodaj
-                    </button>
-                </form>
-            </SectionCard>
+                        <template #item="{ element: status }: { element: StatusRow }">
+                            <div class="group flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-neutral-50">
+                                <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300 group-hover:text-neutral-400" />
+                                <input
+                                    type="color"
+                                    :value="status.bg"
+                                    class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded-full"
+                                    @change="updateOrderStatus(status, { bg: ($event.target as HTMLInputElement).value })"
+                                />
+                                <input
+                                    :value="status.label"
+                                    type="text"
+                                    class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-800 outline-none transition-colors hover:border-neutral-200 focus:border-neutral-300 focus:bg-white"
+                                    @change="updateOrderStatus(status, { label: ($event.target as HTMLInputElement).value })"
+                                />
+                                <span
+                                    v-if="isOrderStatusProtected(status)"
+                                    class="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500"
+                                >
+                                    {{ orderRole(status)?.label }}
+                                </span>
+                                <button
+                                    type="button"
+                                    :disabled="isOrderStatusProtected(status)"
+                                    :title="
+                                        isOrderStatusProtected(status)
+                                            ? 'Ta status je obvezen (privzet, zaključeno, preklicano ali vračilo) — najprej premakni oznako na drug status'
+                                            : status.in_use
+                                              ? 'Status je v uporabi — izberi, kam prestaviti obstoječa naročila'
+                                              : 'Izbriši status'
+                                    "
+                                    class="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+                                    @click="deleteOrderStatus(status)"
+                                >
+                                    <Trash2 :size="14" />
+                                </button>
+                            </div>
+                        </template>
+                    </draggable>
 
-            <SectionCard
-                title="Statusi plačil"
-                subtitle="Skupni seznam za naročila in termine — npr. če ne sprejemaš are, preprosto ne označi nobenega kot 'privzet ob ari'"
-            >
-                <draggable v-model="paymentList" item-key="id" handle=".drag-handle" class="space-y-2" @change="reorderPayment">
+                    <form class="mt-3 flex items-center gap-2" @submit.prevent="addOrderStatus">
+                        <input
+                            v-model="newOrderForm.label"
+                            type="text"
+                            placeholder="Nov status naročila…"
+                            class="flex-1 rounded-md border border-neutral-200 px-3 py-1.5 text-sm outline-none focus:border-neutral-400"
+                        />
+                        <button
+                            type="submit"
+                            :disabled="newOrderForm.processing"
+                            class="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:border-[var(--color-accent-300)] hover:bg-[var(--color-accent-50)] hover:text-[var(--color-accent-700)] disabled:opacity-50"
+                        >
+                            <Plus :size="14" /> Dodaj
+                        </button>
+                    </form>
+                </SectionCard>
+
+                <SectionCard
+                    title="Statusi terminov"
+                    subtitle="Poimenuj, prebarvaj, dodaj ali odstrani statuse, ki jih uporabljaš za termine"
+                >
+                    <draggable
+                        v-model="appointmentList"
+                        item-key="id"
+                        handle=".drag-handle"
+                        class="divide-y divide-neutral-100 overflow-hidden rounded-lg border border-neutral-200"
+                        @change="reorderAppointment"
+                    >
+                        <template #item="{ element: status }: { element: StatusRow }">
+                            <div class="group flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-neutral-50">
+                                <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300 group-hover:text-neutral-400" />
+                                <input
+                                    type="color"
+                                    :value="status.bg"
+                                    class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded-full"
+                                    @change="updateAppointmentStatus(status, { bg: ($event.target as HTMLInputElement).value })"
+                                />
+                                <input
+                                    :value="status.label"
+                                    type="text"
+                                    class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-800 outline-none transition-colors hover:border-neutral-200 focus:border-neutral-300 focus:bg-white"
+                                    @change="updateAppointmentStatus(status, { label: ($event.target as HTMLInputElement).value })"
+                                />
+                                <span
+                                    v-if="isAppointmentStatusProtected(status)"
+                                    class="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500"
+                                >
+                                    {{ appointmentRole(status)?.label }}
+                                </span>
+                                <button
+                                    type="button"
+                                    :disabled="isAppointmentStatusProtected(status)"
+                                    :title="
+                                        isAppointmentStatusProtected(status)
+                                            ? 'Ta status je obvezen (privzet, zaključeno, preklicano, ni se zglasil/a ali vračilo) — najprej premakni oznako na drug status'
+                                            : status.in_use
+                                              ? 'Status je v uporabi — izberi, kam prestaviti obstoječe termine'
+                                              : 'Izbriši status'
+                                    "
+                                    class="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+                                    @click="deleteAppointmentStatus(status)"
+                                >
+                                    <Trash2 :size="14" />
+                                </button>
+                            </div>
+                        </template>
+                    </draggable>
+
+                    <form class="mt-3 flex items-center gap-2" @submit.prevent="addAppointmentStatus">
+                        <input
+                            v-model="newAppointmentForm.label"
+                            type="text"
+                            placeholder="Nov status termina…"
+                            class="flex-1 rounded-md border border-neutral-200 px-3 py-1.5 text-sm outline-none focus:border-neutral-400"
+                        />
+                        <button
+                            type="submit"
+                            :disabled="newAppointmentForm.processing"
+                            class="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:border-[var(--color-accent-300)] hover:bg-[var(--color-accent-50)] hover:text-[var(--color-accent-700)] disabled:opacity-50"
+                        >
+                            <Plus :size="14" /> Dodaj
+                        </button>
+                    </form>
+                </SectionCard>
+
+                <SectionCard
+                    title="Statusi plačil"
+                    subtitle="Skupni seznam za naročila in termine"
+                >
+                <draggable
+                    v-model="paymentList"
+                    item-key="id"
+                    handle=".drag-handle"
+                    class="divide-y divide-neutral-100 overflow-hidden rounded-lg border border-neutral-200"
+                    @change="reorderPayment"
+                >
                     <template #item="{ element: status }: { element: StatusRow }">
-                        <div class="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2.5">
-                            <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300" />
+                        <div class="group flex items-center gap-1.5 px-3 py-2.5 transition-colors hover:bg-neutral-50">
+                            <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300 group-hover:text-neutral-400" />
                             <input
                                 type="color"
                                 :value="status.bg"
-                                class="h-7 w-7 shrink-0 cursor-pointer rounded border border-neutral-200"
+                                :disabled="isPaymentStatusProtected(status)"
+                                :title="isPaymentStatusProtected(status) ? 'Ta status je fiksen in ga ni mogoče prebarvati' : undefined"
+                                class="color-swatch h-6 w-6 shrink-0 rounded-full disabled:cursor-not-allowed"
+                                :class="isPaymentStatusProtected(status) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
                                 @change="updatePaymentStatus(status, { bg: ($event.target as HTMLInputElement).value })"
                             />
                             <input
                                 :value="status.label"
                                 type="text"
-                                class="min-w-0 flex-1 rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none focus:border-neutral-400"
+                                :readonly="isPaymentStatusProtected(status)"
+                                :title="isPaymentStatusProtected(status) ? 'Ta status je fiksen in ga ni mogoče preimenovati' : undefined"
+                                class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium outline-none transition-colors"
+                                :class="
+                                    isPaymentStatusProtected(status)
+                                        ? 'cursor-not-allowed text-neutral-500'
+                                        : 'text-neutral-800 hover:border-neutral-200 focus:border-neutral-300 focus:bg-white'
+                                "
                                 @change="updatePaymentStatus(status, { label: ($event.target as HTMLInputElement).value })"
                             />
-                            <label class="flex shrink-0 items-center gap-1 text-xs text-neutral-500" title="Privzet status za nova naročila/termine">
-                                <input
-                                    type="radio"
-                                    name="payment-default"
-                                    :checked="status.is_default"
-                                    @change="updatePaymentStatus(status, { is_default: true })"
-                                />
-                                privzet
-                            </label>
-                            <label class="flex shrink-0 items-center gap-1 text-xs text-neutral-500" title="Privzet status, ko je plačana ara">
-                                <input
-                                    type="radio"
-                                    name="payment-deposit-default"
-                                    :checked="status.is_deposit_default"
-                                    @change="updatePaymentStatus(status, { is_deposit_default: true })"
-                                />
-                                privzet ob ari
-                            </label>
-                            <label class="flex shrink-0 items-center gap-1 text-xs text-neutral-500" title="Šteje kot neporavnano plačilo">
-                                <input
-                                    type="checkbox"
-                                    :checked="status.is_outstanding"
-                                    @change="updatePaymentStatus(status, { is_outstanding: ($event.target as HTMLInputElement).checked })"
-                                />
-                                neporavnano
-                            </label>
+                            <span
+                                v-if="isPaymentStatusProtected(status)"
+                                class="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500"
+                            >
+                                {{ paymentRole(status)?.label }}
+                            </span>
                             <button
                                 type="button"
-                                :title="status.in_use ? 'Status je v uporabi — izberi, kam prestaviti obstoječa naročila/termine' : 'Izbriši status'"
-                                class="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                                :disabled="isPaymentStatusProtected(status)"
+                                :title="
+                                    isPaymentStatusProtected(status)
+                                        ? 'Ta status je obvezen (neplačano, plačano ali vračilo) — najprej premakni oznako na drug status'
+                                        : status.in_use
+                                          ? 'Status je v uporabi — izberi, kam prestaviti obstoječe zapise'
+                                          : 'Izbriši status'
+                                "
+                                class="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
                                 @click="deletePaymentStatus(status)"
                             >
                                 <Trash2 :size="14" />
@@ -295,12 +466,13 @@ function addPaymentStatus() {
                     <button
                         type="submit"
                         :disabled="newPaymentForm.processing"
-                        class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+                        class="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:border-[var(--color-accent-300)] hover:bg-[var(--color-accent-50)] hover:text-[var(--color-accent-700)] disabled:opacity-50"
                     >
                         <Plus :size="14" /> Dodaj
                     </button>
                 </form>
             </SectionCard>
+            </div>
         </div>
 
         <Modal :show="reassign !== null" max-width="sm" @close="reassign = null">
@@ -308,7 +480,7 @@ function addPaymentStatus() {
                 <h2 class="text-base font-semibold text-neutral-900">Status je v uporabi</h2>
                 <p class="mt-1 text-sm text-neutral-500">
                     Status "{{ reassign.status.label }}" trenutno uporablja vsaj eno
-                    {{ reassign.type === 'order' ? 'naročilo' : 'naročilo ali termin' }}. Izberi status, na katerega naj se ti prestavijo, nato bo "{{ reassign.status.label }}" izbrisan.
+                    {{ reassign.type === 'order' ? 'naročilo' : reassign.type === 'appointment' ? 'termin' : 'naročilo ali termin' }}. Izberi status, na katerega naj se ti prestavijo, nato bo "{{ reassign.status.label }}" izbrisan.
                 </p>
 
                 <select
@@ -338,3 +510,19 @@ function addPaymentStatus() {
         </Modal>
     </AppLayout>
 </template>
+
+<style scoped>
+/* Browsers render an internal border/padding on the <input type="color">
+   swatch itself, on top of our own border — strip it so only ours shows. */
+.color-swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+.color-swatch::-webkit-color-swatch {
+    border: none;
+    border-radius: 9999px;
+}
+.color-swatch::-moz-color-swatch {
+    border: none;
+    border-radius: 9999px;
+}
+</style>

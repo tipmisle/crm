@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronRight, List, Plus, CalendarDays, Search } from 'luc
 import { addDays, addWeeks, subWeeks, format, parseISO, isToday } from 'date-fns';
 import { sl } from 'date-fns/locale';
 import { formatMoney } from '@/lib/format';
-import { APPOINTMENT_STATUS_META, APPOINTMENT_STATUS_ORDER } from '@/lib/statuses';
 import type { Appointment } from '@/types/models';
 import type { PageProps } from '@/types';
 
@@ -21,6 +20,11 @@ const weekStartDate = computed(() => parseISO(props.weekStart));
 const days = computed(() => Array.from({ length: 7 }, (_, i) => addDays(weekStartDate.value, i)));
 const page = usePage<PageProps>();
 const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+const appointmentStatuses = computed(() => page.props.appointmentStatuses ?? []);
+const appointmentStatusFallback = { label: '', color: '#4B5563', bg: '#F1F2F4' };
+function appointmentStatusMeta(key: string) {
+    return appointmentStatuses.value.find((s) => s.key === key) ?? appointmentStatusFallback;
+}
 const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
 const payment = ref(props.filters.payment ?? '');
@@ -97,7 +101,7 @@ const totalAppointments = computed(() =>
                 </div>
                 <select v-model="status" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
                     <option value="">Vsi statusi</option>
-                    <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">{{ APPOINTMENT_STATUS_META[s].label }}</option>
+                    <option v-for="s in appointmentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
                 </select>
                 <select v-model="payment" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
                     <option value="">Vsa plačila</option>
@@ -162,7 +166,7 @@ const totalAppointments = computed(() =>
                             :key="appointment.id"
                             :href="route('appointments.show', appointment.id)"
                             class="block rounded-md px-2 py-1.5 text-xs hover:opacity-80"
-                            :style="{ color: APPOINTMENT_STATUS_META[appointment.status].color, backgroundColor: APPOINTMENT_STATUS_META[appointment.status].bg }"
+                            :style="{ color: appointmentStatusMeta(appointment.status).color, backgroundColor: appointmentStatusMeta(appointment.status).bg }"
                         >
                             <p class="font-semibold">{{ appointment.start_time.slice(0, 5) }}</p>
                             <p class="truncate">{{ appointment.service_name }}</p>

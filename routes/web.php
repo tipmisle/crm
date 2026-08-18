@@ -32,9 +32,12 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\Settings\BillingController;
 use App\Http\Controllers\Settings\InvoiceSettingsController;
+use App\Http\Controllers\Settings\AppointmentStatusController;
 use App\Http\Controllers\Settings\OrderStatusController;
 use App\Http\Controllers\Settings\PaymentStatusController;
 use App\Http\Controllers\Settings\StatusesController as SettingsStatusesController;
+use App\Http\Controllers\Settings\BugReportController;
+use App\Http\Controllers\Settings\FeatureRequestController;
 use App\Http\Controllers\Settings\SupportAccessController;
 use App\Http\Controllers\Settings\WorkspaceExportController;
 use App\Http\Controllers\Settings\WorkspacePrivacyController;
@@ -73,6 +76,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/support', [SupportAccessController::class, 'edit'])->name('settings.support.edit');
     Route::post('/settings/support', [SupportAccessController::class, 'store'])->name('settings.support.store');
     Route::delete('/settings/support', [SupportAccessController::class, 'destroy'])->name('settings.support.destroy');
+    Route::post('/settings/support/bug-reports', [BugReportController::class, 'store'])->name('settings.support.bug-reports.store');
+    Route::post('/settings/support/feature-requests', [FeatureRequestController::class, 'store'])->name('settings.support.feature-requests.store');
 
     Route::get('/settings/billing', [BillingController::class, 'edit'])->name('settings.billing.edit');
     Route::get('/settings/billing/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
@@ -87,6 +92,11 @@ Route::middleware('auth')->group(function () {
     Route::patch('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'update'])->name('settings.statuses.payment.update');
     Route::delete('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'destroy'])->name('settings.statuses.payment.destroy');
     Route::post('/settings/statuses/payment/reorder', [PaymentStatusController::class, 'reorder'])->name('settings.statuses.payment.reorder');
+
+    Route::post('/settings/statuses/appointment', [AppointmentStatusController::class, 'store'])->name('settings.statuses.appointment.store');
+    Route::patch('/settings/statuses/appointment/{appointmentStatus}', [AppointmentStatusController::class, 'update'])->name('settings.statuses.appointment.update');
+    Route::delete('/settings/statuses/appointment/{appointmentStatus}', [AppointmentStatusController::class, 'destroy'])->name('settings.statuses.appointment.destroy');
+    Route::post('/settings/statuses/appointment/reorder', [AppointmentStatusController::class, 'reorder'])->name('settings.statuses.appointment.reorder');
 
     Route::get('/settings/invoicing', [InvoiceSettingsController::class, 'edit'])->name('settings.invoicing.edit');
     Route::patch('/settings/invoicing', [InvoiceSettingsController::class, 'update'])->name('settings.invoicing.update');

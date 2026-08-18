@@ -38,6 +38,7 @@ class ConversationController extends Controller
             'conversations' => $this->conversationList($request),
             'conversation' => null,
             'filters' => $request->only(['channel_type']),
+            'hasConnectedChannel' => $this->hasConnectedChannel(),
         ]);
     }
 
@@ -53,7 +54,15 @@ class ConversationController extends Controller
             'conversations' => $this->conversationList($request),
             'conversation' => $this->presentConversation($conversation),
             'filters' => $request->only(['channel_type']),
+            'hasConnectedChannel' => $this->hasConnectedChannel(),
         ]);
+    }
+
+    private function hasConnectedChannel(): bool
+    {
+        return Channel::whereIn('type', ['instagram', 'facebook_messenger'])
+            ->where('status', 'connected')
+            ->exists();
     }
 
     public function sendMessage(Request $request, Conversation $conversation): RedirectResponse
@@ -288,6 +297,10 @@ class ConversationController extends Controller
                 'city' => $customer->city,
                 'country' => $customer->country,
                 'tax_number' => $customer->tax_number,
+                'is_business' => $customer->is_business,
+                'company_name' => $customer->company_name,
+                'vat_registered' => $customer->vat_registered,
+                'first_contacted_at' => $customer->first_contacted_at,
                 'notes' => $customer->notes,
                 'identities' => $customer->identities,
                 'total_orders_count' => $customer->orders->count(),

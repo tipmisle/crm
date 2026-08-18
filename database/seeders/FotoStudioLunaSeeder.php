@@ -495,7 +495,6 @@ class FotoStudioLunaSeeder extends Seeder
             'customer_id' => $nina->id,
             'conversation_id' => $ninaConversation?->id,
             'channel_id' => $ninaConversation?->channel_id ?? $nina->primary_channel_id,
-            'service_id' => $familyService->id,
             'service_name' => $familyService->name,
             'appointment_date' => Carbon::now()->next(Carbon::SATURDAY),
             'start_time' => '10:00:00',
@@ -505,6 +504,12 @@ class FotoStudioLunaSeeder extends Seeder
             'amount_paid' => 30,
             'payment_status' => PaymentStatus::DepositPaid->value,
             'status' => AppointmentStatus::Confirmed,
+        ]);
+        $ninaAppointment->items()->create([
+            'catalog_item_id' => $familyService->id,
+            'title' => $familyService->name,
+            'quantity' => 1,
+            'unit_price' => 120,
         ]);
         $this->backdate($ninaAppointment, Carbon::now()->subHours(1));
         $appointments->push($ninaAppointment);
@@ -518,7 +523,6 @@ class FotoStudioLunaSeeder extends Seeder
             'customer_id' => $tina->id,
             'conversation_id' => $tinaConversation?->id,
             'channel_id' => $tinaConversation?->channel_id ?? $tina->primary_channel_id,
-            'service_id' => $weddingService->id,
             'service_name' => $weddingService->name,
             'appointment_date' => Carbon::now()->addMonths(2),
             'start_time' => '11:00:00',
@@ -528,6 +532,12 @@ class FotoStudioLunaSeeder extends Seeder
             'amount_paid' => 200,
             'payment_status' => PaymentStatus::DepositPaid->value,
             'status' => AppointmentStatus::Confirmed,
+        ]);
+        $tinaAppointment->items()->create([
+            'catalog_item_id' => $weddingService->id,
+            'title' => $weddingService->name,
+            'quantity' => 1,
+            'unit_price' => 890,
         ]);
         $this->backdate($tinaAppointment, Carbon::now()->subDays(8));
         $appointments->push($tinaAppointment);
@@ -580,7 +590,6 @@ class FotoStudioLunaSeeder extends Seeder
                 $appointment = Appointment::create([
                     'workspace_id' => $this->workspace->id,
                     'customer_id' => $customer->id,
-                    'service_id' => $service->id,
                     'service_name' => $serviceName,
                     'appointment_date' => $date,
                     'start_time' => $slots[array_rand($slots)].':00',
@@ -590,6 +599,13 @@ class FotoStudioLunaSeeder extends Seeder
                     'amount_paid' => $amountPaid,
                     'payment_status' => $paymentStatus->value,
                     'status' => $status,
+                ]);
+
+                $appointment->items()->create([
+                    'catalog_item_id' => $service->id,
+                    'title' => $serviceName,
+                    'quantity' => 1,
+                    'unit_price' => $price,
                 ]);
 
                 $this->backdate($appointment, $createdAt);
@@ -619,6 +635,12 @@ class FotoStudioLunaSeeder extends Seeder
             'payment_status' => PaymentStatus::Unpaid->value,
             'status' => OrderStatus::New->value,
         ]);
+        $ninaOrder->items()->create([
+            'catalog_item_id' => $album->id,
+            'title' => $album->name,
+            'quantity' => 1,
+            'unit_price' => 45,
+        ]);
         $this->backdate($ninaOrder, Carbon::now()->subMinutes(20));
         $orders->push($ninaOrder);
 
@@ -635,6 +657,12 @@ class FotoStudioLunaSeeder extends Seeder
             'amount_paid' => 40,
             'payment_status' => PaymentStatus::DepositPaid->value,
             'status' => OrderStatus::Confirmed->value,
+        ]);
+        $tinaOrder->items()->create([
+            'catalog_item_id' => $giftPackage->id,
+            'title' => $giftPackage->name,
+            'quantity' => 1,
+            'unit_price' => 140,
         ]);
         $this->backdate($tinaOrder, Carbon::now()->subDays(7));
         $orders->push($tinaOrder);
@@ -688,6 +716,13 @@ class FotoStudioLunaSeeder extends Seeder
                     'amount_paid' => $amountPaid,
                     'payment_status' => $paymentStatus->value,
                     'status' => $status->value,
+                ]);
+
+                $order->items()->create([
+                    'catalog_item_id' => $product->id,
+                    'title' => $productName,
+                    'quantity' => 1,
+                    'unit_price' => $price,
                 ]);
 
                 $this->backdate($order, $createdAt);

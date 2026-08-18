@@ -43,7 +43,7 @@ test('order statuses and payment statuses are seeded independently', function ()
 
     WorkspaceStatusDefaults::seed($workspace);
 
-    expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(9);
+    expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(10);
     expect(PaymentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe($paymentCountBefore);
 });
 
@@ -76,8 +76,8 @@ test('a workspace that existed before the status tables gets backfilled by the c
 
     $this->artisan('workspaces:backfill-statuses')->assertSuccessful();
 
-    expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(9);
-    expect(PaymentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(5);
+    expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(10);
+    expect(PaymentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(6);
 
     // The legacy order's status values are untouched by the backfill.
     expect($order->fresh()->status)->toBe('legacy_status');
@@ -101,8 +101,8 @@ test('the standalone dev seeder creates usable, workspace-scoped statuses', func
 
     $workspace = Workspace::where('slug', 'belezka')->firstOrFail();
 
-    expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(9);
-    expect(PaymentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(5);
+    expect(OrderStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(10);
+    expect(PaymentStatus::withoutGlobalScopes()->where('workspace_id', $workspace->id)->count())->toBe(6);
 
     // Orders the seeder creates reference real, resolvable statuses.
     $order = Order::withoutGlobalScopes()->where('workspace_id', $workspace->id)->firstOrFail();

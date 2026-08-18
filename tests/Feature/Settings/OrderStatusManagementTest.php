@@ -91,7 +91,7 @@ test('a status currently used by an order cannot be deleted', function () {
 
 test('a status in use can be deleted when its orders are reassigned to another status', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
-    $status = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'new')->first();
+    $status = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'confirmed')->first();
     $otherStatus = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'quote_needed')->first();
 
     $order = Order::create([
@@ -119,6 +119,57 @@ test('an unused status can be deleted', function () {
         ->assertRedirect();
 
     expect(OrderStatus::find($status->id))->toBeNull();
+});
+
+test('the status flagged default, completed, cancelled, or refunded cannot be deleted, even with a reassignment target', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $default = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'new')->first();
+    $completed = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'completed')->first();
+    $cancelled = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'cancelled')->first();
+    $refunded = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'refunded')->first();
+    $other = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'quote_needed')->first();
+
+    foreach ([$default, $completed, $cancelled, $refunded] as $protected) {
+        $this->actingAs($owner)
+            ->delete(route('settings.statuses.order.destroy', $protected->id), ['reassign_to' => $other->key])
+            ->assertStatus(422);
+
+        expect(OrderStatus::find($protected->id))->not->toBeNull();
+    }
+});
+
+test('moving the cancelled flag to another status frees the previous status for deletion', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $cancelled = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'cancelled')->first();
+    $quoteNeeded = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'quote_needed')->first();
+
+    $this->actingAs($owner)->patch(route('settings.statuses.order.update', $quoteNeeded->id), ['is_cancelled' => true]);
+
+    expect($cancelled->fresh()->is_cancelled)->toBeFalse();
+    expect($quoteNeeded->fresh()->is_cancelled)->toBeTrue();
+
+    $this->actingAs($owner)
+        ->delete(route('settings.statuses.order.destroy', $cancelled->id))
+        ->assertRedirect();
+
+    expect(OrderStatus::find($cancelled->id))->toBeNull();
+});
+
+test('moving the completed flag to another status frees the previous status for deletion', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $completed = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'completed')->first();
+    $ready = OrderStatus::where('workspace_id', $workspace->id)->where('key', 'ready')->first();
+
+    $this->actingAs($owner)->patch(route('settings.statuses.order.update', $ready->id), ['is_completed' => true]);
+
+    expect($completed->fresh()->is_completed)->toBeFalse();
+    expect($ready->fresh()->is_completed)->toBeTrue();
+
+    $this->actingAs($owner)
+        ->delete(route('settings.statuses.order.destroy', $completed->id))
+        ->assertRedirect();
+
+    expect(OrderStatus::find($completed->id))->toBeNull();
 });
 
 test('the last remaining order status cannot be deleted', function () {

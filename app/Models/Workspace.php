@@ -166,6 +166,16 @@ class Workspace extends Model
         return $this->supportAccessGrants()->active()->orderByDesc('expires_at')->first();
     }
 
+    public function bugReports(): HasMany
+    {
+        return $this->hasMany(BugReport::class);
+    }
+
+    public function featureRequests(): HasMany
+    {
+        return $this->hasMany(FeatureRequest::class);
+    }
+
     public function workspaceExports(): HasMany
     {
         return $this->hasMany(WorkspaceExport::class);

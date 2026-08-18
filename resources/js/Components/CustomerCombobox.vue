@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { onClickOutside } from '@vueuse/core';
+import { router } from '@inertiajs/vue3';
 import { Search } from 'lucide-vue-next';
 import type { Customer } from '@/types/models';
 
@@ -38,6 +39,8 @@ const results = computed(() => {
 
 const exactMatch = computed(() => props.customers.some((c) => c.full_name.toLowerCase() === query.value.trim().toLowerCase()));
 
+const creating = ref(false);
+
 function onInput() {
     open.value = true;
     emit('update:customerId', null);
@@ -52,9 +55,37 @@ function selectCustomer(customer: Customer) {
 }
 
 function useTypedAsNew() {
+    const fullName = query.value.trim();
+    if (!fullName || creating.value) return;
+
     open.value = false;
-    emit('update:customerId', null);
-    emit('update:customerName', query.value.trim());
+    creating.value = true;
+
+    router.post(
+        route('customers.store'),
+        { full_name: fullName, quick_add: true },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                router.reload({
+                    only: ['customers'],
+                    onSuccess: (page: any) => {
+                        const list = page.props.customers as Customer[];
+                        const match = [...list].filter((c) => c.full_name === fullName).sort((a, b) => b.id - a.id)[0];
+                        if (match) {
+                            query.value = match.full_name;
+                            emit('update:customerId', match.id);
+                            emit('update:customerName', '');
+                        }
+                    },
+                });
+            },
+            onFinish: () => {
+                creating.value = false;
+            },
+        },
+    );
 }
 
 onClickOutside(root, () => {
@@ -95,10 +126,11 @@ onClickOutside(root, () => {
             <button
                 v-if="query.trim() && !exactMatch"
                 type="button"
-                class="flex w-full cursor-pointer items-center gap-1.5 border-t border-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-900 hover:bg-neutral-50"
+                :disabled="creating"
+                class="flex w-full cursor-pointer items-center gap-1.5 border-t border-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-900 hover:bg-neutral-50 disabled:cursor-default disabled:opacity-50"
                 @click="useTypedAsNew"
             >
-                + Dodaj novo stranko "{{ query.trim() }}"
+                {{ creating ? 'Dodajanje …' : `+ Dodaj novo stranko "${query.trim()}"` }}
             </button>
         </div>
     </div>

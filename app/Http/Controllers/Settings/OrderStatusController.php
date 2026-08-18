@@ -43,11 +43,30 @@ class OrderStatusController extends Controller
             'is_default' => 'sometimes|boolean',
             'is_completed' => 'sometimes|boolean',
             'is_cancelled' => 'sometimes|boolean',
+            'is_refunded' => 'sometimes|boolean',
         ]);
 
-        if (! empty($data['is_default'])) {
-            DB::transaction(function () use ($orderStatus, $data) {
-                OrderStatus::where('id', '!=', $orderStatus->id)->update(['is_default' => false]);
+        // is_default/is_completed/is_cancelled/is_refunded are each a
+        // single-status role, exactly one status per role workspace-wide
+        // (see Settings/Statuses.vue — a status either IS one of these 4
+        // fixed roles, shown without any selector, or it's a plain status
+        // offering a dropdown to become one). A false value for one of
+        // these is a no-op rather than leaving zero statuses flagged; the
+        // only way to move a role off its current status is to assign it
+        // to a different one.
+        $roleFlags = ['is_default', 'is_completed', 'is_cancelled', 'is_refunded'];
+
+        foreach ($roleFlags as $roleFlag) {
+            if (array_key_exists($roleFlag, $data) && ! $data[$roleFlag]) {
+                unset($data[$roleFlag]);
+            }
+        }
+
+        $flagToMove = collect($roleFlags)->first(fn ($flag) => ! empty($data[$flag]));
+
+        if ($flagToMove) {
+            DB::transaction(function () use ($orderStatus, $data, $flagToMove) {
+                OrderStatus::where('id', '!=', $orderStatus->id)->update([$flagToMove => false]);
                 $orderStatus->update($data);
             });
 
@@ -62,6 +81,12 @@ class OrderStatusController extends Controller
     public function destroy(Request $request, OrderStatus $orderStatus): RedirectResponse
     {
         abort_if(OrderStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status naročila.');
+
+        abort_if(
+            $orderStatus->is_default || $orderStatus->is_completed || $orderStatus->is_cancelled || $orderStatus->is_refunded,
+            422,
+            'Ta status je obvezen (privzet, zaključeno, preklicano ali vračilo) in ga ni mogoče izbrisati. Najprej premakni to oznako na drug status.'
+        );
 
         $workspace = $request->user()->currentWorkspace;
 

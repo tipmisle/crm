@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
-import { Check } from 'lucide-vue-next';
+import { Check, XCircle, CalendarClock, ShieldCheck } from 'lucide-vue-next';
 
 const props = defineProps<{
     isOwner: boolean;
@@ -31,6 +31,12 @@ const features = [
     'Naročila in termini',
     'Katalog izdelkov in storitev',
 ];
+
+const reassurances = [
+    { icon: XCircle, text: 'Prekliči kadarkoli' },
+    { icon: CalendarClock, text: 'Brez vezave' },
+    { icon: ShieldCheck, text: 'Varno plačilo prek Stripe' },
+];
 </script>
 
 <template>
@@ -44,8 +50,7 @@ const features = [
         <div class="mx-auto max-w-2xl space-y-4 px-4 py-6 sm:px-6">
             <SectionCard title="Še en korak in Beležka je pripravljena.">
                 <p class="mb-4 text-sm text-neutral-600">
-                    Za uporabo Beležke aktiviraj naročnino. Plačilo poteka varno prek Stripe — Beležka ne shranjuje
-                    podatkov o tvoji kartici.
+                    Za uporabo Beležke aktiviraj naročnino. Beležka ne shranjuje podatkov o tvoji kartici.
                 </p>
 
                 <div class="mb-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
@@ -73,6 +78,13 @@ const features = [
                     Nadaljuj na plačilo
                 </button>
                 <p v-else class="text-sm text-neutral-500">Samo lastnik delovnega prostora lahko aktivira naročnino.</p>
+
+                <ul v-if="isOwner" class="mt-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-center sm:gap-4">
+                    <li v-for="r in reassurances" :key="r.text" class="flex items-center gap-1.5 text-xs text-neutral-500">
+                        <component :is="r.icon" :size="13" class="shrink-0 text-neutral-400" />
+                        {{ r.text }}
+                    </li>
+                </ul>
             </SectionCard>
         </div>
     </AppLayout>

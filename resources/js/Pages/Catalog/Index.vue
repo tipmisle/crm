@@ -4,6 +4,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import CatalogItemModal from '@/Components/CatalogItemModal.vue';
+import { useConfirm } from '@/composables/useConfirm';
 import { formatMoney } from '@/lib/format';
 import { Plus, Pencil, Trash2, ShoppingCart, CalendarPlus } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
@@ -13,6 +14,8 @@ const props = defineProps<{
     products: Product[];
     services: Service[];
 }>();
+
+const { confirm } = useConfirm();
 
 const page = usePage<PageProps>();
 const workspace = computed(() => page.props.workspace);
@@ -41,9 +44,9 @@ function toggleActive(kind: 'product' | 'service', item: Product | Service) {
     router.patch(route(routeName, item.id), { active: !item.active }, { preserveScroll: true });
 }
 
-function destroy(kind: 'product' | 'service', item: Product | Service) {
+async function destroy(kind: 'product' | 'service', item: Product | Service) {
     const label = kind === 'product' ? 'produkt' : 'storitev';
-    if (!confirm(`Izbriši ${label} "${item.name}"?`)) return;
+    if (!(await confirm(`Izbriši ${label} "${item.name}"?`, { danger: true }))) return;
 
     const routeName = kind === 'product' ? 'products.destroy' : 'services.destroy';
     router.delete(route(routeName, item.id), { preserveScroll: true });

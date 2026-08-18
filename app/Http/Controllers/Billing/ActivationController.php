@@ -4,18 +4,24 @@ namespace App\Http\Controllers\Billing;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Services\Billing\WorkspaceSubscriptionStateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class ActivationController extends Controller
 {
-    public function edit(Request $request, WorkspaceSubscriptionStateService $state): Response
+    public function edit(Request $request, WorkspaceSubscriptionStateService $state): Response|RedirectResponse
     {
         $workspace = $request->user()->currentWorkspace;
+
+        if ($state->grantsAccess($workspace)) {
+            return redirect()->route($this->postActivationRoute($workspace));
+        }
 
         return Inertia::render('Billing/Activate', [
             'isOwner' => WorkspaceMember::isOwnerOf($request->user(), $workspace->id),
@@ -26,7 +32,7 @@ class ActivationController extends Controller
         ]);
     }
 
-    public function checkout(Request $request, WorkspaceSubscriptionStateService $state): RedirectResponse
+    public function checkout(Request $request, WorkspaceSubscriptionStateService $state): SymfonyResponse
     {
         $user = $request->user();
         $workspace = $user->currentWorkspace;
@@ -40,15 +46,34 @@ class ActivationController extends Controller
 
         abort_unless(config('billing.monthly_price_id'), 500, 'Naročnina ni konfigurirana.');
 
+        if (config('app.env') === 'production') {
+            abort_unless(
+                filled(config('billing.display_price')) && config('billing.display_price_vat_included') !== null,
+                500,
+                'Cena naročnine ali njena DDV obravnava ni objavljena.'
+            );
+        }
+
         AuditLog::record('billing.checkout_started', $request, $workspace->id, $workspace);
 
         $checkout = $workspace->newSubscription(config('billing.subscription_name'), config('billing.monthly_price_id'))
             ->checkout([
                 'success_url' => route('billing.activate.success'),
                 'cancel_url' => route('billing.activate'),
+                // Stripe accounts default new Checkout Sessions into Managed
+                // Payments, a hosted-billing feature this app doesn't use —
+                // it requires a newer API version than Cashier is pinned to
+                // and would break checkout for every account where it's
+                // enabled by default. Opt out explicitly rather than relying
+                // on a per-account dashboard setting.
+                'managed_payments' => ['enabled' => false],
             ]);
 
-        return $checkout->redirect();
+        // Stripe Checkout is an external, cross-origin destination — a plain
+        // redirect would have Inertia try to follow it via XHR and get
+        // blocked by CORS. Inertia::location() forces a full-page visit
+        // instead.
+        return Inertia::location($checkout->url);
     }
 
     /**
@@ -66,8 +91,12 @@ class ActivationController extends Controller
     {
         $workspace = $request->user()->currentWorkspace;
 
-        $target = $workspace->needsOnboarding() ? 'onboarding.show' : 'dashboard';
+        return redirect()->route($this->postActivationRoute($workspace))
+            ->with('success', 'Plačilo se obdeluje — Beležka bo na voljo v nekaj trenutkih.');
+    }
 
-        return redirect()->route($target)->with('success', 'Plačilo se obdeluje — Beležka bo na voljo v nekaj trenutkih.');
+    private function postActivationRoute(Workspace $workspace): string
+    {
+        return $workspace->needsOnboarding() ? 'onboarding.show' : 'dashboard';
     }
 }

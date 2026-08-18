@@ -9,7 +9,6 @@ import { Search, Plus, CalendarDays, List, Download } from 'lucide-vue-next';
 import { format } from 'date-fns';
 import type { Appointment } from '@/types/models';
 import type { PageProps } from '@/types';
-import { APPOINTMENT_STATUS_META, APPOINTMENT_STATUS_ORDER } from '@/lib/statuses';
 
 const props = defineProps<{
     appointments: { data: Appointment[]; links: { url: string | null; label: string; active: boolean }[] };
@@ -18,6 +17,7 @@ const props = defineProps<{
 
 const page = usePage<PageProps>();
 const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+const appointmentStatuses = computed(() => page.props.appointmentStatuses ?? []);
 const search = ref(props.filters.search ?? '');
 const status = ref(props.filters.status ?? '');
 const payment = ref(props.filters.payment ?? '');
@@ -101,7 +101,7 @@ watch([status, payment, due], applyFilters);
 
                 <select v-model="status" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">
                     <option value="">Vsi statusi</option>
-                    <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">{{ APPOINTMENT_STATUS_META[s].label }}</option>
+                    <option v-for="s in appointmentStatuses" :key="s.key" :value="s.key">{{ s.label }}</option>
                 </select>
 
                 <select v-model="payment" class="rounded-md border border-neutral-200 py-2 px-3 text-sm text-neutral-600 outline-none">

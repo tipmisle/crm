@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderStatus;
@@ -101,7 +102,7 @@ test('another workspaces payment status key is rejected on order update', functi
         ->assertSessionHasErrors('payment_status');
 });
 
-test('appointment status only accepts the fixed AppointmentStatus values', function () {
+test('appointment status only accepts the workspaces appointment status keys', function () {
     [$workspaceA, $owner] = createWorkspaceWithUser(['current_workspace_id' => null]);
     $workspaceA->update(['appointments_enabled' => true]);
     $owner->update(['current_workspace_id' => $workspaceA->id]);
@@ -127,7 +128,7 @@ test('appointment status only accepts the fixed AppointmentStatus values', funct
         ->patch(route('appointments.update', $appointment), ['status' => 'confirmed'])
         ->assertRedirect();
 
-    expect($appointment->fresh()->status->value)->toBe('confirmed');
+    expect($appointment->fresh()->status)->toBe('confirmed');
 });
 
 test('another workspaces payment status key is rejected on appointment update', function () {
@@ -162,6 +163,40 @@ test('another workspaces payment status key is rejected on appointment update', 
     $this->actingAs($ownerA)
         ->patch(route('appointments.update', $appointment), ['payment_status' => $crossWorkspaceStatus->key])
         ->assertSessionHasErrors('payment_status');
+});
+
+test('another workspaces appointment status key is rejected on appointment update', function () {
+    [$workspaceA, $ownerA] = createWorkspaceWithUser(['current_workspace_id' => null]);
+    $workspaceA->update(['appointments_enabled' => true]);
+    $ownerA->update(['current_workspace_id' => $workspaceA->id]);
+
+    [$workspaceB] = createWorkspaceWithUser();
+
+    $customer = Customer::create(['workspace_id' => $workspaceA->id, 'full_name' => 'Ana']);
+    $appointment = Appointment::create([
+        'workspace_id' => $workspaceA->id,
+        'customer_id' => $customer->id,
+        'service_name' => 'Cut',
+        'appointment_date' => now()->addDay()->toDateString(),
+        'start_time' => '10:00',
+        'duration_minutes' => 30,
+        'price' => 20,
+        'status' => 'requested',
+        'payment_status' => 'unpaid',
+    ]);
+
+    $crossWorkspaceStatus = AppointmentStatus::create([
+        'workspace_id' => $workspaceB->id,
+        'key' => 'only_in_workspace_b',
+        'label' => 'Only in B',
+        'color' => '#000000',
+        'bg' => '#FFFFFF',
+        'sort_order' => 99,
+    ]);
+
+    $this->actingAs($ownerA)
+        ->patch(route('appointments.update', $appointment), ['status' => $crossWorkspaceStatus->key])
+        ->assertSessionHasErrors('status');
 });
 
 /*

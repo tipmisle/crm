@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Channel;
+use App\Models\Product;
+use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -42,6 +44,8 @@ class OnboardingController extends Controller
                 ])->values()
                 : null,
             'hasCatalogItems' => $workspace->products()->exists() || $workspace->services()->exists(),
+            'products' => $workspace->orders_enabled ? Product::orderBy('name')->get() : [],
+            'services' => $workspace->appointments_enabled ? Service::orderBy('name')->get() : [],
         ]);
     }
 

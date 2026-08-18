@@ -136,6 +136,33 @@ test('the "deposits unpaid" attention count respects custom outstanding payment 
     );
 });
 
+test('the "deposits unpaid" attention item is hidden when the workspace does not accept deposits', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    $workspace->update(['accepts_deposit' => false]);
+
+    $customer = Customer::create([
+        'workspace_id' => $workspace->id,
+        'full_name' => 'Ana Novak',
+        'first_contacted_at' => now(),
+        'last_interaction_at' => now(),
+    ]);
+
+    Order::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'title' => 'Torta z aro iz preteklosti',
+        'price' => 100,
+        'deposit_amount' => 30,
+        'payment_status' => 'deposit_due',
+        'status' => 'confirmed',
+    ]);
+
+    $page = $this->actingAs($user)->get(route('dashboard'));
+    $depositsItem = collect($page->inertiaProps('attention'))->firstWhere('key', 'deposits_unpaid');
+
+    expect($depositsItem)->toBeNull();
+});
+
 test('the appointment attention counts link to exactly the appointments they counted', function () {
     [$workspace, $user] = createWorkspaceWithUser();
     $workspace->update(['appointments_enabled' => true]);

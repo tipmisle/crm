@@ -26,6 +26,9 @@ interface CustomerDetail {
     city: string | null;
     country: string | null;
     tax_number: string | null;
+    is_business: boolean;
+    company_name: string | null;
+    vat_registered: boolean;
     notes: string | null;
     tags: string[] | null;
     primary_channel_id: number | null;

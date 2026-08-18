@@ -22,6 +22,7 @@ import {
 import type { PageProps } from '@/types';
 import Avatar from '@/Components/Avatar.vue';
 import CommandPalette from '@/Components/CommandPalette.vue';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import DemoBanner from '@/Components/DemoBanner.vue';
 import BillingBanner from '@/Components/BillingBanner.vue';
 
@@ -223,6 +224,7 @@ onUnmounted(stopNavigateListener);
         </div>
 
         <CommandPalette v-model:open="searchOpen" />
+        <ConfirmModal />
 
         <Transition
             enter-active-class="transition duration-150 ease-out"

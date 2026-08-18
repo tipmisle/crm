@@ -129,7 +129,7 @@ const channelRevenueBars = () =>
                 <LineChart :series="revenueSeries" :compare-series="compareRevenueSeries" :compare-label="compare.label" />
             </SectionCard>
 
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <SectionCard title="Od kod prihajajo povpraševanja" subtitle="Novi pogovori po socialnem omrežju">
                     <BarList :items="channelInquiryBars()" format="number" empty-label="V tem obdobju še ni bilo povpraševanj." />
                 </SectionCard>
@@ -137,12 +137,7 @@ const channelRevenueBars = () =>
                 <SectionCard title="Prihodki po kanalu" subtitle="Naročila in termini po izvornem socialnem omrežju">
                     <BarList :items="channelRevenueBars()" format="money" empty-label="V tem obdobju še ni bilo prihodkov." />
                 </SectionCard>
-            </div>
 
-            <div
-                class="grid grid-cols-1 gap-6"
-                :class="ordersEnabled() && appointmentsEnabled() ? 'lg:grid-cols-2' : ''"
-            >
                 <SectionCard v-if="ordersEnabled()" title="Najbolje prodajani izdelki" subtitle="Po prihodku v izbranem obdobju">
                     <BarList :items="topProductBars()" format="money" empty-label="V tem obdobju še ni bilo naročil." />
                 </SectionCard>

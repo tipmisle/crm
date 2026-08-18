@@ -34,6 +34,14 @@ class SupportAccessController extends Controller
                 ->latest('created_at')
                 ->limit(20)
                 ->get(),
+            'bugReports' => $workspace->bugReports()
+                ->latest('created_at')
+                ->limit(20)
+                ->get(['id', 'subject', 'status', 'created_at']),
+            'featureRequests' => $workspace->featureRequests()
+                ->latest('created_at')
+                ->limit(20)
+                ->get(['id', 'subject', 'status', 'created_at']),
         ]);
     }
 

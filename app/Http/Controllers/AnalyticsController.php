@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AppointmentStatus;
 use App\Enums\ChannelType;
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Conversation;
 use App\Models\Order;
 use App\Models\OrderStatus;
@@ -145,7 +145,7 @@ class AnalyticsController extends Controller
 
         $orderDaily = $workspace->orders_enabled
             ? Order::whereBetween('created_at', $bounds)
-                ->whereNotIn('status', OrderStatus::cancelledKeys())
+                ->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()])
                 ->get(['created_at', 'price'])
                 ->groupBy(fn (Order $o) => $o->created_at->copy()->setTimezone($timezone)->format('Y-m-d'))
                 ->map(fn ($rows) => (float) $rows->sum('price'))
@@ -153,7 +153,7 @@ class AnalyticsController extends Controller
 
         $appointmentDaily = $workspace->appointments_enabled
             ? Appointment::whereBetween('created_at', $bounds)
-                ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
+                ->whereNotIn('status', [...AppointmentStatus::cancelledKeys(), ...AppointmentStatus::noShowKeys(), ...AppointmentStatus::refundedKeys()])
                 ->whereNotNull('price')
                 ->get(['created_at', 'price'])
                 ->groupBy(fn (Appointment $a) => $a->created_at->copy()->setTimezone($timezone)->format('Y-m-d'))
@@ -199,7 +199,7 @@ class AnalyticsController extends Controller
 
         if ($workspace->orders_enabled) {
             foreach (Order::whereBetween('created_at', $bounds)
-                ->whereNotIn('status', OrderStatus::cancelledKeys())
+                ->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()])
                 ->with('channel')->get() as $order) {
                 $type = $order->channel?->type ?? ChannelType::Website;
                 if (! in_array($type, self::SOCIAL_CHANNELS, true)) {
@@ -211,7 +211,7 @@ class AnalyticsController extends Controller
 
         if ($workspace->appointments_enabled) {
             foreach (Appointment::whereBetween('created_at', $bounds)
-                ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
+                ->whereNotIn('status', [...AppointmentStatus::cancelledKeys(), ...AppointmentStatus::noShowKeys(), ...AppointmentStatus::refundedKeys()])
                 ->with('channel')->get() as $appointment) {
                 $type = $appointment->channel?->type ?? ChannelType::Website;
                 if (! in_array($type, self::SOCIAL_CHANNELS, true)) {
@@ -283,16 +283,18 @@ class AnalyticsController extends Controller
         $rows = [];
 
         foreach (Order::whereBetween('created_at', [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))])
-            ->whereNotIn('status', OrderStatus::cancelledKeys())
-            ->with('product')
+            ->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()])
+            ->with('items')
             ->get() as $order) {
             // Group by the linked catalog product when there is one — that's
             // what makes an exact "Orders for this product" drill-down
-            // possible. Orders with no catalog link (one-off titles) are
+            // possible. Items with no catalog link (one-off titles) are
             // grouped by title text instead and stay non-clickable.
-            $key = $order->catalog_item_id ? "product:{$order->catalog_item_id}" : "title:{$order->title}";
-            $rows[$key] ??= ['name' => $order->product?->name ?? $order->title, 'revenue' => 0.0, 'product_id' => $order->catalog_item_id];
-            $rows[$key]['revenue'] += (float) $order->price;
+            foreach ($order->items as $item) {
+                $key = $item->catalog_item_id ? "product:{$item->catalog_item_id}" : "title:{$item->title}";
+                $rows[$key] ??= ['name' => $item->title, 'revenue' => 0.0, 'product_id' => $item->catalog_item_id];
+                $rows[$key]['revenue'] += (float) $item->quantity * (float) $item->unit_price;
+            }
         }
 
         return $this->presentTopItems($rows, 'product_id', fn ($id) => route('orders.index', [
@@ -308,12 +310,14 @@ class AnalyticsController extends Controller
         $rows = [];
 
         foreach (Appointment::whereBetween('created_at', [$start->copy()->setTimezone(config('app.timezone')), $end->copy()->setTimezone(config('app.timezone'))])
-            ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
-            ->with('service')
+            ->whereNotIn('status', [...AppointmentStatus::cancelledKeys(), ...AppointmentStatus::noShowKeys(), ...AppointmentStatus::refundedKeys()])
+            ->with('items')
             ->get() as $appointment) {
-            $key = $appointment->service_id ? "service:{$appointment->service_id}" : "title:{$appointment->service_name}";
-            $rows[$key] ??= ['name' => $appointment->service?->name ?? $appointment->service_name, 'revenue' => 0.0, 'service_id' => $appointment->service_id];
-            $rows[$key]['revenue'] += (float) ($appointment->price ?? 0);
+            foreach ($appointment->items as $item) {
+                $key = $item->catalog_item_id ? "service:{$item->catalog_item_id}" : "title:{$item->title}";
+                $rows[$key] ??= ['name' => $item->title, 'revenue' => 0.0, 'service_id' => $item->catalog_item_id];
+                $rows[$key]['revenue'] += (float) $item->quantity * (float) $item->unit_price;
+            }
         }
 
         return $this->presentTopItems($rows, 'service_id', fn ($id) => route('appointments.index', [

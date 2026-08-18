@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
+import CatalogItemModal from '@/Components/CatalogItemModal.vue';
 import { channelMeta } from '@/lib/channels';
 import { Check, ChevronLeft, ChevronRight, Sparkles } from 'lucide-vue-next';
 import type { Channel, ChannelType, Workspace } from '@/types/models';
@@ -79,11 +80,24 @@ function complete() {
     completeForm.post(route('onboarding.complete'));
 }
 
+const catalogItemAdded = ref(props.hasCatalogItems);
+const catalogModalOpen = ref(false);
+const catalogModalKind = ref<'product' | 'service'>('product');
+
+function openCatalogModal(kind: 'product' | 'service') {
+    catalogModalKind.value = kind;
+    catalogModalOpen.value = true;
+}
+
+function onCatalogItemSaved() {
+    catalogItemAdded.value = true;
+}
+
 type StepId = 1 | 2 | 3;
 
 const steps: { id: StepId; label: string; done: () => boolean }[] = [
     { id: 1, label: 'Podjetje', done: () => businessDone.value },
-    { id: 2, label: 'Ponudba', done: () => props.hasCatalogItems },
+    { id: 2, label: 'Ponudba', done: () => catalogItemAdded.value },
     { id: 3, label: 'Sporočila', done: () => connectedChannels.value.length > 0 },
 ];
 
@@ -218,25 +232,27 @@ function goTo(target: StepId) {
                     <p class="mt-1 text-sm text-neutral-500">Dodaj vsaj en produkt ali storitev, da boš lahko ustvarjal-a naročila in termine.</p>
 
                     <div class="mt-6">
-                        <div v-if="hasCatalogItems" class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                        <div v-if="catalogItemAdded" class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                             <Check class="h-4 w-4" />
                             Ponudba je nastavljena.
                         </div>
                         <div v-else class="flex flex-wrap gap-2">
-                            <Link
+                            <button
                                 v-if="capabilitiesForm.orders_enabled"
-                                :href="route('catalog.index')"
+                                type="button"
                                 class="rounded-md border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                                @click="openCatalogModal('product')"
                             >
                                 Dodaj prvi produkt
-                            </Link>
-                            <Link
+                            </button>
+                            <button
                                 v-if="capabilitiesForm.appointments_enabled"
-                                :href="route('catalog.index')"
+                                type="button"
                                 class="rounded-md border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                                @click="openCatalogModal('service')"
                             >
                                 Dodaj prvo storitev
-                            </Link>
+                            </button>
                         </div>
                     </div>
 
@@ -337,7 +353,7 @@ function goTo(target: StepId) {
                         <button
                             type="button"
                             :disabled="completeForm.processing"
-                            class="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent-500)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent-600)] disabled:opacity-50"
+                            class="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-ink-900)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--color-ink-800)] disabled:opacity-50"
                             @click="complete"
                         >
                             Začni uporabljati Beležko
@@ -346,5 +362,7 @@ function goTo(target: StepId) {
                 </div>
             </section>
         </div>
+
+        <CatalogItemModal v-model:open="catalogModalOpen" :kind="catalogModalKind" @saved="onCatalogItemSaved" />
     </AppLayout>
 </template>

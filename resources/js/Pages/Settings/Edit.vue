@@ -5,8 +5,43 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import ChannelIcon from '@/Components/ChannelIcon.vue';
 import { channelMeta } from '@/lib/channels';
+import { useConfirm } from '@/composables/useConfirm';
 import { relativeTime } from '@/lib/format';
 import type { Channel, ChannelType, Workspace } from '@/types/models';
+import { Tags, Receipt, CreditCard, LifeBuoy, ShieldCheck, ChevronRight } from 'lucide-vue-next';
+
+const moreSettings = [
+    {
+        href: () => route('settings.statuses.edit'),
+        icon: Tags,
+        title: 'Statusi naročil in plačil',
+        subtitle: 'Prilagodi imena, barve in privzete statuse',
+    },
+    {
+        href: () => route('settings.invoicing.edit'),
+        icon: Receipt,
+        title: 'Računi in plačila',
+        subtitle: 'Podatki o podjetju, IBAN, logotip in oštevilčevanje',
+    },
+    {
+        href: () => route('settings.billing.edit'),
+        icon: CreditCard,
+        title: 'Naročnina',
+        subtitle: 'Plan, plačilo in način plačila',
+    },
+    {
+        href: () => route('settings.support.edit'),
+        icon: LifeBuoy,
+        title: 'Podpora',
+        subtitle: 'Dostop za podporo',
+    },
+    {
+        href: () => route('settings.privacy.edit'),
+        icon: ShieldCheck,
+        title: 'Podatki in račun',
+        subtitle: 'Izvoz podatkov in izbris delovnega prostora',
+    },
+];
 
 interface MetaPendingAccount {
     channel_type: ChannelType;
@@ -20,6 +55,8 @@ const props = defineProps<{
     channels: Channel[];
     metaPendingAccounts: MetaPendingAccount[] | null;
 }>();
+
+const { confirm } = useConfirm();
 
 const form = useForm({
     name: props.workspace.name,
@@ -55,8 +92,8 @@ function connectMeta() {
     window.location.href = route('integrations.meta.connect');
 }
 
-function disconnectChannel(channel: Channel) {
-    if (!confirm(`Odklopi ${channel.display_name}? Pretekli pogovori, stranke in naročila ostanejo shranjeni.`)) return;
+async function disconnectChannel(channel: Channel) {
+    if (!(await confirm(`Odklopi ${channel.display_name}? Pretekli pogovori, stranke in naročila ostanejo shranjeni.`, { danger: true }))) return;
     router.delete(route('integrations.meta.disconnect', channel.id), { preserveScroll: true });
 }
 
@@ -82,10 +119,12 @@ function cancelPending() {
             <h1 class="text-sm font-semibold text-neutral-900">Nastavitve</h1>
         </template>
 
-        <div class="mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-            <h1 class="text-2xl font-semibold text-neutral-900">Nastavitve</h1>
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+            <h1 class="mb-6 text-2xl font-semibold text-neutral-900">Nastavitve</h1>
 
-            <SectionCard title="Podjetje" subtitle="Osnovni podatki o tvojem podjetju">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div class="space-y-6 lg:col-span-2">
+                    <SectionCard title="Podjetje" subtitle="Osnovni podatki o tvojem podjetju">
                 <form class="space-y-4" @submit.prevent="submit">
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-neutral-700">Ime podjetja</label>
@@ -257,36 +296,32 @@ function cancelPending() {
                     </div>
                 </div>
             </SectionCard>
+                </div>
 
-            <SectionCard title="Statusi naročil in plačil" subtitle="Prilagodi imena, barve in privzete statuse">
-                <Link :href="route('settings.statuses.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
-                    Upravljaj statuse →
-                </Link>
-            </SectionCard>
-
-            <SectionCard title="Računi in plačila" subtitle="Podatki o podjetju, IBAN, logotip in oštevilčevanje">
-                <Link :href="route('settings.invoicing.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
-                    Upravljaj račune →
-                </Link>
-            </SectionCard>
-
-            <SectionCard title="Naročnina" subtitle="Plan, plačilo in način plačila">
-                <Link :href="route('settings.billing.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
-                    Upravljaj naročnino →
-                </Link>
-            </SectionCard>
-
-            <SectionCard title="Podpora" subtitle="Dostop za podporo">
-                <Link :href="route('settings.support.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
-                    Upravljaj dostop za podporo →
-                </Link>
-            </SectionCard>
-
-            <SectionCard title="Podatki in račun" subtitle="Izvoz podatkov in izbris delovnega prostora">
-                <Link :href="route('settings.privacy.edit')" class="text-sm font-medium text-[var(--color-accent-500)] hover:underline">
-                    Upravljaj podatke in račun →
-                </Link>
-            </SectionCard>
+                <div class="lg:col-span-1">
+                    <div class="lg:sticky lg:top-6">
+                        <SectionCard title="Več nastavitev">
+                            <nav class="-m-5 divide-y divide-neutral-100">
+                                <Link
+                                    v-for="item in moreSettings"
+                                    :key="item.title"
+                                    :href="item.href()"
+                                    class="flex items-center gap-3 px-5 py-3.5 hover:bg-neutral-50"
+                                >
+                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+                                        <component :is="item.icon" :size="16" />
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-sm font-medium text-neutral-900">{{ item.title }}</span>
+                                        <span class="block truncate text-xs text-neutral-500">{{ item.subtitle }}</span>
+                                    </span>
+                                    <ChevronRight :size="16" class="shrink-0 text-neutral-300" />
+                                </Link>
+                            </nav>
+                        </SectionCard>
+                    </div>
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>

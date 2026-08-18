@@ -157,16 +157,33 @@ Stripe's own invoice history to a customer, that must not be presented in
 the UI as a legally compliant Slovenian fiscal invoice until that future
 milestone ships.
 
-## 9. NEEDS OWNER INPUT
+## 9. Finalized launch pricing
+
+**Resolved, production values** — set via `BILLING_DISPLAY_PRICE="9,90 €"`,
+`BILLING_DISPLAY_PRICE_VAT_INCLUDED=true`, `BILLING_PERIOD_LABEL="mesečno"`.
+Both `MarketingController::home()` and `Billing\ActivationController::edit()`
+read the same `config('billing.*')` keys, so the marketing page and the
+activation page always show the identical price and VAT-inclusive note
+("Cena vključuje DDV."). `legal:check` now requires both
+`billing.display_price` and `billing.display_price_vat_included` to be
+set — a missing launch price/VAT treatment fails the check, not just a
+price set without its VAT flag. `Billing\ActivationController::checkout()`
+additionally refuses to start a Stripe Checkout session in production
+(`APP_ENV=production`) if either value is missing, even if
+`STRIPE_BELEZKA_MONTHLY_PRICE_ID` is configured.
+
+Current launch commercial model: **1 subscription = 1 workspace =
+9,90 €/month**, VAT included. A future multi-workspace pricing tier
+(first workspace 9,90 €/month, each additional workspace +6,90 €/month)
+is a decided product direction but explicitly **not implemented** —
+no Stripe quantity billing, no extra Prices, no multi-workspace account
+logic exists yet. When that milestone is built, it needs its own Stripe
+Price(s) and a decision on how `config('billing.monthly_price_id')`
+generalizes beyond the current single-price model.
+
+## 9a. NEEDS OWNER INPUT
 
 **COMMERCIAL**
-- Exact monthly price and whether it's shown VAT-inclusive or exclusive.
-  `BILLING_DISPLAY_PRICE`/`BILLING_DISPLAY_PRICE_VAT_INCLUDED` are
-  currently unset — there is now a single config-sourced price
-  (`MarketingController::home()` and `Billing\ActivationController::edit()`
-  both read the same `config('billing.*')` keys), and `legal:check` fails
-  if a price is set without its VAT flag. Neither page shows an invented
-  placeholder price when unset.
 - Confirm no free trial is actually wanted (none is implemented).
 - Cancellation policy specifics: self-serve via Portal vs. contact-only;
   immediate vs. period-end (period-end is what's implemented as the

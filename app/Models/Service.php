@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\HasMany;
-
 /**
  * A catalog item of type "service" — the Ponudba entries appointments are
  * booked from. Backed by the same catalog_items table as Product; scoped to
@@ -16,10 +14,5 @@ class Service extends CatalogItem
         static::addGlobalScope('type', fn ($query) => $query->where('type', 'service'));
 
         static::creating(fn (Service $service) => $service->type = 'service');
-    }
-
-    public function appointments(): HasMany
-    {
-        return $this->hasMany(Appointment::class, 'service_id');
     }
 }

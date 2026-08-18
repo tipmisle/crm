@@ -10,7 +10,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import StatCard from '@/Components/Charts/StatCard.vue';
 import Avatar from '@/Components/Avatar.vue';
 import MiniCalendar from '@/Components/MiniCalendar.vue';
-import { CalendarClock, Check, PartyPopper, CalendarPlus, MessageCircle } from 'lucide-vue-next';
+import { CalendarClock, Check, PartyPopper, CalendarPlus, MessageCircle, AlertCircle } from 'lucide-vue-next';
 import { googleCalendarUrl } from '@/lib/calendar';
 import { formatDate, formatDateTime, formatMoney, formatTime, isPastDue } from '@/lib/format';
 import type { Appointment, FollowUp, Order } from '@/types/models';
@@ -128,7 +128,7 @@ function completeFollowUp(id: number) {
         <div class="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_280px] lg:items-start">
         <div class="min-w-0 space-y-6">
             <div
-                class="rounded-xl bg-gradient-to-br from-[var(--color-accent-500)] to-[var(--color-accent-700)] px-5 py-6 text-white sm:px-8 sm:py-8"
+                class="rounded-xl bg-gradient-to-br from-[var(--color-ink-900)] to-[var(--color-ink-950)] px-5 py-6 text-white sm:px-8 sm:py-8"
             >
                 <div class="flex items-center gap-3">
                     <Avatar :name="page.props.auth.user.name" :src="page.props.auth.user.avatar_url" size="lg" />
@@ -169,6 +169,9 @@ function completeFollowUp(id: number) {
             </div>
 
             <SectionCard v-if="attention.length" title="Potrebuje pozornost">
+                <template #icon>
+                    <AlertCircle :size="18" class="shrink-0 text-red-500" />
+                </template>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Link
                         v-for="item in attention"
@@ -292,10 +295,10 @@ function completeFollowUp(id: number) {
                         :href="conversation.href"
                         class="block rounded-lg px-2 py-2 hover:bg-neutral-50"
                     >
-                        <div class="flex items-center justify-between gap-2">
-                            <p class="truncate text-sm font-medium text-neutral-800">{{ conversation.display_name }}</p>
+                        <div class="flex items-center gap-2">
+                            <p class="min-w-0 flex-1 truncate text-sm font-medium text-neutral-800">{{ conversation.display_name }}</p>
                             <span
-                                class="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white"
+                                class="ml-auto flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white"
                             >
                                 {{ conversation.unread_count }}
                             </span>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { router, useForm, usePage } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
 import type { Product, Service } from '@/types/models';
+import type { PageProps } from '@/types';
 
 const props = defineProps<{
     open: boolean;
@@ -14,6 +15,9 @@ const emit = defineEmits<{
     (e: 'update:open', value: boolean): void;
     (e: 'saved', item: Product | Service): void;
 }>();
+
+const page = usePage<PageProps>();
+const acceptsDeposit = computed(() => page.props.workspace?.accepts_deposit ?? true);
 
 const isEditing = computed(() => !!props.item);
 const isService = computed(() => props.kind === 'service');
@@ -141,7 +145,7 @@ function submit() {
                         <p v-if="form.errors.default_duration_minutes" class="mt-1 text-xs text-red-500">{{ form.errors.default_duration_minutes }}</p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid gap-4" :class="acceptsDeposit ? 'grid-cols-2' : 'grid-cols-1'">
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-neutral-700">Privzeta cena</label>
                             <input
@@ -153,7 +157,7 @@ function submit() {
                                 class="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
                             />
                         </div>
-                        <div>
+                        <div v-if="acceptsDeposit">
                             <label class="mb-1.5 block text-sm font-medium text-neutral-700">Privzeta ara</label>
                             <input
                                 v-model="form.default_deposit_amount"

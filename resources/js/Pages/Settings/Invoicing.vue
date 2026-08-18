@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
+import Toggle from '@/Components/Toggle.vue';
 
 interface InvoiceSettingsData {
     id: number;
@@ -95,11 +96,13 @@ function removeLogo() {
             <h1 class="text-sm font-semibold text-neutral-900">Računi in plačila</h1>
         </template>
 
-        <div class="mx-auto max-w-2xl space-y-4 px-4 py-6 sm:px-6">
+        <div class="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 sm:py-8">
             <p v-if="!isOwner" class="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 Samo lastnik delovnega prostora lahko ureja nastavitve računov.
             </p>
 
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div class="space-y-4 lg:col-span-2">
             <SectionCard title="Podatki o podjetju">
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="sm:col-span-2">
@@ -134,19 +137,19 @@ function removeLogo() {
                         <label class="block text-xs text-neutral-500">Telefon</label>
                         <input v-model="form.phone" :disabled="!isOwner" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none disabled:bg-neutral-50" />
                     </div>
-                    <div class="sm:col-span-2 flex items-center gap-2">
-                        <input id="vat_registered" v-model="form.vat_registered" :disabled="!isOwner" type="checkbox" class="h-4 w-4 rounded border-neutral-300" />
-                        <label for="vat_registered" class="text-sm text-neutral-700">Zavezanec za DDV</label>
+                    <div class="sm:col-span-2 flex items-center gap-2.5">
+                        <Toggle v-model="form.vat_registered" :disabled="!isOwner" />
+                        <span class="text-sm text-neutral-700">Zavezanec za DDV</span>
                     </div>
                     <div v-if="!form.vat_registered" class="sm:col-span-2">
                         <label class="block text-xs text-neutral-500">Opomba o neobdavčitvi z DDV</label>
                         <textarea v-model="form.vat_exempt_note" :disabled="!isOwner" rows="2" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none disabled:bg-neutral-50" />
                     </div>
                     <div v-if="form.vat_registered" class="sm:col-span-2 rounded-md border border-neutral-200 px-3 py-2.5">
-                        <div class="flex items-start gap-2">
-                            <input id="prices_include_vat" v-model="form.prices_include_vat" :disabled="!isOwner" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-neutral-300" />
+                        <div class="flex items-start gap-2.5">
+                            <Toggle v-model="form.prices_include_vat" :disabled="!isOwner" class="mt-0.5" />
                             <div>
-                                <label for="prices_include_vat" class="text-sm text-neutral-700">Vnesene cene vključujejo DDV</label>
+                                <span class="text-sm text-neutral-700">Vnesene cene vključujejo DDV</span>
                                 <p class="mt-0.5 text-xs text-neutral-500">
                                     Če vpišeš 80 €, bo končni znesek računa 80 € — DDV se izračuna iz vpisanega
                                     zneska, ne prišteje zraven.
@@ -157,21 +160,6 @@ function removeLogo() {
                                 </p>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </SectionCard>
-
-            <SectionCard title="Logotip" subtitle="Prikazan na dokumentih in v predogledu">
-                <div class="flex items-center gap-4">
-                    <img v-if="logoUrl" :src="logoUrl" alt="Logotip" class="h-16 w-auto rounded border border-neutral-200 object-contain p-1" />
-                    <div v-else class="flex h-16 w-24 items-center justify-center rounded border border-dashed border-neutral-300 text-xs text-neutral-400">
-                        Brez logotipa
-                    </div>
-                    <div v-if="isOwner" class="flex flex-col gap-2">
-                        <input ref="logoInput" type="file" accept="image/png,image/jpeg,image/webp" class="text-sm" @change="onLogoChange" />
-                        <button v-if="logoUrl" type="button" class="w-fit text-xs font-medium text-red-600 hover:underline" @click="removeLogo">
-                            Odstrani logotip
-                        </button>
                     </div>
                 </div>
             </SectionCard>
@@ -237,22 +225,53 @@ function removeLogo() {
                 >
                     Shrani nastavitve
                 </button>
-                <a
-                    :href="route('settings.invoicing.preview', { type: 'invoice' })"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-sm font-medium text-[var(--color-accent-500)] hover:underline"
-                >
-                    Predogled vzorčnega računa →
-                </a>
-                <a
-                    :href="route('settings.invoicing.preview', { type: 'proforma' })"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-sm font-medium text-[var(--color-accent-500)] hover:underline"
-                >
-                    Predogled vzorčnega predračuna →
-                </a>
+            </div>
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="lg:sticky lg:top-6">
+                        <SectionCard title="Logotip" subtitle="Prikazan na dokumentih in v predogledu">
+                            <div class="flex items-center gap-4">
+                                <img v-if="logoUrl" :src="logoUrl" alt="Logotip" class="h-16 w-auto rounded border border-neutral-200 object-contain p-1" />
+                                <div v-else class="flex h-16 w-24 items-center justify-center rounded border border-dashed border-neutral-300 text-xs text-neutral-400">
+                                    Brez logotipa
+                                </div>
+                            </div>
+                            <div v-if="isOwner" class="mt-3 flex flex-col items-start gap-2">
+                                <input ref="logoInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onLogoChange" />
+                                <button
+                                    type="button"
+                                    class="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                                    @click="logoInput?.click()"
+                                >
+                                    Izberi datoteko
+                                </button>
+                                <button v-if="logoUrl" type="button" class="text-xs font-medium text-red-600 hover:underline" @click="removeLogo">
+                                    Odstrani logotip
+                                </button>
+                            </div>
+                        </SectionCard>
+
+                        <div class="mt-4 space-y-2">
+                            <a
+                                :href="route('settings.invoicing.preview', { type: 'invoice' })"
+                                target="_blank"
+                                rel="noopener"
+                                class="block rounded-md border border-neutral-200 px-4 py-2 text-center text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                            >
+                                Predogled vzorčnega računa →
+                            </a>
+                            <a
+                                :href="route('settings.invoicing.preview', { type: 'proforma' })"
+                                target="_blank"
+                                rel="noopener"
+                                class="block rounded-md border border-neutral-200 px-4 py-2 text-center text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                            >
+                                Predogled vzorčnega predračuna →
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </AppLayout>

@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\AppointmentStatus;
 use App\Models\Conversation;
 use App\Models\Order;
 use App\Models\OrderStatus;
@@ -22,13 +22,13 @@ class RevenueStatsService
     {
         $orders = $workspace->orders_enabled
             ? (float) Order::whereBetween('created_at', [$start, $end])
-                ->whereNotIn('status', OrderStatus::cancelledKeys())
+                ->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()])
                 ->sum('price')
             : 0.0;
 
         $appointments = $workspace->appointments_enabled
             ? (float) Appointment::whereBetween('created_at', [$start, $end])
-                ->whereNotIn('status', [AppointmentStatus::Cancelled->value, AppointmentStatus::NoShow->value])
+                ->whereNotIn('status', [...AppointmentStatus::cancelledKeys(), ...AppointmentStatus::noShowKeys(), ...AppointmentStatus::refundedKeys()])
                 ->sum('price')
             : 0.0;
 

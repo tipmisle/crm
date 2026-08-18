@@ -504,6 +504,12 @@ class BloomAndCrumbSeeder extends Seeder
                     'tags' => rand(0, 2) === 0 ? ['priority'] : null,
                 ]);
 
+                $order->items()->create([
+                    'title' => $product,
+                    'quantity' => 1,
+                    'unit_price' => $price,
+                ]);
+
                 // The order can't have been placed after its own due date.
                 $createdAt = array_pop($createdDates);
                 if ($dueDate?->isPast() && $createdAt->gt($dueDate)) {

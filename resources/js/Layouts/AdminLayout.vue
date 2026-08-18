@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
-import { LayoutDashboard, Building2, Users, Plug, ShieldCheck, ScrollText, ArrowLeft } from 'lucide-vue-next';
+import { LayoutDashboard, Building2, Users, Plug, ShieldCheck, ScrollText, ArrowLeft, Bug, Lightbulb } from 'lucide-vue-next';
 import type { PageProps } from '@/types';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import SupportModeBanner from '@/Components/SupportModeBanner.vue';
 
 const page = usePage<PageProps>();
@@ -12,6 +13,8 @@ const nav = [
     { name: 'Delovni prostori', href: () => route('admin.workspaces.index'), icon: Building2, current: () => route().current('admin.workspaces.*') },
     { name: 'Uporabniki', href: () => route('admin.users.index'), icon: Users, current: () => route().current('admin.users.*') },
     { name: 'Integracije', href: () => route('admin.integrations.index'), icon: Plug, current: () => route().current('admin.integrations.*') },
+    { name: 'Bug reporti', href: () => route('admin.bug-reports.index'), icon: Bug, current: () => route().current('admin.bug-reports.*') },
+    { name: 'Predlogi', href: () => route('admin.feature-requests.index'), icon: Lightbulb, current: () => route().current('admin.feature-requests.*') },
     { name: 'Dnevnik revizije', href: () => route('admin.audit-log.index'), icon: ScrollText, current: () => route().current('admin.audit-log.*') },
 ];
 
@@ -56,5 +59,7 @@ const supportSession = computed(() => page.props.activeSupportSession);
                 </div>
             </main>
         </div>
+
+        <ConfirmModal />
     </div>
 </template>

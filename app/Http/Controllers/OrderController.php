@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -57,9 +58,10 @@ class OrderController extends Controller
             $query->whereNotIn('status', OrderStatus::openExclusionKeys());
         } elseif ($request->get('status_scope') === 'not_cancelled') {
             // Matches the exclusion Analytics uses for revenue math (only
-            // cancelled orders drop out — completed ones still count) so a
-            // drill-down link from a revenue figure shows the same set.
-            $query->whereNotIn('status', OrderStatus::cancelledKeys());
+            // cancelled/refunded orders drop out — completed ones still
+            // count) so a drill-down link from a revenue figure shows the
+            // same set.
+            $query->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()]);
         } elseif ($status = $request->get('status')) {
             $query->where('status', $status);
         }
@@ -79,7 +81,7 @@ class OrderController extends Controller
         }
 
         if ($catalogItemId = $request->get('catalog_item_id')) {
-            $query->where('catalog_item_id', $catalogItemId);
+            $query->whereHas('items', fn ($q) => $q->where('catalog_item_id', $catalogItemId));
         }
 
         if ($channelType = $request->get('channel_type')) {
@@ -168,7 +170,7 @@ class OrderController extends Controller
         $timezone = $request->user()->currentWorkspace->timezone;
 
         $query = $this->applyFilters(
-            Order::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'product:id,name']),
+            Order::query()->with(['customer:id,full_name,email,phone', 'channel:id,type', 'items']),
             $request
         )->orderByDesc('created_at');
 
@@ -176,7 +178,7 @@ class OrderController extends Controller
         $paymentStatusLabels = PaymentStatus::query()->pluck('label', 'key');
 
         $headers = [
-            'Št. naročila', 'Datum ustvarjanja', 'Stranka', 'Email', 'Telefon', 'Produkt',
+            'Št. naročila', 'Datum ustvarjanja', 'Stranka', 'Email', 'Telefon', 'Produkti',
             'Naslov naročila', 'Status', 'Status plačila', 'Rok', 'Ura', 'Cena', 'Ara',
             'Plačano', 'Preostanek', 'Način dostave', 'Tracking številka', 'Vir/kanal',
         ];
@@ -187,7 +189,7 @@ class OrderController extends Controller
             $order->customer?->full_name,
             $order->customer?->email,
             $order->customer?->phone,
-            $order->product?->name,
+            $order->items->map(fn ($item) => $item->quantity == 1 ? $item->title : "{$item->title} ×{$item->quantity}")->join(', '),
             $order->title,
             $orderStatusLabels[$order->status] ?? $order->status,
             $paymentStatusLabels[$order->payment_status] ?? $order->payment_status,
@@ -225,11 +227,6 @@ class OrderController extends Controller
         $workspaceId = $request->user()->current_workspace_id;
 
         $data = $request->validate([
-            // A catalog_item_id must be a Product (not a Service — both
-            // share the catalog_items table) belonging to THIS workspace;
-            // a plain exists:catalog_items,id would accept either type from
-            // any workspace.
-            'catalog_item_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'product'))],
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'customer_id' => ['nullable', Rule::exists('customers', 'id')->where('workspace_id', $workspaceId)],
@@ -237,13 +234,23 @@ class OrderController extends Controller
             'conversation_id' => ['nullable', Rule::exists('conversations', 'id')->where('workspace_id', $workspaceId)],
             'due_date' => 'nullable|date',
             'due_time' => 'nullable',
-            'price' => 'required|numeric|min:0',
             'deposit_amount' => 'nullable|numeric|min:0',
             'internal_notes' => 'nullable|string|max:2000',
             'customer_notes' => 'nullable|string|max:2000',
+            'items' => 'required|array|min:1',
+            // A catalog_item_id must be a Product (not a Service — both
+            // share the catalog_items table) belonging to THIS workspace;
+            // a plain exists:catalog_items,id would accept either type from
+            // any workspace.
+            'items.*.catalog_item_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'product'))],
+            'items.*.title' => 'required|string|max:255',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.unit_price' => 'required|numeric|min:0',
         ], [
             'customer_name.required_without_all' => 'Naročilo potrebuje stranko.',
         ]);
+
+        $price = collect($data['items'])->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
 
         $conversation = isset($data['conversation_id']) ? Conversation::with('channel')->find($data['conversation_id']) : null;
         $customer = isset($data['customer_id']) ? Customer::find($data['customer_id']) : $conversation?->customer;
@@ -284,12 +291,11 @@ class OrderController extends Controller
             'customer_id' => $customer->id,
             'conversation_id' => $conversation?->id,
             'channel_id' => $conversation?->channel_id ?? $customer->primary_channel_id,
-            'catalog_item_id' => $data['catalog_item_id'] ?? null,
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
             'due_date' => $data['due_date'] ?? null,
             'due_time' => $data['due_time'] ?? null,
-            'price' => $data['price'],
+            'price' => $price,
             'deposit_amount' => $deposit,
             'amount_paid' => 0,
             'payment_status' => $paymentStatus,
@@ -297,6 +303,8 @@ class OrderController extends Controller
             'internal_notes' => $data['internal_notes'] ?? null,
             'customer_notes' => $data['customer_notes'] ?? null,
         ]);
+
+        $order->items()->createMany($data['items']);
 
         if ($conversation) {
             $conversation->update(['status' => 'order_confirmed']);
@@ -309,7 +317,7 @@ class OrderController extends Controller
 
     public function show(Order $order): Response
     {
-        $order->load(['customer.orders', 'customer.primaryChannel', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments.correctsDocument:id,document_number,issued_at,type', 'salesDocuments.correction:id,document_number,corrects_document_id,type', 'workspace', 'product']);
+        $order->load(['customer.orders', 'customer.primaryChannel', 'conversation.channel', 'channel', 'notes.user', 'salesDocuments.correctsDocument:id,document_number,issued_at,type', 'salesDocuments.correction:id,document_number,corrects_document_id,type', 'workspace', 'items.product']);
 
         $mockNotificationsEnabled = app()->isLocal() || $order->workspace?->is_demo;
         $order->setAttribute('can_notify_customer', (bool) $order->conversation
@@ -319,6 +327,7 @@ class OrderController extends Controller
 
         return Inertia::render('Orders/Show', [
             'order' => $order,
+            'products' => Product::where('active', true)->orderBy('name')->get(),
             'followUps' => $order->followUps()->orderBy('due_at')->get(),
             'activity' => ActivityLog::where('subject_type', Order::class)
                 ->where('subject_id', $order->id)
@@ -333,12 +342,13 @@ class OrderController extends Controller
         // Custom keys are fully supported — this checks against the CURRENT
         // workspace's OrderStatus/PaymentStatus rows (any key that exists),
         // not a fixed whitelist of canonical names.
+        $workspaceId = $order->workspace_id;
+
         $data = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:2000',
             'due_date' => 'nullable|date',
             'due_time' => 'nullable',
-            'price' => 'sometimes|numeric|min:0',
             'deposit_amount' => 'sometimes|numeric|min:0',
             'amount_paid' => 'sometimes|numeric|min:0',
             'payment_status' => ['sometimes', 'string', Rule::exists('payment_statuses', 'key')->where('workspace_id', $order->workspace_id)],
@@ -348,7 +358,23 @@ class OrderController extends Controller
             'delivery_method' => 'nullable|in:mail,pickup',
             'tracking_number' => 'nullable|string|max:100',
             'tracking_url' => 'nullable|url|max:2048',
+            'items' => 'sometimes|array|min:1',
+            'items.*.catalog_item_id' => ['nullable', Rule::exists('catalog_items', 'id')->where(fn ($q) => $q->where('workspace_id', $workspaceId)->where('type', 'product'))],
+            'items.*.title' => 'required_with:items|string|max:255',
+            'items.*.quantity' => 'required_with:items|numeric|min:0.01',
+            'items.*.unit_price' => 'required_with:items|numeric|min:0',
         ]);
+
+        if (isset($data['items'])) {
+            $items = $data['items'];
+            unset($data['items']);
+            $data['price'] = collect($items)->sum(fn ($item) => $item['quantity'] * $item['unit_price']);
+
+            DB::transaction(function () use ($order, $items) {
+                $order->items()->delete();
+                $order->items()->createMany($items);
+            });
+        }
 
         $previousStatus = $order->status;
 

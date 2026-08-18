@@ -10,30 +10,32 @@ import FollowUpModal from '@/Components/FollowUpModal.vue';
 import SendDocumentModal from '@/Components/SendDocumentModal.vue';
 import StornoDocumentModal from '@/Components/StornoDocumentModal.vue';
 import DateInput from '@/Components/DateInput.vue';
+import CatalogItemModal from '@/Components/CatalogItemModal.vue';
+import MoneyInput from '@/Components/MoneyInput.vue';
+import { useConfirm } from '@/composables/useConfirm';
 import { formatMoney, formatDate, formatDateTime, normalizeMoneyInput } from '@/lib/format';
-import { APPOINTMENT_STATUS_ORDER, APPOINTMENT_STATUS_META } from '@/lib/statuses';
-import type { ActivityLogEntry, Appointment, AppointmentStatus, FollowUp, SalesDocument } from '@/types/models';
+import type { ActivityLogEntry, Appointment, FollowUp, Product, SalesDocument, Service } from '@/types/models';
 import type { PageProps } from '@/types';
-import { MessageSquare, Bell, FileText, Paperclip, Settings, Ban, Send, Check, Tag } from 'lucide-vue-next';
+import { MessageSquare, Bell, FileText, Paperclip, Settings, Ban, Send, Check, Undo2, UserX, Plus, Trash2 } from 'lucide-vue-next';
 
 const props = defineProps<{
     appointment: Appointment;
+    services: Service[];
     followUps: FollowUp[];
     activity: ActivityLogEntry[];
     invoiceSettingsConfigured: boolean;
 }>();
 
+const { confirm } = useConfirm();
+
 const page = usePage<PageProps>();
 const paymentStatuses = computed(() => page.props.paymentStatuses ?? []);
+const appointmentStatuses = computed(() => page.props.appointmentStatuses ?? []);
 const acceptsDeposit = computed(() => page.props.workspace?.accepts_deposit ?? true);
-const statusMeta = computed(() => APPOINTMENT_STATUS_META[props.appointment.status]);
+const fallbackStatus = { label: props.appointment.status, color: '#4B5563', bg: '#F1F2F4' };
+const statusMeta = computed(() => appointmentStatuses.value.find((s) => s.key === props.appointment.status) ?? fallbackStatus);
 const paymentMeta = computed(
-    () =>
-        paymentStatuses.value.find((s) => s.key === props.appointment.payment_status) ?? {
-            label: props.appointment.payment_status,
-            color: '#4B5563',
-            bg: '#F1F2F4',
-        },
+    () => paymentStatuses.value.find((s) => s.key === props.appointment.payment_status) ?? { ...fallbackStatus, label: props.appointment.payment_status },
 );
 
 const remainingBalance = computed(() => {
@@ -46,10 +48,35 @@ function updateStatus(status: string) {
     router.patch(route('appointments.update', props.appointment.id), { status }, { preserveScroll: true });
 }
 
-function cancelAppointment() {
-    if (!confirm(`Prekličeš termin ${props.appointment.appointment_number}?`)) return;
-    updateStatus('cancelled');
+// Appointment statuses are workspace-customizable — "cancelled"/"completed"/
+// "refunded" are whichever statuses are flagged as such, not literal keys.
+const cancelledStatusKey = computed(() => appointmentStatuses.value.find((s) => s.is_cancelled)?.key);
+const refundedStatusKey = computed(() => appointmentStatuses.value.find((s) => s.is_refunded)?.key);
+const noShowStatusKey = computed(() => appointmentStatuses.value.find((s) => s.is_no_show)?.key);
+
+async function cancelAppointment() {
+    if (!cancelledStatusKey.value) return;
+    if (!(await confirm(`Prekličeš termin ${props.appointment.appointment_number}?`, { danger: true }))) return;
+    updateStatus(cancelledStatusKey.value);
 }
+
+async function refundAppointment() {
+    if (!refundedStatusKey.value) return;
+    if (!(await confirm(`Si prepričan/a, da želiš izvesti vračilo za termin ${props.appointment.appointment_number}?`, { danger: true }))) return;
+    updateStatus(refundedStatusKey.value);
+}
+
+async function markNoShow() {
+    if (!noShowStatusKey.value) return;
+    if (!(await confirm(`Označiš termin ${props.appointment.appointment_number} kot "Ni se zglasil/a"?`, { danger: true }))) return;
+    updateStatus(noShowStatusKey.value);
+}
+
+const isCancelled = computed(() => 'is_cancelled' in statusMeta.value && statusMeta.value.is_cancelled === true);
+const isCompleted = computed(() => 'is_completed' in statusMeta.value && statusMeta.value.is_completed === true);
+const isRefunded = computed(() => 'is_refunded' in statusMeta.value && statusMeta.value.is_refunded === true);
+const isNoShow = computed(() => 'is_no_show' in statusMeta.value && statusMeta.value.is_no_show === true);
+const hasUnstornoedInvoice = computed(() => (props.appointment.sales_documents ?? []).some((d) => d.type === 'invoice' && d.status === 'issued'));
 
 function updatePayment(payment_status: string) {
     router.patch(route('appointments.update', props.appointment.id), { payment_status }, { preserveScroll: true });
@@ -60,16 +87,72 @@ function completeFollowUp(id: number) {
 }
 
 const paymentForm = useForm({
-    price: props.appointment.price ?? '',
     deposit_amount: props.appointment.deposit_amount,
     amount_paid: props.appointment.amount_paid,
 });
 
 function savePayment() {
-    paymentForm.price = normalizeMoneyInput(paymentForm.price);
     paymentForm.deposit_amount = normalizeMoneyInput(paymentForm.deposit_amount);
     paymentForm.amount_paid = normalizeMoneyInput(paymentForm.amount_paid);
     paymentForm.patch(route('appointments.update', props.appointment.id), { preserveScroll: true });
+}
+
+const itemsForm = useForm({
+    items: props.appointment.items.map((item) => ({
+        catalog_item_id: item.catalog_item_id,
+        title: item.title,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+    })),
+});
+
+const itemsTotal = computed(() => itemsForm.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unit_price || 0), 0));
+
+const NEW_SERVICE = '__new__';
+const quickAddOpen = ref(false);
+const quickAddRowIndex = ref<number | null>(null);
+
+function addItem() {
+    itemsForm.items.push({ catalog_item_id: null, title: '', quantity: 1, unit_price: 0 });
+}
+
+function removeItem(index: number) {
+    itemsForm.items.splice(index, 1);
+}
+
+function onServiceSelectChange(index: number, event: Event) {
+    const raw = (event.target as HTMLSelectElement).value;
+
+    if (raw === NEW_SERVICE) {
+        (event.target as HTMLSelectElement).value = String(itemsForm.items[index].catalog_item_id ?? '');
+        quickAddRowIndex.value = index;
+        quickAddOpen.value = true;
+        return;
+    }
+
+    onServiceSelect(index, raw ? Number(raw) : null);
+}
+
+function onServiceSelect(index: number, serviceId: number | null) {
+    const item = itemsForm.items[index];
+    item.catalog_item_id = serviceId;
+
+    const service = props.services.find((s) => s.id === serviceId);
+    if (service) {
+        item.title = service.name;
+        if (service.default_price !== null) item.unit_price = Number(service.default_price);
+    }
+}
+
+function onServiceSaved(item: Product | Service) {
+    if (quickAddRowIndex.value === null) return;
+
+    onServiceSelect(quickAddRowIndex.value, item.id);
+    quickAddRowIndex.value = null;
+}
+
+function saveItems() {
+    itemsForm.patch(route('appointments.update', props.appointment.id), { preserveScroll: true });
 }
 
 const scheduleForm = useForm({
@@ -141,8 +224,8 @@ function openStornoModal(document: SalesDocument) {
     stornoModal.value = { open: true, document };
 }
 
-function cancelProforma(document: SalesDocument) {
-    if (!confirm(`Prekličeš predračun ${document.document_number}? Predračuna po tem ne bo več mogoče poslati kot aktivno plačilno zahtevo.`)) return;
+async function cancelProforma(document: SalesDocument) {
+    if (!(await confirm(`Prekličeš predračun ${document.document_number}? Predračuna po tem ne bo več mogoče poslati kot aktivno plačilno zahtevo.`, { danger: true }))) return;
     router.post(route('documents.cancel', document.id), {}, { preserveScroll: true });
 }
 
@@ -186,7 +269,15 @@ const externalDocumentOpen = ref(false);
                         {{ appointment.appointment_number }} · {{ formatDate(appointment.appointment_date) }} ob {{ appointment.start_time.slice(0, 5) }}
                     </p>
                 </div>
-                <div class="flex flex-wrap items-stretch gap-2">
+                <div class="flex flex-wrap items-center gap-3">
+                    <button
+                        v-if="isCompleted && !isRefunded && refundedStatusKey"
+                        type="button"
+                        class="text-xs font-medium text-red-600 underline"
+                        @click="refundAppointment"
+                    >
+                        Izvedi vračilo
+                    </button>
                     <Link
                         :href="route('settings.statuses.edit')"
                         title="Nastavitve statusov"
@@ -194,14 +285,52 @@ const externalDocumentOpen = ref(false);
                     >
                         <Settings :size="14" />
                     </Link>
-                    <button
-                        v-if="appointment.status !== 'cancelled'"
-                        type="button"
-                        class="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
-                        @click="cancelAppointment"
+                    <span
+                        v-if="isCompleted"
+                        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
+                        style="color: #15803d; background-color: #dcfce7"
                     >
-                        <Ban :size="14" /> Prekliči termin
-                    </button>
+                        <Check :size="14" /> Termin zaključen
+                    </span>
+                    <span
+                        v-else-if="isRefunded"
+                        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
+                        :style="{ color: statusMeta.color, backgroundColor: statusMeta.bg }"
+                    >
+                        <Undo2 :size="14" /> Vračilo
+                    </span>
+                    <span
+                        v-else-if="isCancelled"
+                        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
+                        :style="{ color: statusMeta.color, backgroundColor: statusMeta.bg }"
+                    >
+                        <Ban :size="14" /> Termin preklican
+                    </span>
+                    <span
+                        v-else-if="isNoShow"
+                        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium"
+                        :style="{ color: statusMeta.color, backgroundColor: statusMeta.bg }"
+                    >
+                        <UserX :size="14" /> Ni se zglasil/a
+                    </span>
+                    <template v-else>
+                        <button
+                            v-if="noShowStatusKey"
+                            type="button"
+                            class="flex items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                            @click="markNoShow"
+                        >
+                            <UserX :size="14" /> Ni se zglasil/a
+                        </button>
+                        <button
+                            v-if="cancelledStatusKey"
+                            type="button"
+                            class="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100"
+                            @click="cancelAppointment"
+                        >
+                            <Ban :size="14" /> Prekliči termin
+                        </button>
+                    </template>
                 </div>
             </div>
 
@@ -214,40 +343,85 @@ const externalDocumentOpen = ref(false);
                         </div>
                         <p class="mt-2 text-sm text-neutral-700">{{ appointment.description || 'Opis ni dodan.' }}</p>
 
-                        <p v-if="appointment.service" class="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
-                            <Tag :size="12" />
-                            Storitev:
-                            <Link :href="route('catalog.index')" class="font-medium text-[var(--color-accent-600)] hover:underline">
-                                {{ appointment.service.name }}
-                            </Link>
-                        </p>
-
                         <div class="mt-4">
                             <h3 class="text-xs font-medium text-neutral-500">Opombe stranke</h3>
                             <p class="mt-1 text-sm text-neutral-700">{{ appointment.customer_notes || '—' }}</p>
                         </div>
 
-                        <div class="mt-4 flex items-end justify-between gap-4">
-                            <div class="max-w-xs flex-1">
-                                <label class="block text-xs text-neutral-500">Status termina</label>
-                                <select
-                                    :value="appointment.status"
-                                    class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-                                    @change="updateStatus(($event.target as HTMLSelectElement).value)"
-                                >
-                                    <option v-for="s in APPOINTMENT_STATUS_ORDER" :key="s" :value="s">
-                                        {{ APPOINTMENT_STATUS_META[s as AppointmentStatus].label }}
-                                    </option>
-                                </select>
-                            </div>
-                            <button
-                                v-if="canNotifyCustomer"
-                                type="button"
-                                class="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
-                                @click="appointmentNotifyOpen = true"
+                        <div class="mt-4 max-w-xs">
+                            <label class="block text-xs text-neutral-500">Status termina</label>
+                            <select
+                                :value="appointment.status"
+                                class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
+                                @change="updateStatus(($event.target as HTMLSelectElement).value)"
                             >
-                                <Send :size="14" /> Obvesti stranko
-                            </button>
+                                <option v-for="s in appointmentStatuses" :key="s.key" :value="s.key">
+                                    {{ s.label }}
+                                </option>
+                            </select>
+                        </div>
+                    </section>
+
+                    <section class="rounded-xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/[0.04] p-5">
+                        <h3 class="text-xs font-semibold text-neutral-800 uppercase">Postavke</h3>
+
+                        <div class="mt-3 space-y-3">
+                            <div v-for="(item, index) in itemsForm.items" :key="index" class="grid grid-cols-12 items-end gap-2">
+                                <div class="col-span-3">
+                                    <label class="block text-xs text-neutral-500">Storitev</label>
+                                    <select
+                                        :value="item.catalog_item_id"
+                                        class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none"
+                                        @change="onServiceSelectChange(index, $event)"
+                                    >
+                                        <option :value="null">Brez storitve</option>
+                                        <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
+                                        <option :value="NEW_SERVICE">+ Dodaj novo storitev</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-4">
+                                    <label class="block text-xs text-neutral-500">Naziv postavke</label>
+                                    <input v-model="item.title" type="text" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs text-neutral-500">Količina</label>
+                                    <input v-model.number="item.quantity" type="number" step="0.01" min="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs text-neutral-500">Cena/kos</label>
+                                    <MoneyInput v-model="item.unit_price" class="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-sm outline-none" />
+                                </div>
+                                <div class="col-span-1 flex justify-end">
+                                    <button
+                                        type="button"
+                                        :disabled="itemsForm.items.length === 1"
+                                        class="rounded-md p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                                        @click="removeItem(index)"
+                                    >
+                                        <Trash2 :size="15" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <button type="button" class="flex items-center gap-1.5 text-sm font-medium text-[var(--color-accent-500)] hover:underline" @click="addItem">
+                                    <Plus :size="14" /> Dodaj postavko
+                                </button>
+                                <button
+                                    type="button"
+                                    :disabled="itemsForm.processing"
+                                    class="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                                    @click="saveItems"
+                                >
+                                    Shrani postavke
+                                </button>
+                            </div>
+
+                            <p v-if="itemsForm.errors.items" class="text-xs text-red-600">{{ itemsForm.errors.items }}</p>
+                        </div>
+
+                        <div class="mt-4 flex justify-end border-t border-neutral-200 pt-3 text-sm font-semibold text-neutral-900">
+                            <span>Skupaj: {{ formatMoney(itemsTotal) }}</span>
                         </div>
                     </section>
 
@@ -259,7 +433,7 @@ const externalDocumentOpen = ref(false);
                         <div class="mt-3 grid grid-cols-2 gap-4" :class="acceptsDeposit ? 'sm:grid-cols-4' : 'sm:grid-cols-3'">
                             <div>
                                 <label class="block text-xs text-neutral-500">Cena</label>
-                                <input v-model="paymentForm.price" type="number" step="0.01" class="mt-1 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none" @change="savePayment" />
+                                <p class="mt-1 rounded-md border border-transparent px-3 py-2 text-sm text-neutral-900">{{ formatMoney(appointment.price ?? 0) }}</p>
                             </div>
                             <div v-if="acceptsDeposit">
                                 <label class="block text-xs text-neutral-500">Ara</label>
@@ -289,6 +463,9 @@ const externalDocumentOpen = ref(false);
                         <p v-if="!invoiceSettingsConfigured" class="mt-3 text-sm text-neutral-500">
                             Za izdajo računov najprej nastavi
                             <Link :href="route('settings.invoicing.edit')" class="font-medium text-[var(--color-accent-500)] hover:underline">podatke o računih</Link>.
+                        </p>
+                        <p v-if="isRefunded && hasUnstornoedInvoice" class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                            Termin je označen kot vrnjen, izdan račun pa še ni storniran — storniraj ga spodaj.
                         </p>
                         <div class="mt-3 space-y-3">
                             <div v-for="doc in [...proformaDocuments, ...invoiceDocuments, ...stornoDocuments, ...otherDocuments]" :id="`doc-${doc.id}`" :key="doc.id" class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5">
@@ -437,6 +614,14 @@ const externalDocumentOpen = ref(false);
                             </select>
                         </div>
                         <button
+                            v-if="canNotifyCustomer"
+                            type="button"
+                            class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
+                            @click="appointmentNotifyOpen = true"
+                        >
+                            <Send :size="14" /> Obvesti stranko
+                        </button>
+                        <button
                             type="button"
                             class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50"
                             @click="followUpOpen = true"
@@ -495,5 +680,7 @@ const externalDocumentOpen = ref(false);
             :action="stornoModal.document ? route('documents.storno', stornoModal.document.id) : ''"
             @close="stornoModal.open = false"
         />
+
+        <CatalogItemModal v-model:open="quickAddOpen" kind="service" @saved="onServiceSaved" />
     </AppLayout>
 </template>

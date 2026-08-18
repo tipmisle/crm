@@ -10,16 +10,16 @@ test('owner can create a payment status', function () {
 
     $this->actingAs($owner)
         ->post(route('settings.statuses.payment.store'), [
-            'label' => 'Vračilo',
+            'label' => 'Stornirano',
             'color' => '#B91C1C',
             'bg' => '#FEE2E2',
         ])
         ->assertRedirect();
 
-    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('label', 'Vračilo')->first();
+    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('label', 'Stornirano')->first();
 
     expect($status)->not->toBeNull();
-    expect($status->key)->toBe('vracilo');
+    expect($status->key)->toBe('stornirano');
 });
 
 test('setting a status as the deposit default unsets the deposit default flag on every other status', function () {
@@ -66,7 +66,7 @@ test('a payment status referenced by an order cannot be deleted', function () {
 
 test('a payment status in use can be deleted when its orders are reassigned to another status', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
-    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'unpaid')->first();
+    $status = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'partially_paid')->first();
     $otherStatus = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'paid')->first();
 
     $order = Order::create([
@@ -104,6 +104,22 @@ test('a payment status referenced by an appointment cannot be deleted', function
         ->assertStatus(422);
 
     expect(PaymentStatus::find($status->id))->not->toBeNull();
+});
+
+test('the status flagged default, paid, or refunded cannot be deleted, even with a reassignment target', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $default = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'unpaid')->first();
+    $paid = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'paid')->first();
+    $refunded = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'refunded')->first();
+    $other = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'partially_paid')->first();
+
+    foreach ([$default, $paid, $refunded] as $protected) {
+        $this->actingAs($owner)
+            ->delete(route('settings.statuses.payment.destroy', $protected->id), ['reassign_to' => $other->key])
+            ->assertStatus(422);
+
+        expect(PaymentStatus::find($protected->id))->not->toBeNull();
+    }
 });
 
 test('the last remaining payment status cannot be deleted', function () {

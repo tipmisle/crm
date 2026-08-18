@@ -32,6 +32,7 @@ export type PageProps<
     billing: BillingStatus | null;
     orderStatuses: StatusOption[] | null;
     paymentStatuses: StatusOption[] | null;
+    appointmentStatuses: StatusOption[] | null;
     vapidPublicKey: string | null;
     flash: {
         success?: string | null;
