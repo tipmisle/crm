@@ -32,7 +32,7 @@ watch(query, (value) => {
     debounceTimer = setTimeout(async () => {
         loading.value = true;
         try {
-            const response = await fetch(`/search?q=${encodeURIComponent(value)}`, {
+            const response = await fetch(route('search', { q: value }), {
                 headers: { Accept: 'application/json' },
             });
             const data = await response.json();

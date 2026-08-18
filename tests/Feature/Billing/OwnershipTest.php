@@ -35,7 +35,7 @@ test('opening the billing portal requires a recently confirmed password', functi
     [$workspace, $owner] = createWorkspaceWithSubscription();
 
     $this->actingAs($owner)->get(route('settings.billing.portal'))
-        ->assertRedirect(route('password.confirm'));
+        ->assertRedirect(route('password.confirm.app'));
 });
 
 test('the owner can view billing settings', function () {

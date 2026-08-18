@@ -120,7 +120,7 @@ test('repeated registration and checkout attempts never create a second workspac
         'terms_dpa_accepted' => true,
     ];
 
-    $this->post('/register', $payload);
+    $this->post(route('register'), $payload);
     expect(User::where('email', 'retry@example.com')->count())->toBe(1);
     expect(Workspace::count())->toBe(1);
 

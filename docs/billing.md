@@ -56,14 +56,14 @@ policy/product config (price ID, display price, access policies).
    cancellation; do NOT enable plan switching (only one plan exists),
    coupons, pause, or annual billing unless a product decision explicitly
    changes this.
-4. Register a real test account (`/register`), confirm the Terms/DPA
+4. Register a real test account (`/registracija`), confirm the Terms/DPA
    checkbox flow, land on `/billing/activate`.
 5. Click "Nadaljuj na plačilo", complete Checkout with a Stripe test card
    (`4242 4242 4242 4242`, any future expiry/CVC).
 6. Confirm the `customer.subscription.created`/`invoice.payment_succeeded`
    webhooks land and the workspace's subscription state resolves to
    `active` (`WorkspaceSubscriptionStateService::for()`).
-7. Confirm the app unlocks — `/today`, `/inbox`, etc. no longer redirect to
+7. Confirm the app unlocks — `/danes`, `/sporocila`, etc. no longer redirect to
    `/billing/activate`.
 8. Open Settings → Naročnina → "Upravljaj naročnino" and confirm the
    Customer Portal opens correctly.
@@ -80,7 +80,7 @@ policy/product config (price ID, display price, access policies).
 13. Replay a webhook event from the Stripe Dashboard's event log; confirm
     no duplicate audit rows are created (`stripe_webhook_events` unique
     constraint).
-14. Confirm visiting `/register` → `/demo` never creates a Stripe customer
+14. Confirm visiting `/registracija` → `/demo` never creates a Stripe customer
     or subscription for the demo workspace.
 
 ## 4. Local development

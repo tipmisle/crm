@@ -25,7 +25,7 @@ test('deleting the user removes their legal acceptance rows', function () {
 });
 
 test('registration records Terms and DPA acceptance with configured versions', function () {
-    $this->post('/register', [
+    $this->post(route('register'), [
         'name' => 'Test User',
         'email' => 'newuser@example.com',
         'password' => 'password',
@@ -49,7 +49,7 @@ test('registration records Terms and DPA acceptance with configured versions', f
 });
 
 test('registration does not record a privacy-policy acceptance', function () {
-    $this->post('/register', [
+    $this->post(route('register'), [
         'name' => 'Test User',
         'email' => 'newuser@example.com',
         'password' => 'password',
@@ -63,7 +63,7 @@ test('registration does not record a privacy-policy acceptance', function () {
 });
 
 test('registration without accepting terms/dpa creates no legal acceptance rows', function () {
-    $this->post('/register', [
+    $this->post(route('register'), [
         'name' => 'Test User',
         'email' => 'newuser@example.com',
         'password' => 'password',

@@ -225,7 +225,7 @@ test('workspace data export includes decrypted bug reports and feature requests,
         'user_id' => $user->id,
         'subject' => 'MARKER-BUG-SUBJECT',
         'message' => 'MARKER-BUG-MESSAGE',
-        'page_url' => '/settings/support',
+        'page_url' => '/nastavitve/podpora',
     ]);
 
     FeatureRequest::create([

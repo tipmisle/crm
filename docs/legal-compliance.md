@@ -19,9 +19,9 @@ substitute for actual legal review before launch.
 | Document | Route | Component | Version config key |
 |---|---|---|---|
 | Pogoji poslovanja (Terms) | `/pogoji-poslovanja` (`legal.terms`) | `resources/js/Pages/Legal/Terms.vue` | `legal.terms_version` |
-| Politika zasebnosti (Privacy) | `/zasebnost` (`legal.privacy`) | `Legal/Privacy.vue` | `legal.privacy_version` |
-| Politika piškotkov (Cookies) | `/piskotki` (`legal.cookies`) | `Legal/Cookies.vue` | `legal.cookie_version` |
-| Dogovor o obdelavi osebnih podatkov (DPA) | `/obdelava-osebnih-podatkov` (`legal.dpa`) | `Legal/Dpa.vue` | `legal.dpa_version` |
+| Politika zasebnosti (Privacy) | `/politika-zasebnosti` (`legal.privacy`) | `Legal/Privacy.vue` | `legal.privacy_version` |
+| Politika piškotkov (Cookies) | `/politika-piskotkov` (`legal.cookies`) | `Legal/Cookies.vue` | `legal.cookie_version` |
+| Dogovor o obdelavi osebnih podatkov (DPA) | `/dogovor-o-obdelavi-osebnih-podatkov` (`legal.dpa`) | `Legal/Dpa.vue` | `legal.dpa_version` |
 | Podatki o ponudniku (Provider info) | `/podatki-o-ponudniku` (`legal.provider`) | `Legal/Provider.vue` | — (factual, not versioned as a "document") |
 | Podobdelovalci (Subprocessors) | `/podobdelovalci` (`legal.subprocessors`) | `Legal/Subprocessors.vue` | — (kept current, not versioned) |
 

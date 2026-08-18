@@ -55,11 +55,18 @@ Route::post('/demo/{variant}', [DemoController::class, 'create'])->name('demo.cr
 // Public legal pages — no auth/workspace required, never redirect an
 // authenticated user away. See docs/legal-compliance.md.
 Route::get('/pogoji-poslovanja', [LegalController::class, 'terms'])->name('legal.terms');
-Route::get('/zasebnost', [LegalController::class, 'privacy'])->name('legal.privacy');
-Route::get('/piskotki', [LegalController::class, 'cookies'])->name('legal.cookies');
-Route::get('/obdelava-osebnih-podatkov', [LegalController::class, 'dpa'])->name('legal.dpa');
+Route::get('/politika-zasebnosti', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/politika-piskotkov', [LegalController::class, 'cookies'])->name('legal.cookies');
+Route::get('/dogovor-o-obdelavi-osebnih-podatkov', [LegalController::class, 'dpa'])->name('legal.dpa');
 Route::get('/podatki-o-ponudniku', [LegalController::class, 'provider'])->name('legal.provider');
 Route::get('/podobdelovalci', [LegalController::class, 'subprocessors'])->name('legal.subprocessors');
+
+// Legacy public paths — permanent redirects so bookmarks/old links/search
+// engines converge on the canonical Slovenian URLs above. GET-only; the
+// legal pages never accept mutations so no method-changing risk.
+Route::redirect('/zasebnost', '/politika-zasebnosti', 301);
+Route::redirect('/piskotki', '/politika-piskotkov', 301);
+Route::redirect('/obdelava-osebnih-podatkov', '/dogovor-o-obdelavi-osebnih-podatkov', 301);
 
 Route::middleware('auth')->group(function () {
     // Billing management/activation and account/GDPR routes stay reachable
@@ -69,61 +76,61 @@ Route::middleware('auth')->group(function () {
     Route::post('/billing/activate/checkout', [ActivationController::class, 'checkout'])->name('billing.activate.checkout');
     Route::get('/billing/activate/success', [ActivationController::class, 'success'])->name('billing.activate.success');
 
-    Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
-    Route::patch('/settings/business', [SettingsController::class, 'update'])->name('settings.update');
-    Route::patch('/settings/capabilities', [SettingsController::class, 'updateCapabilities'])->name('settings.capabilities.update');
+    Route::get('/nastavitve', [SettingsController::class, 'edit'])->name('settings.edit');
+    Route::patch('/nastavitve/business', [SettingsController::class, 'update'])->name('settings.update');
+    Route::patch('/nastavitve/capabilities', [SettingsController::class, 'updateCapabilities'])->name('settings.capabilities.update');
 
-    Route::get('/settings/support', [SupportAccessController::class, 'edit'])->name('settings.support.edit');
+    Route::get('/nastavitve/podpora', [SupportAccessController::class, 'edit'])->name('settings.support.edit');
     // Granting support access to a live workspace's content is sensitive
     // enough to gate behind a recently-confirmed password — but leaving/
     // revoking it must never be gated, so it's always immediately reachable.
-    Route::middleware('password.confirm')->post('/settings/support', [SupportAccessController::class, 'store'])->name('settings.support.store');
-    Route::delete('/settings/support', [SupportAccessController::class, 'destroy'])->name('settings.support.destroy');
-    Route::post('/settings/support/bug-reports', [BugReportController::class, 'store'])->name('settings.support.bug-reports.store');
-    Route::post('/settings/support/feature-requests', [FeatureRequestController::class, 'store'])->name('settings.support.feature-requests.store');
+    Route::middleware('password.confirm')->post('/nastavitve/podpora', [SupportAccessController::class, 'store'])->name('settings.support.store');
+    Route::delete('/nastavitve/podpora', [SupportAccessController::class, 'destroy'])->name('settings.support.destroy');
+    Route::post('/nastavitve/podpora/bug-reports', [BugReportController::class, 'store'])->name('settings.support.bug-reports.store');
+    Route::post('/nastavitve/podpora/feature-requests', [FeatureRequestController::class, 'store'])->name('settings.support.feature-requests.store');
 
-    Route::get('/settings/billing', [BillingController::class, 'edit'])->name('settings.billing.edit');
+    Route::get('/nastavitve/narocnina', [BillingController::class, 'edit'])->name('settings.billing.edit');
     // The Stripe Customer Portal lets the owner change payment method,
     // cancel, or view invoices — billing/cancellation-affecting, so it's
     // gated the same as other high-sensitivity actions above.
-    Route::middleware('password.confirm')->get('/settings/billing/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
+    Route::middleware('password.confirm')->get('/nastavitve/narocnina/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
 
-    Route::get('/settings/statuses', [SettingsStatusesController::class, 'edit'])->name('settings.statuses.edit');
-    Route::post('/settings/statuses/order', [OrderStatusController::class, 'store'])->name('settings.statuses.order.store');
-    Route::patch('/settings/statuses/order/{orderStatus}', [OrderStatusController::class, 'update'])->name('settings.statuses.order.update');
-    Route::delete('/settings/statuses/order/{orderStatus}', [OrderStatusController::class, 'destroy'])->name('settings.statuses.order.destroy');
-    Route::post('/settings/statuses/order/reorder', [OrderStatusController::class, 'reorder'])->name('settings.statuses.order.reorder');
+    Route::get('/nastavitve/statusi', [SettingsStatusesController::class, 'edit'])->name('settings.statuses.edit');
+    Route::post('/nastavitve/statusi/order', [OrderStatusController::class, 'store'])->name('settings.statuses.order.store');
+    Route::patch('/nastavitve/statusi/order/{orderStatus}', [OrderStatusController::class, 'update'])->name('settings.statuses.order.update');
+    Route::delete('/nastavitve/statusi/order/{orderStatus}', [OrderStatusController::class, 'destroy'])->name('settings.statuses.order.destroy');
+    Route::post('/nastavitve/statusi/order/reorder', [OrderStatusController::class, 'reorder'])->name('settings.statuses.order.reorder');
 
-    Route::post('/settings/statuses/payment', [PaymentStatusController::class, 'store'])->name('settings.statuses.payment.store');
-    Route::patch('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'update'])->name('settings.statuses.payment.update');
-    Route::delete('/settings/statuses/payment/{paymentStatus}', [PaymentStatusController::class, 'destroy'])->name('settings.statuses.payment.destroy');
-    Route::post('/settings/statuses/payment/reorder', [PaymentStatusController::class, 'reorder'])->name('settings.statuses.payment.reorder');
+    Route::post('/nastavitve/statusi/payment', [PaymentStatusController::class, 'store'])->name('settings.statuses.payment.store');
+    Route::patch('/nastavitve/statusi/payment/{paymentStatus}', [PaymentStatusController::class, 'update'])->name('settings.statuses.payment.update');
+    Route::delete('/nastavitve/statusi/payment/{paymentStatus}', [PaymentStatusController::class, 'destroy'])->name('settings.statuses.payment.destroy');
+    Route::post('/nastavitve/statusi/payment/reorder', [PaymentStatusController::class, 'reorder'])->name('settings.statuses.payment.reorder');
 
-    Route::post('/settings/statuses/appointment', [AppointmentStatusController::class, 'store'])->name('settings.statuses.appointment.store');
-    Route::patch('/settings/statuses/appointment/{appointmentStatus}', [AppointmentStatusController::class, 'update'])->name('settings.statuses.appointment.update');
-    Route::delete('/settings/statuses/appointment/{appointmentStatus}', [AppointmentStatusController::class, 'destroy'])->name('settings.statuses.appointment.destroy');
-    Route::post('/settings/statuses/appointment/reorder', [AppointmentStatusController::class, 'reorder'])->name('settings.statuses.appointment.reorder');
+    Route::post('/nastavitve/statusi/appointment', [AppointmentStatusController::class, 'store'])->name('settings.statuses.appointment.store');
+    Route::patch('/nastavitve/statusi/appointment/{appointmentStatus}', [AppointmentStatusController::class, 'update'])->name('settings.statuses.appointment.update');
+    Route::delete('/nastavitve/statusi/appointment/{appointmentStatus}', [AppointmentStatusController::class, 'destroy'])->name('settings.statuses.appointment.destroy');
+    Route::post('/nastavitve/statusi/appointment/reorder', [AppointmentStatusController::class, 'reorder'])->name('settings.statuses.appointment.reorder');
 
-    Route::get('/settings/invoicing', [InvoiceSettingsController::class, 'edit'])->name('settings.invoicing.edit');
-    Route::patch('/settings/invoicing', [InvoiceSettingsController::class, 'update'])->name('settings.invoicing.update');
-    Route::post('/settings/invoicing/logo', [InvoiceSettingsController::class, 'updateLogo'])->name('settings.invoicing.logo.update');
-    Route::delete('/settings/invoicing/logo', [InvoiceSettingsController::class, 'destroyLogo'])->name('settings.invoicing.logo.destroy');
-    Route::get('/settings/invoicing/preview', [InvoiceSettingsController::class, 'preview'])->name('settings.invoicing.preview');
+    Route::get('/nastavitve/izdajanje-racunov', [InvoiceSettingsController::class, 'edit'])->name('settings.invoicing.edit');
+    Route::patch('/nastavitve/izdajanje-racunov', [InvoiceSettingsController::class, 'update'])->name('settings.invoicing.update');
+    Route::post('/nastavitve/izdajanje-racunov/logo', [InvoiceSettingsController::class, 'updateLogo'])->name('settings.invoicing.logo.update');
+    Route::delete('/nastavitve/izdajanje-racunov/logo', [InvoiceSettingsController::class, 'destroyLogo'])->name('settings.invoicing.logo.destroy');
+    Route::get('/nastavitve/izdajanje-racunov/preview', [InvoiceSettingsController::class, 'preview'])->name('settings.invoicing.preview');
 
-    Route::get('/settings/privacy', [WorkspacePrivacyController::class, 'edit'])->name('settings.privacy.edit');
-    Route::get('/settings/privacy/export/{export}/download', [WorkspaceExportController::class, 'download'])->name('settings.privacy.export.download');
+    Route::get('/nastavitve/zasebnost', [WorkspacePrivacyController::class, 'edit'])->name('settings.privacy.edit');
+    Route::get('/nastavitve/zasebnost/export/{export}/download', [WorkspaceExportController::class, 'download'])->name('settings.privacy.export.download');
 
     // Destructive/data-generating mutations require a recently-confirmed
     // password on top of normal auth — same pattern as routes/admin.php.
     Route::middleware('password.confirm')->group(function () {
-        Route::post('/settings/privacy/delete', [WorkspacePrivacyController::class, 'requestDeletion'])->name('settings.privacy.delete');
-        Route::delete('/settings/privacy/delete', [WorkspacePrivacyController::class, 'cancelDeletion'])->name('settings.privacy.cancel');
-        Route::post('/settings/privacy/export', [WorkspaceExportController::class, 'store'])->name('settings.privacy.export.store');
+        Route::post('/nastavitve/zasebnost/delete', [WorkspacePrivacyController::class, 'requestDeletion'])->name('settings.privacy.delete');
+        Route::delete('/nastavitve/zasebnost/delete', [WorkspacePrivacyController::class, 'cancelDeletion'])->name('settings.privacy.cancel');
+        Route::post('/nastavitve/zasebnost/export', [WorkspaceExportController::class, 'store'])->name('settings.privacy.export.store');
     });
 
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/profil', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profil', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profil', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
     Route::delete('/push-subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
@@ -135,35 +142,41 @@ Route::middleware('auth')->group(function () {
     // the Meta OAuth round-trip are exempt from that bounce (see
     // EnsureOnboardingComplete).
     Route::middleware(['subscription.active', 'onboarding.gate'])->group(function () {
-        Route::get('/onboarding', [OnboardingController::class, 'show'])->name('onboarding.show');
-        Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
+        Route::get('/zacetna-nastavitev', [OnboardingController::class, 'show'])->name('onboarding.show');
+        Route::post('/zacetna-nastavitev/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
 
-        Route::get('/today', TodayController::class)->name('dashboard');
+        Route::get('/danes', TodayController::class)->name('dashboard');
 
-        Route::get('/search', SearchController::class)->name('search');
+        Route::get('/iskanje', SearchController::class)->name('search');
 
-        Route::get('/inbox', [ConversationController::class, 'index'])->name('inbox.index');
-        Route::get('/inbox/{conversation}', [ConversationController::class, 'show'])->name('inbox.show');
-        Route::post('/inbox/{conversation}/messages', [ConversationController::class, 'sendMessage'])->name('inbox.messages.store');
-        Route::patch('/inbox/{conversation}', [ConversationController::class, 'update'])->name('inbox.update');
-        Route::post('/inbox/{conversation}/create-customer', [ConversationController::class, 'createCustomer'])->name('inbox.create-customer');
-        Route::post('/inbox/{conversation}/notes', [ConversationController::class, 'addNote'])->name('inbox.notes.store');
-        Route::get('/inbox/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
+        Route::get('/sporocila', [ConversationController::class, 'index'])->name('inbox.index');
+        Route::get('/sporocila/{conversation}', [ConversationController::class, 'show'])->name('inbox.show');
+        Route::post('/sporocila/{conversation}/messages', [ConversationController::class, 'sendMessage'])->name('inbox.messages.store');
+        Route::patch('/sporocila/{conversation}', [ConversationController::class, 'update'])->name('inbox.update');
+        Route::post('/sporocila/{conversation}/create-customer', [ConversationController::class, 'createCustomer'])->name('inbox.create-customer');
+        Route::post('/sporocila/{conversation}/notes', [ConversationController::class, 'addNote'])->name('inbox.notes.store');
+        Route::get('/sporocila/attachments/{message}/{index}', [AttachmentController::class, 'show'])->name('inbox.attachments.show');
 
         // No customers.destroy: deleting a Customer would cascade-delete
         // Orders/Appointments (cascadeOnDelete FKs). GDPR removal is
         // customers.privacy.erase (anonymization), which preserves
         // operational/financial history. See CustomerController.
-        Route::resource('customers', CustomerController::class)->except(['edit', 'destroy']);
+        Route::resource('stranke', CustomerController::class)
+            ->except(['edit', 'destroy'])
+            ->parameters(['stranke' => 'customer'])
+            ->names('customers');
         Route::middleware('orders.enabled')->group(function () {
-            Route::resource('orders', OrderController::class)->except(['edit']);
-            Route::get('/orders-export', [OrderController::class, 'exportCsv'])->name('orders.export');
-            Route::post('/orders/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
-            Route::post('/orders/{order}/notify', [OrderNotificationController::class, 'store'])->name('orders.notify.store');
+            Route::resource('narocila', OrderController::class)
+                ->except(['edit'])
+                ->parameters(['narocila' => 'order'])
+                ->names('orders');
+            Route::get('/narocila-export', [OrderController::class, 'exportCsv'])->name('orders.export');
+            Route::post('/narocila/{order}/notes', [OrderNoteController::class, 'store'])->name('orders.notes.store');
+            Route::post('/narocila/{order}/notify', [OrderNotificationController::class, 'store'])->name('orders.notify.store');
 
-            Route::get('/orders/{order}/documents/create', [SalesDocumentController::class, 'create'])->name('orders.documents.create');
-            Route::post('/orders/{order}/documents', [SalesDocumentController::class, 'store'])->name('orders.documents.store');
-            Route::post('/orders/{order}/documents/external', [ExternalDocumentController::class, 'store'])->name('orders.documents.external.store');
+            Route::get('/narocila/{order}/documents/create', [SalesDocumentController::class, 'create'])->name('orders.documents.create');
+            Route::post('/narocila/{order}/documents', [SalesDocumentController::class, 'store'])->name('orders.documents.store');
+            Route::post('/narocila/{order}/documents/external', [ExternalDocumentController::class, 'store'])->name('orders.documents.external.store');
             Route::resource('products', ProductController::class)->only(['store', 'update', 'destroy']);
         });
 
@@ -180,12 +193,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/ponudba', [CatalogController::class, 'index'])->name('catalog.index');
 
         Route::middleware('appointments.enabled')->group(function () {
-            Route::resource('appointments', AppointmentController::class)->except(['edit']);
-            Route::get('/appointments-export', [AppointmentController::class, 'exportCsv'])->name('appointments.export');
-            Route::post('/appointments/{appointment}/notify', [AppointmentNotificationController::class, 'store'])->name('appointments.notify.store');
-            Route::get('/appointments/{appointment}/documents/create', [SalesDocumentController::class, 'createForAppointment'])->name('appointments.documents.create');
-            Route::post('/appointments/{appointment}/documents', [SalesDocumentController::class, 'storeForAppointment'])->name('appointments.documents.store');
-            Route::post('/appointments/{appointment}/documents/external', [ExternalDocumentController::class, 'storeForAppointment'])->name('appointments.documents.external.store');
+            Route::resource('termini', AppointmentController::class)
+                ->except(['edit'])
+                ->parameters(['termini' => 'appointment'])
+                ->names('appointments');
+            Route::get('/termini-export', [AppointmentController::class, 'exportCsv'])->name('appointments.export');
+            Route::post('/termini/{appointment}/notify', [AppointmentNotificationController::class, 'store'])->name('appointments.notify.store');
+            Route::get('/termini/{appointment}/documents/create', [SalesDocumentController::class, 'createForAppointment'])->name('appointments.documents.create');
+            Route::post('/termini/{appointment}/documents', [SalesDocumentController::class, 'storeForAppointment'])->name('appointments.documents.store');
+            Route::post('/termini/{appointment}/documents/external', [ExternalDocumentController::class, 'storeForAppointment'])->name('appointments.documents.external.store');
             Route::resource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
         });
 
@@ -197,8 +213,8 @@ Route::middleware('auth')->group(function () {
         // data — same password.confirm gate as workspace export/deletion
         // (routes/web.php above) and admin support access (routes/admin.php).
         Route::middleware('password.confirm')->group(function () {
-            Route::post('/customers/{customer}/privacy/export', [CustomerPrivacyController::class, 'exportData'])->name('customers.privacy.export');
-            Route::post('/customers/{customer}/privacy/erase', [CustomerPrivacyController::class, 'eraseData'])->name('customers.privacy.erase');
+            Route::post('/stranke/{customer}/privacy/export', [CustomerPrivacyController::class, 'exportData'])->name('customers.privacy.export');
+            Route::post('/stranke/{customer}/privacy/erase', [CustomerPrivacyController::class, 'eraseData'])->name('customers.privacy.erase');
         });
 
         Route::get('/settings/integrations/meta/connect', [MetaIntegrationController::class, 'connect'])->name('integrations.meta.connect');
@@ -208,6 +224,32 @@ Route::middleware('auth')->group(function () {
         Route::delete('/settings/integrations/meta/channels/{channel}', [MetaIntegrationController::class, 'destroy'])->name('integrations.meta.disconnect');
     });
 });
+
+// Legacy GET-only redirects for bookmarked/old human-facing app URLs, so
+// old links/bookmarks converge on the new Slovenian paths instead of
+// 404ing. GET-only: a redirected POST/PATCH/DELETE could have its method
+// downgraded by the client, so those simply 404 on the old path — every
+// internal caller already moved to route()-generated new paths.
+Route::get('/today', fn () => redirect('/danes', 301));
+Route::get('/search', fn () => redirect('/iskanje', 301));
+Route::get('/inbox', fn () => redirect('/sporocila', 301));
+Route::get('/inbox/{conversation}', fn (string $conversation) => redirect('/sporocila/'.$conversation, 301));
+Route::get('/customers', fn () => redirect('/stranke', 301));
+Route::get('/customers/{customer}', fn (string $customer) => redirect('/stranke/'.$customer, 301));
+Route::get('/orders', fn () => redirect('/narocila', 301));
+Route::get('/orders/{order}', fn (string $order) => redirect('/narocila/'.$order, 301));
+Route::get('/orders-export', fn () => redirect('/narocila-export', 301));
+Route::get('/appointments', fn () => redirect('/termini', 301));
+Route::get('/appointments/{appointment}', fn (string $appointment) => redirect('/termini/'.$appointment, 301));
+Route::get('/appointments-export', fn () => redirect('/termini-export', 301));
+Route::get('/settings', fn () => redirect('/nastavitve', 301));
+Route::get('/settings/support', fn () => redirect('/nastavitve/podpora', 301));
+Route::get('/settings/billing', fn () => redirect('/nastavitve/narocnina', 301));
+Route::get('/settings/statuses', fn () => redirect('/nastavitve/statusi', 301));
+Route::get('/settings/invoicing', fn () => redirect('/nastavitve/izdajanje-racunov', 301));
+Route::get('/settings/privacy', fn () => redirect('/nastavitve/zasebnost', 301));
+Route::get('/profile', fn () => redirect('/profil', 301));
+Route::get('/onboarding', fn () => redirect('/zacetna-nastavitev', 301));
 
 // Meta calls these directly — no session, no auth, no CSRF (verified via
 // hub.verify_token on GET and X-Hub-Signature-256 on POST instead).

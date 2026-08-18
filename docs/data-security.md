@@ -266,7 +266,7 @@ logging the value itself.
   signed URLs aren't supported out of the box the way S3's are. Instead:
 
   - `App\Http\Controllers\Inbox\AttachmentController@show` — customer-facing,
-    `auth`-protected route (`GET /inbox/attachments/{message}/{index}`,
+    `auth`-protected route (`GET /sporocila/attachments/{message}/{index}`,
     named `inbox.attachments.show`). Verifies the message's conversation
     belongs to the requesting user's `current_workspace_id`; 404 otherwise
     (matching the rest of the app's cross-tenant-is-a-404 convention).

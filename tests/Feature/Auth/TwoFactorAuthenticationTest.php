@@ -127,7 +127,7 @@ test('regenerating recovery codes requires a recently confirmed password', funct
     app(ConfirmTwoFactorAuthentication::class)($user->fresh(), currentTotpFor($user->fresh()));
 
     $this->actingAs($user->fresh())->post(route('two-factor.regenerate-recovery-codes'))
-        ->assertRedirect(route('password.confirm'));
+        ->assertRedirect(route('password.confirm.app'));
 });
 
 test('disabling 2FA requires a recently confirmed password', function () {
@@ -136,7 +136,7 @@ test('disabling 2FA requires a recently confirmed password', function () {
     app(ConfirmTwoFactorAuthentication::class)($user->fresh(), currentTotpFor($user->fresh()));
 
     $this->actingAs($user->fresh())->delete(route('two-factor.disable'))
-        ->assertRedirect(route('password.confirm'));
+        ->assertRedirect(route('password.confirm.app'));
 
     expect($user->fresh()->hasEnabledTwoFactorAuthentication())->toBeTrue();
 
@@ -149,7 +149,7 @@ test('enabling 2FA in the first place also requires a recently confirmed passwor
     [, $user] = createWorkspaceWithUser();
 
     $this->actingAs($user)->post(route('two-factor.enable'))
-        ->assertRedirect(route('password.confirm'));
+        ->assertRedirect(route('password.confirm.app'));
 
     expect($user->fresh()->two_factor_secret)->toBeNull();
 });

@@ -58,7 +58,7 @@ test('bug report page_url is derived server-side from the Referer path only, nev
     [$workspace, $user] = createWorkspaceWithUser();
 
     $this->actingAs($user)
-        ->withHeader('referer', 'https://app.example.com/settings/support?q=ana@example.com#section')
+        ->withHeader('referer', 'https://app.example.com/nastavitve/podpora?q=ana@example.com#section')
         ->post(route('settings.support.bug-reports.store'), [
             'subject' => 'Test',
             'message' => 'Test message',
@@ -68,7 +68,7 @@ test('bug report page_url is derived server-side from the Referer path only, nev
         ->assertRedirect();
 
     $report = BugReport::first();
-    expect($report->page_url)->toBe('/settings/support');
+    expect($report->page_url)->toBe('/nastavitve/podpora');
     expect($report->page_url)->not->toContain('evil.example.com');
     expect($report->page_url)->not->toContain('ana@example.com');
 });

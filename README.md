@@ -69,6 +69,10 @@ https://<your-dev-domain>/settings/integrations/meta/callback
 
 Meta requires HTTPS for OAuth redirects and webhooks — see step 5 for exposing `localhost` during development.
 
+The Privacy Policy URL for the Meta App Dashboard (App Review) is
+`https://belezka.com/politika-zasebnosti` — public, unauthenticated, no
+redirect.
+
 ### 3. Configure the webhook
 
 Under **Messenger → Settings → Webhooks**, add a callback:

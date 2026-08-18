@@ -151,7 +151,7 @@ test('granting support access requires a recently confirmed password', function 
 
     $this->actingAs($owner)->post(route('settings.support.store'), [
         'duration_minutes' => 60,
-    ])->assertRedirect(route('password.confirm'));
+    ])->assertRedirect(route('password.confirm.app'));
 
     expect(SupportAccessGrant::where('workspace_id', $workspace->id)->active()->exists())->toBeFalse();
 });

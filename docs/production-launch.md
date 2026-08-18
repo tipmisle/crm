@@ -205,7 +205,7 @@ webhook path. Do not conflate the two.
 
 | Category | Disk | Exposure |
 |---|---|---|
-| Message/inbox attachments | `local` (private) | Authenticated controller only (`inbox.attachments.show`, admin support equivalent) — never a public URL |
+| Message/inbox attachments | `local` (private) | Authenticated controller only (`inbox.attachments.show` at `/sporocila/attachments/{message}/{index}`, admin support equivalent) — never a public URL |
 | Invoice/proforma/storno PDFs | `local` (private) | Authenticated download/send controllers only |
 | External/uploaded invoice PDFs | `local` (private), workspace-scoped path | Authenticated only |
 | Workspace data exports | `local` (private) | Authenticated, owner-only download controller |
@@ -394,7 +394,7 @@ any provider step "passed" without actually exercising it — if Meta/Stripe
 test credentials aren't available in this environment, say so explicitly
 rather than assuming success.
 
-1. Register a fresh user (`/register`) — new workspace created, redirected
+1. Register a fresh user (`/registracija`) — new workspace created, redirected
    to `/billing/activate`.
 2. Complete Stripe **test-mode** Checkout (`4242 4242 4242 4242`) — confirm
    the webhook lands and the app unlocks (no bounce back to

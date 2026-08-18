@@ -9,7 +9,7 @@ test('sole owner of a solo workspace has the workspace cascaded on account delet
     [$workspace, $owner] = createWorkspaceWithUser();
 
     $this->actingAs($owner)
-        ->delete('/profile', ['password' => 'password'])
+        ->delete(route('profile.destroy'), ['password' => 'password'])
         ->assertRedirect('/');
 
     expect(Workspace::find($workspace->id))->toBeNull();
@@ -23,10 +23,10 @@ test('owner of a multi-member workspace cannot delete their account', function (
     WorkspaceMember::create(['workspace_id' => $workspace->id, 'user_id' => $member->id, 'role' => 'member']);
 
     $this->actingAs($owner)
-        ->from('/profile')
-        ->delete('/profile', ['password' => 'password'])
+        ->from(route('profile.edit'))
+        ->delete(route('profile.destroy'), ['password' => 'password'])
         ->assertSessionHasErrors('workspace')
-        ->assertRedirect('/profile');
+        ->assertRedirect(route('profile.edit'));
 
     expect(Workspace::find($workspace->id))->not->toBeNull();
     expect(User::find($owner->id))->not->toBeNull();
@@ -38,7 +38,7 @@ test('a non-owner member can delete their account without affecting the workspac
     WorkspaceMember::create(['workspace_id' => $workspace->id, 'user_id' => $member->id, 'role' => 'member']);
 
     $this->actingAs($member)
-        ->delete('/profile', ['password' => 'password'])
+        ->delete(route('profile.destroy'), ['password' => 'password'])
         ->assertRedirect('/');
 
     expect(User::find($member->id))->toBeNull();

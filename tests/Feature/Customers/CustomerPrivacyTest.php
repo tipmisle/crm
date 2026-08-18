@@ -205,10 +205,10 @@ test('customer export/erase requires a recently confirmed password', function ()
     [$customer] = makeCustomerWithConversation($workspace->id);
 
     $this->actingAs($owner)->post(route('customers.privacy.export', $customer->id))
-        ->assertRedirect(route('password.confirm'));
+        ->assertRedirect(route('password.confirm.app'));
 
     $this->actingAs($owner)->post(route('customers.privacy.erase', $customer->id), ['confirm' => true])
-        ->assertRedirect(route('password.confirm'));
+        ->assertRedirect(route('password.confirm.app'));
 
     expect($customer->fresh()->full_name)->not->toBe('Izbrisana stranka');
 });
