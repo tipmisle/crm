@@ -201,6 +201,34 @@ class ExportWorkspaceDataService
                 ];
             });
 
+            // Own support submissions — decrypted via Eloquent (subject/
+            // message are 'encrypted' casts). Never includes secrets/
+            // integration tokens; page_url is already a normalized
+            // same-app path, not a raw client-submitted value.
+            $this->writeCsv($tmpDir.'/bug-reports.csv', $workspace->bugReports()->get(), function ($b) {
+                return [
+                    'id' => $b->id,
+                    'user_id' => $b->user_id,
+                    'subject' => $b->subject,
+                    'message' => $b->message,
+                    'page_url' => $b->page_url,
+                    'status' => $b->status->value,
+                    'created_at' => $b->created_at?->toIso8601String(),
+                    'resolved_at' => $b->resolved_at?->toIso8601String(),
+                ];
+            });
+
+            $this->writeCsv($tmpDir.'/feature-requests.csv', $workspace->featureRequests()->get(), function ($f) {
+                return [
+                    'id' => $f->id,
+                    'user_id' => $f->user_id,
+                    'subject' => $f->subject,
+                    'message' => $f->message,
+                    'status' => $f->status->value,
+                    'created_at' => $f->created_at?->toIso8601String(),
+                ];
+            });
+
             $tmpZipPath = sys_get_temp_dir().'/'.Str::random(40).'.zip';
 
             $zip = new ZipArchive;

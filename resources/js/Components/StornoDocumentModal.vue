@@ -36,7 +36,7 @@ function close() {
         <form class="p-6" @submit.prevent="submit">
             <h2 class="text-base font-semibold text-neutral-900">Storniraj račun {{ documentNumber }}</h2>
             <p class="mt-1.5 text-sm text-neutral-500">
-                Ustvarjen bo nov, ločen dobropis/storno dokument, ki v celoti obrne ta račun. Prvotni račun ostane
+                Ustvarjen bo nov, ločen korekcijski dokument (storno), ki v celoti obrne ta račun. Prvotni račun ostane
                 nespremenjen in bo označen kot "Storniran".
             </p>
 

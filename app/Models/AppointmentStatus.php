@@ -58,14 +58,22 @@ class AppointmentStatus extends Model
         return $this->hasMany(Appointment::class, 'status', 'key');
     }
 
+    /** See OrderStatus::scoped() for why this exists. */
+    private static function scoped(?int $workspaceId): Builder
+    {
+        return $workspaceId === null
+            ? static::query()
+            : static::withoutGlobalScopes()->where('workspace_id', $workspaceId);
+    }
+
     /**
      * Keys that should be excluded from "active"/"upcoming" appointment
      * queries — anything flagged completed, cancelled, no-show, or
      * refunded. See Customer::upcomingAppointment(), TodayController.
      */
-    public static function openExclusionKeys(): array
+    public static function openExclusionKeys(?int $workspaceId = null): array
     {
-        return static::query()
+        return static::scoped($workspaceId)
             ->where(fn (Builder $q) => $q->where('is_completed', true)
                 ->orWhere('is_cancelled', true)
                 ->orWhere('is_no_show', true)
@@ -74,19 +82,19 @@ class AppointmentStatus extends Model
             ->all();
     }
 
-    public static function completedKeys(): array
+    public static function completedKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_completed', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_completed', true)->pluck('key')->all();
     }
 
-    public static function cancelledKeys(): array
+    public static function cancelledKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_cancelled', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_cancelled', true)->pluck('key')->all();
     }
 
-    public static function noShowKeys(): array
+    public static function noShowKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_no_show', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_no_show', true)->pluck('key')->all();
     }
 
     /**
@@ -94,9 +102,9 @@ class AppointmentStatus extends Model
      * distinct from is_cancelled (never paid). Excluded from revenue math
      * alongside cancelledKeys()/noShowKeys() — see RevenueStatsService.
      */
-    public static function refundedKeys(): array
+    public static function refundedKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_refunded', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_refunded', true)->pluck('key')->all();
     }
 
     /**
@@ -105,9 +113,9 @@ class AppointmentStatus extends Model
      * happen given seeding, but a workspace could theoretically unflag
      * every row).
      */
-    public static function defaultKey(): ?string
+    public static function defaultKey(?int $workspaceId = null): ?string
     {
-        return static::query()->where('is_default', true)->value('key')
-            ?? static::query()->ordered()->value('key');
+        return static::scoped($workspaceId)->where('is_default', true)->value('key')
+            ?? static::scoped($workspaceId)->ordered()->value('key');
     }
 }

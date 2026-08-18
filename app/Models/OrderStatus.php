@@ -56,14 +56,31 @@ class OrderStatus extends Model
     }
 
     /**
+     * Base query for every semantic helper below. With no $workspaceId,
+     * this relies on BelongsToWorkspace's auth-derived global scope — the
+     * existing behavior for every current HTTP-request call site. When
+     * $workspaceId IS given (a domain/service/CLI/job context where the
+     * workspace is already known but Auth::check() may be false or belong
+     * to a different user, e.g. a platform-admin route or a queued job),
+     * the query is scoped EXPLICITLY instead, so it can never silently
+     * read every workspace's rows. See docs/data-security.md.
+     */
+    private static function scoped(?int $workspaceId): Builder
+    {
+        return $workspaceId === null
+            ? static::query()
+            : static::withoutGlobalScopes()->where('workspace_id', $workspaceId);
+    }
+
+    /**
      * Keys that should be excluded from "open"/"active" order queries —
      * anything flagged completed, cancelled, or refunded. See
      * Customer::openOrdersCount(), TodayController, OrderController's
      * overdue filter.
      */
-    public static function openExclusionKeys(): array
+    public static function openExclusionKeys(?int $workspaceId = null): array
     {
-        return static::query()
+        return static::scoped($workspaceId)
             ->where(fn (Builder $q) => $q->where('is_completed', true)->orWhere('is_cancelled', true)->orWhere('is_refunded', true))
             ->pluck('key')
             ->all();
@@ -73,14 +90,14 @@ class OrderStatus extends Model
      * Keys flagged cancelled — used to exclude cancelled orders from revenue
      * math without also excluding completed ones (unlike openExclusionKeys()).
      */
-    public static function cancelledKeys(): array
+    public static function cancelledKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_cancelled', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_cancelled', true)->pluck('key')->all();
     }
 
-    public static function completedKeys(): array
+    public static function completedKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_completed', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_completed', true)->pluck('key')->all();
     }
 
     /**
@@ -88,9 +105,9 @@ class OrderStatus extends Model
      * distinct from is_cancelled (never paid). Excluded from revenue math
      * alongside cancelledKeys() — see RevenueStatsService.
      */
-    public static function refundedKeys(): array
+    public static function refundedKeys(?int $workspaceId = null): array
     {
-        return static::query()->where('is_refunded', true)->pluck('key')->all();
+        return static::scoped($workspaceId)->where('is_refunded', true)->pluck('key')->all();
     }
 
     /**
@@ -98,9 +115,9 @@ class OrderStatus extends Model
      * status by sort_order if nothing is flagged default (shouldn't happen
      * given seeding, but a workspace could theoretically unflag every row).
      */
-    public static function defaultKey(): ?string
+    public static function defaultKey(?int $workspaceId = null): ?string
     {
-        return static::query()->where('is_default', true)->value('key')
-            ?? static::query()->ordered()->value('key');
+        return static::scoped($workspaceId)->where('is_default', true)->value('key')
+            ?? static::scoped($workspaceId)->ordered()->value('key');
     }
 }

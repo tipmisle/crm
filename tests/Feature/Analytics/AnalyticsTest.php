@@ -24,7 +24,7 @@ test('the analytics page renders revenue, inquiries and channel breakdowns', fun
         'status' => 'order_confirmed',
     ]);
 
-    Order::create([
+    $order = Order::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
         'channel_id' => $channel->id,
@@ -33,6 +33,7 @@ test('the analytics page renders revenue, inquiries and channel breakdowns', fun
         'deposit_amount' => 0,
         'status' => 'confirmed',
     ]);
+    $order->items()->create(['title' => 'Rojstnodnevna torta', 'quantity' => 1, 'unit_price' => 85]);
 
     $response = $this->actingAs($user)->get(route('analytics.index'));
 
@@ -115,6 +116,7 @@ test('analytics can be filtered to an arbitrary custom date range', function () 
         'status' => 'confirmed',
     ]);
     $inRange->forceFill(['created_at' => '2026-06-15'])->saveQuietly();
+    $inRange->items()->create(['title' => 'Naročilo v obdobju', 'quantity' => 1, 'unit_price' => 50]);
 
     // Outside the requested range — must not be counted.
     $outOfRange = Order::create([

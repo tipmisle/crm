@@ -81,13 +81,34 @@ return [
     | tracked as NEEDS OWNER INPUT until then.
     */
     'subprocessors' => [
+        // Populate once a provider's Article 28 processor role for Beležka
+        // is actually confirmed from that provider's own applicable terms.
+        // Meta is intentionally NOT listed here — see 'external_platforms'
+        // below and docs/legal-compliance.md for why.
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Customer-authorized external platforms/integrations
+    |--------------------------------------------------------------------------
+    |
+    | Providers a workspace connects to Beležka BY THEIR OWN CHOICE, for a
+    | function they explicitly initiate (e.g. Instagram/Facebook Messenger
+    | via Meta's Graph/Business Messaging APIs). These are described here
+    | neutrally rather than filed under 'subprocessors' (Article 28) —
+    | Meta's own general processor terms only apply to a given integration
+    | when Meta's applicable product terms actually designate Meta as
+    | processor for it, and that has not been verified for this specific
+    | messaging integration. Do not invent a location, transfer mechanism,
+    | or processor-role claim here; add it only once confirmed from Meta's
+    | own current, applicable terms, or move the entry to 'subprocessors'
+    | if Article 28 processor status is confirmed.
+    */
+    'external_platforms' => [
         [
-            'name' => 'Meta Platforms, Inc.',
-            'purpose' => 'Povezava z Instagram Direct in Facebook Messenger (sprejemanje in pošiljanje sporočil strank prek povezanih kanalov)',
-            'data' => 'Vsebina sporočil, identifikatorji strank (Instagram/Facebook uporabniško ime, ID)',
-            'location' => null, // NEEDS OWNER INPUT — confirm current processing location per Meta's own disclosures
-            'transfer_mechanism' => null, // NEEDS OWNER INPUT — confirm Meta's current EU/EGP transfer safeguard before publishing a specific mechanism
-            'transfer_more_info_url' => null,
+            'name' => 'Meta Platforms, Inc. (Instagram / Facebook Messenger)',
+            'purpose' => 'Delovni prostor lahko sam poveže svoj Instagram in/ali Facebook račun, da prek Beležke sprejema in pošilja sporočila strank preko Meta Graph/Business Messaging API-jev.',
+            'role_note' => 'Meta v zvezi s to povezavo ni razkrita kot Article 28 podobdelovalec Beležke — njena vloga za to konkretno funkcijo iz njenih lastnih veljavnih pogojev še ni potrjena. Za obdelavo, ki jo Meta izvaja v okviru te povezave, veljajo lastni pogoji uporabe in politika zasebnosti Meta.',
         ],
     ],
 

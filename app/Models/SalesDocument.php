@@ -94,6 +94,10 @@ class SalesDocument extends Model
             'customer_snapshot' => 'encrypted:array',
             'line_items_snapshot' => 'encrypted:array',
             'payment_snapshot' => 'encrypted:array',
+            // Free-text typed by a workspace user, often naming the
+            // customer/order specifics behind a storno — see
+            // docs/data-security.md.
+            'cancellation_reason' => 'encrypted',
         ];
     }
 
@@ -235,7 +239,7 @@ class SalesDocument extends Model
         return match ($this->type) {
             'proforma' => 'Predračun',
             'invoice' => 'Račun',
-            'storno' => 'Dobropis (storno)',
+            'storno' => 'Storno računa',
             default => 'Drugo',
         };
     }

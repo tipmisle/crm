@@ -145,7 +145,7 @@ class Order extends Model
 
         return $this->due_date
             && $this->due_date->lt(Carbon::today($timezone))
-            && ! ($this->orderStatus?->is_completed || $this->orderStatus?->is_cancelled);
+            && ! ($this->orderStatus?->is_completed || $this->orderStatus?->is_cancelled || $this->orderStatus?->is_refunded);
     }
 
     // Carbon's default JSON output ("2026-08-20T00:00:00.000000Z") doesn't

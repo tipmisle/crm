@@ -73,7 +73,9 @@ test('a workspace with both capabilities enabled supports creating an order and 
     $this->actingAs($user)->post(route('orders.store'), [
         'title' => 'Torta',
         'customer_id' => $customer->id,
-        'price' => 50,
+        'items' => [
+            ['title' => 'Torta', 'quantity' => 1, 'unit_price' => 50],
+        ],
     ])->assertRedirect();
 
     $this->actingAs($user)->post(route('appointments.store'), [
@@ -82,6 +84,9 @@ test('a workspace with both capabilities enabled supports creating an order and 
         'appointment_date' => now()->addDay()->toDateString(),
         'start_time' => '10:00',
         'duration_minutes' => 60,
+        'items' => [
+            ['title' => 'Gel manikura', 'quantity' => 1, 'unit_price' => 40],
+        ],
     ])->assertRedirect();
 
     expect(Order::where('customer_id', $customer->id)->count())->toBe(1);

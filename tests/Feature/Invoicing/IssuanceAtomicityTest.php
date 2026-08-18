@@ -147,3 +147,22 @@ test('a failure marking the original reversed after the storno PDF is written le
     expect(SalesDocument::where('corrects_document_id', $original->id)->exists())->toBeFalse();
     expect(Storage::disk('local')->allFiles("invoices/{$workspace->id}"))->toBe($filesBeforeStorno);
 });
+
+test('a PDF render failure during issuance rolls back a save_recipient_to_customer change too', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    configureInvoicing($workspace);
+    [$order] = createOrderWithConversation($workspace, ['full_name' => 'Nina Novak', 'city' => null]);
+    $customer = $order->customer;
+
+    poisonPdfRender();
+
+    $payload = issuanceAtomicityPayload('invoice');
+    $payload['recipient']['city'] = 'Maribor';
+    $payload['save_recipient_to_customer'] = true;
+
+    $this->actingAs($user)->post(route('orders.documents.store', $order), $payload);
+
+    // Neither the document nor the recipient change survive the failure.
+    expect(SalesDocument::where('order_id', $order->id)->exists())->toBeFalse();
+    expect($customer->fresh()->city)->toBeNull();
+});

@@ -212,8 +212,7 @@ const toc = [
                 obdelujejo tudi izven Evropskega gospodarskega prostora. Za vsakega takega ponudnika na strani
                 <a class="text-[var(--color-accent-600)] hover:underline" :href="route('legal.subprocessors')">Podobdelovalci</a>
                 navajamo, kadar je znano, lokacijo obdelave in ustrezen prenosni mehanizem (npr. sklep o ustreznosti
-                ali standardne pogodbene klavzule); kjer to (še) ni potrjeno, je jasno označeno kot
-                <strong>NEEDS OWNER INPUT</strong> namesto domnevanega mehanizma.
+                ali standardne pogodbene klavzule); dokler to ni potrjeno, ne navajamo domnevanega mehanizma.
             </p>
         </section>
 
@@ -231,8 +230,8 @@ const toc = [
                     hranimo jih {{ retention.audit_log_days }} dni.
                 </template>
                 <template v-else>
-                    obdobje hrambe teh zapisov (in morebitna zakonsko določena minimalna hramba varnostno-revizijskih
-                    zapisov) še ni dokončno določeno — <strong>NEEDS OWNER INPUT</strong>.
+                    hranimo jih v skladu z našo interno varnostno politiko, ki upošteva tudi morebitno zakonsko
+                    določeno najkrajšo hrambo takih zapisov.
                 </template>
                 Hramba varnostnih kopij je infrastrukturna odločitev, ki v tem dokumentu še ni določena.
             </p>

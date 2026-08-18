@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,6 +42,8 @@ class CheckDeploymentReadiness extends Command
         $failures += $this->checkMeta($isProduction);
         $failures += $this->checkReverb($isProduction);
         $failures += $this->checkWebPush();
+        $failures += $this->checkLegal($isProduction);
+        $failures += $this->checkAdminMfa($isProduction);
 
         if ($failures > 0) {
             $this->error("{$failures} deployment check(s) failed.");
@@ -206,6 +210,58 @@ class CheckDeploymentReadiness extends Command
     {
         if (blank(config('webpush.vapid.public_key')) || blank(config('webpush.vapid.private_key'))) {
             $this->warn('VAPID keys not set — follow-up due reminders (App\Notifications\FollowUpDue) will silently fail to deliver as push notifications. Generate with `php artisan webpush:vapid`.');
+        }
+
+        return 0;
+    }
+
+    /**
+     * A production operator running only `deploy:check` must not miss
+     * missing/incomplete legal config — public legal pages and the
+     * registration flow depend on it just as much as infrastructure does.
+     * `legal:check` is only production-blocking here; it stays a no-op in
+     * non-production so local dev/tests aren't forced to fill in owner
+     * config that isn't needed yet.
+     */
+    private function checkLegal(bool $isProduction): int
+    {
+        if (! $isProduction) {
+            return 0;
+        }
+
+        $exitCode = Artisan::call('legal:check');
+        $this->output->write(Artisan::output());
+
+        if ($exitCode !== 0) {
+            $this->error('legal:check failed — see output above. Public legal pages and/or the launch price cannot ship without this resolved.');
+
+            return 1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Advisory only, never blocking: the /admin panel already redirects any
+     * platform admin without confirmed 2FA away from every admin page
+     * (EnsurePlatformAdmin), so this can't be bypassed by skipping
+     * deploy:check — it's just an early, explicit heads-up for whoever runs
+     * this before/after a deploy so an admin isn't surprised at the door.
+     */
+    private function checkAdminMfa(bool $isProduction): int
+    {
+        if (! $isProduction) {
+            return 0;
+        }
+
+        $unprotected = User::query()
+            ->where('is_platform_admin', true)
+            ->where('is_active', true)
+            ->whereNull('two_factor_confirmed_at')
+            ->pluck('email');
+
+        if ($unprotected->isNotEmpty()) {
+            $this->warn('Platform admin(s) without confirmed 2FA: '.$unprotected->implode(', ').'. They will be redirected to set it up on their next /admin visit, but should enable it proactively.');
         }
 
         return 0;

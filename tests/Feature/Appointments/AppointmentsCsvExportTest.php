@@ -17,7 +17,10 @@ function appointmentsCsvRows(TestResponse $response): array
 
 function baseAppointment(int $workspaceId, int $customerId, array $overrides = []): Appointment
 {
-    return Appointment::create(array_merge([
+    $catalogItemId = $overrides['service_id'] ?? null;
+    unset($overrides['service_id']);
+
+    $data = array_merge([
         'workspace_id' => $workspaceId,
         'customer_id' => $customerId,
         'service_name' => 'Manikura',
@@ -26,7 +29,20 @@ function baseAppointment(int $workspaceId, int $customerId, array $overrides = [
         'duration_minutes' => 60,
         'price' => 35,
         'status' => 'requested',
-    ], $overrides));
+    ], $overrides);
+
+    $appointment = Appointment::create($data);
+    // The CSV "Storitev" column is derived from items, not service_name —
+    // keep a matching item so fixtures built with the old single-service_id
+    // shape still exercise the current multi-item export path.
+    $appointment->items()->create([
+        'catalog_item_id' => $catalogItemId,
+        'title' => $data['service_name'],
+        'quantity' => 1,
+        'unit_price' => $data['price'],
+    ]);
+
+    return $appointment;
 }
 
 test('the appointments CSV export uses the same filters as the appointments index', function () {
@@ -82,7 +98,17 @@ test('a linked service name is exported, but historical appointment price is not
     $workspace->update(['appointments_enabled' => true]);
     $customer = Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Ana Novak']);
     $service = Service::create(['workspace_id' => $workspace->id, 'name' => 'Gel nohti', 'default_price' => 999]);
-    baseAppointment($workspace->id, $customer->id, ['service_id' => $service->id, 'price' => 33.50]);
+    $appointment = Appointment::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'service_name' => 'Manikura',
+        'appointment_date' => now()->addDay(),
+        'start_time' => '10:00',
+        'duration_minutes' => 60,
+        'price' => 33.50,
+        'status' => 'requested',
+    ]);
+    $appointment->items()->create(['catalog_item_id' => $service->id, 'title' => $service->name, 'quantity' => 1, 'unit_price' => 33.50]);
 
     $rows = appointmentsCsvRows($this->actingAs($user)->get(route('appointments.export')));
 

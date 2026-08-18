@@ -121,6 +121,32 @@ test('a legacy empty string on a nullable column is normalized to null, not encr
 test('a legacy empty string on a NOT NULL column is encrypted as an empty string', function () {
     [$workspace] = createWorkspaceWithUser();
     $customer = Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Test']);
+
+    $followUpId = DB::table('follow_ups')->insertGetId([
+        'workspace_id' => $workspace->id,
+        'followable_type' => Customer::class,
+        'followable_id' => $customer->id,
+        'note' => '',
+        'due_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    Artisan::call('security:encrypt-sensitive-data');
+
+    // Raw column is still non-null ciphertext, never a bare empty string —
+    // follow_ups.note is NOT NULL, unlike order_notes.body below.
+    $rawNote = DB::table('follow_ups')->where('id', $followUpId)->value('note');
+    expect($rawNote)->not->toBeNull();
+    expect($rawNote)->not->toBe('');
+    expect(Crypt::decryptString($rawNote))->toBe('');
+
+    expect(FollowUp::find($followUpId)->note)->toBe('');
+});
+
+test('a legacy empty string on order_notes.body (nullable) is normalized to null, not encrypted as an empty string', function () {
+    [$workspace] = createWorkspaceWithUser();
+    $customer = Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Test']);
     $order = Order::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
@@ -137,26 +163,10 @@ test('a legacy empty string on a NOT NULL column is encrypted as an empty string
         'updated_at' => now(),
     ]);
 
-    $followUpId = DB::table('follow_ups')->insertGetId([
-        'workspace_id' => $workspace->id,
-        'followable_type' => Customer::class,
-        'followable_id' => $customer->id,
-        'note' => '',
-        'due_at' => now(),
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-
     Artisan::call('security:encrypt-sensitive-data');
 
-    // Raw column is still non-null ciphertext, never a bare empty string.
-    $rawNote = DB::table('order_notes')->where('id', $noteId)->value('body');
-    expect($rawNote)->not->toBeNull();
-    expect($rawNote)->not->toBe('');
-    expect(Crypt::decryptString($rawNote))->toBe('');
-
-    expect(OrderNote::find($noteId)->body)->toBe('');
-    expect(FollowUp::find($followUpId)->note)->toBe('');
+    expect(DB::table('order_notes')->where('id', $noteId)->value('body'))->toBeNull();
+    expect(OrderNote::find($noteId)->body)->toBeNull();
 });
 
 test('reading every encrypted field through the model succeeds for null, legacy empty string, plaintext, and already-encrypted values', function () {

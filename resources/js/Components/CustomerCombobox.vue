@@ -34,7 +34,9 @@ watch(
 const results = computed(() => {
     const q = query.value.trim().toLowerCase();
     if (!q) return props.customers.slice(0, 8);
-    return props.customers.filter((c) => c.full_name.toLowerCase().includes(q)).slice(0, 8);
+    return props.customers
+        .filter((c) => c.full_name.toLowerCase().includes(q) || (c.company_name ?? '').toLowerCase().includes(q))
+        .slice(0, 8);
 });
 
 const exactMatch = computed(() => props.customers.some((c) => c.full_name.toLowerCase() === query.value.trim().toLowerCase()));
@@ -118,7 +120,10 @@ onClickOutside(root, () => {
                         class="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
                         @click="selectCustomer(c)"
                     >
-                        <span class="font-medium text-neutral-900">{{ c.full_name }}</span>
+                        <span class="flex flex-col">
+                            <span class="font-medium text-neutral-900">{{ c.is_business && c.company_name ? c.company_name : c.full_name }}</span>
+                            <span v-if="c.is_business && c.company_name" class="text-xs text-neutral-400">{{ c.full_name }}</span>
+                        </span>
                         <span v-if="c.phone" class="text-xs text-neutral-400">{{ c.phone }}</span>
                     </button>
                 </li>

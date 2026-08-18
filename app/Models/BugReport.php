@@ -25,8 +25,13 @@ class BugReport extends Model
             'resolved_at' => 'datetime',
             // Free-text bug descriptions can contain customer-sensitive
             // details — encrypted at rest like Customer.notes/Order/
-            // Appointment notes (see docs/data-security.md). `subject`
-            // stays plain so admins can filter/search on it.
+            // Appointment notes (see docs/data-security.md). `subject` is
+            // also encrypted — the admin UI only ever filters by `status`,
+            // never by subject, so there's no SQL-search need to keep it
+            // plain. Existing plaintext rows are migrated by
+            // `security:encrypt-sensitive-data` — see
+            // App\Console\Commands\EncryptSensitiveData.
+            'subject' => 'encrypted',
             'message' => 'encrypted',
         ];
     }

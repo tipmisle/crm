@@ -44,11 +44,11 @@ const { confirm } = useConfirm();
 const bugForm = useForm({
     subject: '',
     message: '',
-    page_url: '',
 });
 
 function submitBugReport() {
-    bugForm.page_url = window.location.origin + '/settings/support';
+    // page_url is derived server-side from the Referer header, not sent by
+    // the client — see BugReportController::normalizedPagePath().
     bugForm.post(route('settings.support.bug-reports.store'), {
         preserveScroll: true,
         onSuccess: () => bugForm.reset(),

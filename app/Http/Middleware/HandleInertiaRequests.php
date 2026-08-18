@@ -50,7 +50,7 @@ class HandleInertiaRequests extends Middleware
             : null;
 
         $paymentStatuses = $user?->current_workspace_id
-            ? PaymentStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_deposit_default', 'is_outstanding'])
+            ? PaymentStatus::query()->ordered()->get(['id', 'key', 'label', 'color', 'bg', 'is_default', 'is_deposit_default', 'is_outstanding', 'is_paid', 'is_refunded'])
             : null;
 
         $appointmentStatuses = $user?->current_workspace_id

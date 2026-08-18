@@ -14,6 +14,7 @@ use App\Services\WorkspaceStatusDefaults;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Subscription;
+use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use Tests\TestCase;
 
 /*
@@ -155,13 +156,25 @@ function createMetaChannel(
     ]);
 }
 
-function createPlatformAdmin(array $attributes = []): User
+/**
+ * Defaults to confirmed 2FA — EnsurePlatformAdmin requires it for any
+ * /admin access (see App\Http\Middleware\EnsurePlatformAdmin), and every
+ * existing admin test assumes a normally-working admin. Pass
+ * withMfa: false for the specific tests covering the "admin without MFA
+ * is redirected to set it up" gate itself.
+ */
+function createPlatformAdmin(array $attributes = [], bool $withMfa = true): User
 {
     $user = User::factory()->create(array_merge([
         'current_workspace_id' => null,
     ], $attributes));
 
     $user->forceFill(['is_platform_admin' => true])->save();
+
+    if ($withMfa) {
+        app(EnableTwoFactorAuthentication::class)($user);
+        $user->forceFill(['two_factor_confirmed_at' => now()])->save();
+    }
 
     return $user->fresh();
 }

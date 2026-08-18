@@ -241,7 +241,7 @@ class AnalyticsController extends Controller
             if ($inOrders && ! $inAppointments) {
                 return route('orders.index', [
                     'channel_type' => $type,
-                    'status_scope' => 'not_cancelled',
+                    'status_scope' => 'revenue_eligible',
                     'created_from' => $createdFrom,
                     'created_to' => $createdTo,
                 ]);
@@ -250,7 +250,7 @@ class AnalyticsController extends Controller
             if ($inAppointments && ! $inOrders) {
                 return route('appointments.index', [
                     'channel_type' => $type,
-                    'status' => 'requested,confirmed,completed',
+                    'status_scope' => 'revenue_eligible',
                     'created_from' => $createdFrom,
                     'created_to' => $createdTo,
                 ]);
@@ -299,7 +299,7 @@ class AnalyticsController extends Controller
 
         return $this->presentTopItems($rows, 'product_id', fn ($id) => route('orders.index', [
             'catalog_item_id' => $id,
-            'status_scope' => 'not_cancelled',
+            'status_scope' => 'revenue_eligible',
             'created_from' => $start->format('Y-m-d'),
             'created_to' => $end->format('Y-m-d'),
         ]));
@@ -322,7 +322,7 @@ class AnalyticsController extends Controller
 
         return $this->presentTopItems($rows, 'service_id', fn ($id) => route('appointments.index', [
             'service_id' => $id,
-            'status' => 'requested,confirmed,completed',
+            'status_scope' => 'revenue_eligible',
             'created_from' => $start->format('Y-m-d'),
             'created_to' => $end->format('Y-m-d'),
         ]));

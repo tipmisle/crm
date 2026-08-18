@@ -72,10 +72,11 @@ test('a linked product name is exported, but historical order price is not recal
     [$workspace, $user] = createWorkspaceWithUser();
     $customer = Customer::create(['workspace_id' => $workspace->id, 'full_name' => 'Ana Novak']);
     $product = Product::create(['workspace_id' => $workspace->id, 'name' => 'Rojstnodnevna torta', 'default_price' => 999]);
-    Order::create([
-        'workspace_id' => $workspace->id, 'customer_id' => $customer->id, 'catalog_item_id' => $product->id,
+    $order = Order::create([
+        'workspace_id' => $workspace->id, 'customer_id' => $customer->id,
         'title' => 'Naročena torta', 'price' => 42.50, 'status' => 'new',
     ]);
+    $order->items()->create(['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => 42.50]);
 
     $rows = ordersCsvRows($this->actingAs($user)->get(route('orders.export')));
 

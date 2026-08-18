@@ -59,8 +59,13 @@ class EncryptSensitiveData extends Command
         ['table' => 'appointments', 'column' => 'description', 'json' => false, 'nullable' => true],
         ['table' => 'appointments', 'column' => 'internal_notes', 'json' => false, 'nullable' => true],
         ['table' => 'appointments', 'column' => 'customer_notes', 'json' => false, 'nullable' => true],
-        ['table' => 'order_notes', 'column' => 'body', 'json' => false, 'nullable' => false],
+        ['table' => 'order_notes', 'column' => 'body', 'json' => false, 'nullable' => true],
         ['table' => 'follow_ups', 'column' => 'note', 'json' => false, 'nullable' => false],
+        ['table' => 'bug_reports', 'column' => 'subject', 'json' => false, 'nullable' => false],
+        ['table' => 'bug_reports', 'column' => 'message', 'json' => false, 'nullable' => false],
+        ['table' => 'feature_requests', 'column' => 'subject', 'json' => false, 'nullable' => false],
+        ['table' => 'feature_requests', 'column' => 'message', 'json' => false, 'nullable' => false],
+        ['table' => 'sales_documents', 'column' => 'cancellation_reason', 'json' => false, 'nullable' => true],
     ];
 
     public function handle(): int

@@ -97,7 +97,7 @@ const toc = [
                 <li>Identifikatorji družbenih omrežij (Instagram/Facebook uporabniško ime, ID).</li>
                 <li>Vsebina sporočil in prilog v pogovorih.</li>
                 <li>Podatki o naročilih in terminih, vključno s statusom plačila/are (deposit) in podatki o dostavi/sledenju pošiljke (način dostave, št. sledenja, povezava za sledenje), kjer se uporabljajo.</li>
-                <li>Izdani prodajni dokumenti (računi, predračuni, dobropisi/knjigovodske korekcije, priloženi zunanji PDF dokumenti), vključno s podatki prejemnika dokumenta in posameznimi postavkami dokumenta.</li>
+                <li>Izdani prodajni dokumenti (računi, predračuni, korekcijski dokumenti (storno), priloženi zunanji PDF dokumenti), vključno s podatki prejemnika dokumenta in posameznimi postavkami dokumenta.</li>
                 <li>Opombe in nadaljnja opravila (follow-up), ki jih o stranki vnese Upravljavec.</li>
             </ul>
         </section>
@@ -206,7 +206,7 @@ const toc = [
                 <strong>Izbris posamezne stranke</strong> (na zahtevo Upravljavca, npr. zaradi zahteve po izbrisu s
                 strani stranke) pomeni, da se identifikacijski podatki te stranke, vsebina njenih sporočil in prilog
                 ter njene opombe anonimizirajo oziroma izbrišejo iz žive evidence Upravljavca. Izdani prodajni
-                dokumenti (računi, predračuni, dobropisi/storno, zunanji PDF dokumenti), ki so bili za to stranko že
+                dokumenti (računi, predračuni, korekcijski dokumenti (storno), zunanji PDF dokumenti), ki so bili za to stranko že
                 izdani, pri tem ostanejo shranjeni kot nespremenjen poslovni/pravni zapis — izbris stranke torej ne
                 pomeni tudi izbrisa že izdanih dokumentov, kadar jih mora Upravljavec obdržati zaradi lastnih
                 računovodskih, davčnih ali drugih zakonskih obveznosti hrambe.

@@ -123,15 +123,16 @@ test('selecting a product copies its default price and deposit into a new order'
     ]);
 
     $this->post(route('orders.store'), [
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'customer_id' => $customer->id,
-        'price' => $product->default_price,
         'deposit_amount' => $product->default_deposit_amount,
+        'items' => [
+            ['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => $product->default_price],
+        ],
     ])->assertRedirect();
 
     $order = Order::first();
-    expect($order->catalog_item_id)->toBe($product->id);
+    expect($order->items->first()->catalog_item_id)->toBe($product->id);
     expect((float) $order->price)->toBe(85.0);
     expect((float) $order->deposit_amount)->toBe(20.0);
 });
@@ -156,18 +157,19 @@ test('selecting a service copies its duration, price and deposit into a new appo
     ]);
 
     $this->post(route('appointments.store'), [
-        'service_id' => $service->id,
         'service_name' => $service->name,
         'customer_id' => $customer->id,
         'appointment_date' => now()->addDay()->toDateString(),
         'start_time' => '10:00',
         'duration_minutes' => $service->default_duration_minutes,
-        'price' => $service->default_price,
         'deposit_amount' => $service->default_deposit_amount,
+        'items' => [
+            ['catalog_item_id' => $service->id, 'title' => $service->name, 'quantity' => 1, 'unit_price' => $service->default_price],
+        ],
     ])->assertRedirect();
 
     $appointment = Appointment::first();
-    expect($appointment->service_id)->toBe($service->id);
+    expect($appointment->items->first()->catalog_item_id)->toBe($service->id);
     expect($appointment->duration_minutes)->toBe(75);
     expect((float) $appointment->price)->toBe(42.0);
     expect((float) $appointment->deposit_amount)->toBe(10.0);
@@ -186,10 +188,12 @@ test('an order price manually overridden away from the catalog default stays ind
     $product = Product::create(['name' => 'Torta', 'default_price' => 85, 'active' => true]);
 
     $this->post(route('orders.store'), [
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'customer_id' => $customer->id,
-        'price' => 95, // owner bumped the price for this specific order
+        'items' => [
+            // owner bumped the unit price for this specific order
+            ['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => 95],
+        ],
     ])->assertRedirect();
 
     $order = Order::first();
@@ -212,20 +216,22 @@ test('changing a catalog item default price does not alter existing orders or ap
     $service = Service::create(['name' => 'Manikura', 'default_duration_minutes' => 60, 'default_price' => 35, 'active' => true]);
 
     $this->post(route('orders.store'), [
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'customer_id' => $customer->id,
-        'price' => $product->default_price,
+        'items' => [
+            ['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => $product->default_price],
+        ],
     ])->assertRedirect();
 
     $this->post(route('appointments.store'), [
-        'service_id' => $service->id,
         'service_name' => $service->name,
         'customer_id' => $customer->id,
         'appointment_date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
         'duration_minutes' => $service->default_duration_minutes,
-        'price' => $service->default_price,
+        'items' => [
+            ['catalog_item_id' => $service->id, 'title' => $service->name, 'quantity' => 1, 'unit_price' => $service->default_price],
+        ],
     ])->assertRedirect();
 
     $order = Order::first();
@@ -253,20 +259,22 @@ test('deactivating or deleting a catalog item does not break historical orders o
     $service = Service::create(['name' => 'Manikura', 'default_duration_minutes' => 60, 'default_price' => 35, 'active' => true]);
 
     $this->post(route('orders.store'), [
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'customer_id' => $customer->id,
-        'price' => $product->default_price,
+        'items' => [
+            ['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => $product->default_price],
+        ],
     ])->assertRedirect();
 
     $this->post(route('appointments.store'), [
-        'service_id' => $service->id,
         'service_name' => $service->name,
         'customer_id' => $customer->id,
         'appointment_date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
         'duration_minutes' => $service->default_duration_minutes,
-        'price' => $service->default_price,
+        'items' => [
+            ['catalog_item_id' => $service->id, 'title' => $service->name, 'quantity' => 1, 'unit_price' => $service->default_price],
+        ],
     ])->assertRedirect();
 
     $order = Order::first();
@@ -282,10 +290,10 @@ test('deactivating or deleting a catalog item does not break historical orders o
     $product->delete();
     $service->delete();
 
-    expect($order->fresh()->catalog_item_id)->toBeNull();
+    expect($order->fresh()->items->first()->catalog_item_id)->toBeNull();
     expect($order->fresh()->title)->toBe('Torta');
     expect($order->fresh()->price)->not->toBeNull();
-    expect($appointment->fresh()->service_id)->toBeNull();
+    expect($appointment->fresh()->items->first()->catalog_item_id)->toBeNull();
     expect($appointment->fresh()->service_name)->toBe('Manikura');
 });
 
@@ -356,12 +364,12 @@ test('an order linked to a catalog product exposes it for the "Produkt" link on 
 
     $order = Order::create([
         'customer_id' => $customer->id,
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'price' => 85,
         'status' => 'confirmed',
     ]);
+    $order->items()->create(['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => 85]);
 
     $this->get(route('orders.show', $order))
-        ->assertInertia(fn ($page) => $page->where('order.product.id', $product->id));
+        ->assertInertia(fn ($page) => $page->where('order.items.0.product.id', $product->id));
 });

@@ -77,11 +77,11 @@ function updateAppointmentStatus(status: StatusRow, data: Partial<StatusRow>) {
 // A workspace must always have exactly one order status filling each of
 // these 4 fixed roles, and one payment status filling each of these 3 — see
 // Settings\OrderStatusController/PaymentStatusController::destroy(), which
-// rejects deleting whichever status currently holds a role. A status either
-// IS one of these fixed roles (shown as a plain badge, no selector — its
-// identity makes the role obvious) or it's a plain status offering a
-// dropdown to become one, which moves the role off whatever status held it
-// before.
+// rejects deleting whichever status currently holds a role. Every row gets
+// a "vloga" dropdown showing which of these fixed roles (if any) it holds;
+// picking a different role on it PATCHes that flag => true, which the
+// backend moves off whatever status held it before (see
+// OrderStatusController::update()).
 const ORDER_ROLES: { flag: 'is_default' | 'is_completed' | 'is_cancelled' | 'is_refunded'; label: string }[] = [
     { flag: 'is_default', label: 'privzet' },
     { flag: 'is_completed', label: 'zaključeno' },
@@ -125,6 +125,34 @@ function isPaymentStatusProtected(status: StatusRow) {
 
 function isAppointmentStatusProtected(status: StatusRow) {
     return appointmentRole(status) !== null;
+}
+
+function moveOrderRole(status: StatusRow, flag: string) {
+    if (!flag) return;
+    updateOrderStatus(status, { [flag]: true } as Partial<StatusRow>);
+}
+
+function movePaymentRole(status: StatusRow, flag: string) {
+    if (!flag) return;
+    updatePaymentStatus(status, { [flag]: true } as Partial<StatusRow>);
+}
+
+function moveAppointmentRole(status: StatusRow, flag: string) {
+    if (!flag) return;
+    updateAppointmentStatus(status, { [flag]: true } as Partial<StatusRow>);
+}
+
+// is_deposit_default is optional/singleton (unlike is_default/is_paid/
+// is_refunded) — it CAN be cleared entirely, not just moved. An empty
+// selection sends is_deposit_default: false, a no-op-safe removal per
+// PaymentStatusController (a mandatory role would ignore a false value,
+// but this one isn't mandatory).
+function setDepositDefault(status: StatusRow, checked: boolean) {
+    updatePaymentStatus(status, { is_deposit_default: checked });
+}
+
+function setOutstanding(status: StatusRow, checked: boolean) {
+    updatePaymentStatus(status, { is_outstanding: checked });
 }
 
 const reassign = ref<{ type: 'order' | 'payment' | 'appointment'; status: StatusRow; reassignTo: string; processing: boolean; error: string } | null>(null);
@@ -285,12 +313,15 @@ function addAppointmentStatus() {
                                     class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-800 outline-none transition-colors hover:border-neutral-200 focus:border-neutral-300 focus:bg-white"
                                     @change="updateOrderStatus(status, { label: ($event.target as HTMLInputElement).value })"
                                 />
-                                <span
-                                    v-if="isOrderStatusProtected(status)"
-                                    class="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500"
+                                <select
+                                    :value="orderRole(status)?.flag ?? ''"
+                                    title="Vloga tega statusa"
+                                    class="shrink-0 rounded-full border-none bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500 outline-none"
+                                    @change="moveOrderRole(status, ($event.target as HTMLSelectElement).value)"
                                 >
-                                    {{ orderRole(status)?.label }}
-                                </span>
+                                    <option value="" disabled>brez vloge</option>
+                                    <option v-for="role in ORDER_ROLES" :key="role.flag" :value="role.flag">{{ role.label }}</option>
+                                </select>
                                 <button
                                     type="button"
                                     :disabled="isOrderStatusProtected(status)"
@@ -353,12 +384,15 @@ function addAppointmentStatus() {
                                     class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-800 outline-none transition-colors hover:border-neutral-200 focus:border-neutral-300 focus:bg-white"
                                     @change="updateAppointmentStatus(status, { label: ($event.target as HTMLInputElement).value })"
                                 />
-                                <span
-                                    v-if="isAppointmentStatusProtected(status)"
-                                    class="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500"
+                                <select
+                                    :value="appointmentRole(status)?.flag ?? ''"
+                                    title="Vloga tega statusa"
+                                    class="shrink-0 rounded-full border-none bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500 outline-none"
+                                    @change="moveAppointmentRole(status, ($event.target as HTMLSelectElement).value)"
                                 >
-                                    {{ appointmentRole(status)?.label }}
-                                </span>
+                                    <option value="" disabled>brez vloge</option>
+                                    <option v-for="role in APPOINTMENT_ROLES" :key="role.flag" :value="role.flag">{{ role.label }}</option>
+                                </select>
                                 <button
                                     type="button"
                                     :disabled="isAppointmentStatusProtected(status)"
@@ -407,51 +441,64 @@ function addAppointmentStatus() {
                     @change="reorderPayment"
                 >
                     <template #item="{ element: status }: { element: StatusRow }">
-                        <div class="group flex items-center gap-1.5 px-3 py-2.5 transition-colors hover:bg-neutral-50">
-                            <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300 group-hover:text-neutral-400" />
-                            <input
-                                type="color"
-                                :value="status.bg"
-                                :disabled="isPaymentStatusProtected(status)"
-                                :title="isPaymentStatusProtected(status) ? 'Ta status je fiksen in ga ni mogoče prebarvati' : undefined"
-                                class="color-swatch h-6 w-6 shrink-0 rounded-full disabled:cursor-not-allowed"
-                                :class="isPaymentStatusProtected(status) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
-                                @change="updatePaymentStatus(status, { bg: ($event.target as HTMLInputElement).value })"
-                            />
-                            <input
-                                :value="status.label"
-                                type="text"
-                                :readonly="isPaymentStatusProtected(status)"
-                                :title="isPaymentStatusProtected(status) ? 'Ta status je fiksen in ga ni mogoče preimenovati' : undefined"
-                                class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium outline-none transition-colors"
-                                :class="
-                                    isPaymentStatusProtected(status)
-                                        ? 'cursor-not-allowed text-neutral-500'
-                                        : 'text-neutral-800 hover:border-neutral-200 focus:border-neutral-300 focus:bg-white'
-                                "
-                                @change="updatePaymentStatus(status, { label: ($event.target as HTMLInputElement).value })"
-                            />
-                            <span
-                                v-if="isPaymentStatusProtected(status)"
-                                class="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500"
-                            >
-                                {{ paymentRole(status)?.label }}
-                            </span>
-                            <button
-                                type="button"
-                                :disabled="isPaymentStatusProtected(status)"
-                                :title="
-                                    isPaymentStatusProtected(status)
-                                        ? 'Ta status je obvezen (neplačano, plačano ali vračilo) — najprej premakni oznako na drug status'
-                                        : status.in_use
-                                          ? 'Status je v uporabi — izberi, kam prestaviti obstoječe zapise'
-                                          : 'Izbriši status'
-                                "
-                                class="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
-                                @click="deletePaymentStatus(status)"
-                            >
-                                <Trash2 :size="14" />
-                            </button>
+                        <div class="group px-3 py-2.5 transition-colors hover:bg-neutral-50">
+                            <div class="flex items-center gap-1.5">
+                                <GripVertical :size="14" class="drag-handle shrink-0 cursor-grab text-neutral-300 group-hover:text-neutral-400" />
+                                <input
+                                    type="color"
+                                    :value="status.bg"
+                                    class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded-full"
+                                    @change="updatePaymentStatus(status, { bg: ($event.target as HTMLInputElement).value })"
+                                />
+                                <input
+                                    :value="status.label"
+                                    type="text"
+                                    class="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-800 outline-none transition-colors hover:border-neutral-200 focus:border-neutral-300 focus:bg-white"
+                                    @change="updatePaymentStatus(status, { label: ($event.target as HTMLInputElement).value })"
+                                />
+                                <select
+                                    :value="paymentRole(status)?.flag ?? ''"
+                                    title="Vloga tega statusa"
+                                    class="shrink-0 rounded-full border-none bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-500 outline-none"
+                                    @change="movePaymentRole(status, ($event.target as HTMLSelectElement).value)"
+                                >
+                                    <option value="" disabled>brez vloge</option>
+                                    <option v-for="role in PAYMENT_ROLES" :key="role.flag" :value="role.flag">{{ role.label }}</option>
+                                </select>
+                                <button
+                                    type="button"
+                                    :disabled="isPaymentStatusProtected(status)"
+                                    :title="
+                                        isPaymentStatusProtected(status)
+                                            ? 'Ta status je obvezen (neplačano, plačano ali vračilo) — najprej premakni oznako na drug status'
+                                            : status.in_use
+                                              ? 'Status je v uporabi — izberi, kam prestaviti obstoječe zapise'
+                                              : 'Izbriši status'
+                                    "
+                                    class="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
+                                    @click="deletePaymentStatus(status)"
+                                >
+                                    <Trash2 :size="14" />
+                                </button>
+                            </div>
+                            <div class="ml-[3.375rem] mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+                                <label class="flex items-center gap-1.5">
+                                    <input
+                                        type="checkbox"
+                                        :checked="status.is_deposit_default"
+                                        @change="setDepositDefault(status, ($event.target as HTMLInputElement).checked)"
+                                    />
+                                    Privzet za aro
+                                </label>
+                                <label class="flex items-center gap-1.5">
+                                    <input
+                                        type="checkbox"
+                                        :checked="status.is_outstanding"
+                                        @change="setOutstanding(status, ($event.target as HTMLInputElement).checked)"
+                                    />
+                                    Šteje kot neplačano
+                                </label>
+                            </div>
                         </div>
                     </template>
                 </draggable>

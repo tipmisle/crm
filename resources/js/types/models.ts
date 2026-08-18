@@ -227,7 +227,7 @@ export interface SalesDocument {
     status_label: string | null;
     corrects_document?: Pick<SalesDocument, 'id' | 'document_number' | 'issued_at' | 'type'> | null;
     correction?: Pick<SalesDocument, 'id' | 'document_number' | 'corrects_document_id' | 'type'> | null;
-    customer?: { id: number; full_name: string } | null;
+    customer?: { id: number; full_name: string; company_name: string | null; is_business: boolean } | null;
     order?: { id: number; order_number: string; title: string } | null;
     appointment?: { id: number; appointment_number: string; service_name: string } | null;
 }

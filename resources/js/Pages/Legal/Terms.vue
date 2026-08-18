@@ -82,7 +82,7 @@ const toc = [
                 Beležka omogoča: sprejemanje in odgovarjanje na sporočila prek povezanih kanalov (Instagram Direct,
                 Facebook Messenger), evidenco strank in njihove zgodovine, upravljanje naročil in terminov, katalog
                 izdelkov/storitev, opomnike (vključno s push obvestili v brskalniku), izdajanje prodajnih dokumentov
-                (računi, predračuni, dobropisi/knjigovodske korekcije, zunanji PDF dokumenti) in njihovo pošiljanje
+                (računi, predračuni, korekcijski dokumenti (storno), zunanji PDF dokumenti) in njihovo pošiljanje
                 prek povezanih pogovorov s strankami, ter izvoz podatkov delovnega prostora. Nabor funkcij se lahko
                 sčasoma spreminja in dopolnjuje. Podrobnosti o prodajnih dokumentih so v 10. členu spodaj.
             </p>
@@ -122,11 +122,14 @@ const toc = [
                 Pogodbeno razmerje med vami in Beležko se sklene elektronsko, po naslednjem postopku: (1)
                 registracija uporabniškega računa, (2) izrecna potrditev strinjanja s temi pogoji poslovanja in
                 Dogovorom o obdelavi osebnih podatkov ob registraciji, (3) aktivacija naročnine, kot je opisano v 9.
-                členu, in (4) potrditev plačila prek Stripe Checkout, po kateri prejmete potrdilo o zaključenem
-                nakupu. Celoten postopek poteka v slovenskem jeziku. Ta pogoji in Dogovor o obdelavi osebnih podatkov
-                sta vam kadarkoli javno dostopna na tej spletni strani za tiskanje in shranjevanje (npr. v PDF prek
-                brskalnika). Pred dokončno potrditvijo plačila pri Stripe imate možnost preveriti in popraviti
-                vnesene podatke o plačilu, preden je transakcija zaključena.
+                členu, in (4) plačilo prek Stripe Checkout. Sama preusmeritev nazaj v Beležko po Stripe Checkout ŠE
+                NE pomeni odobrenega dostopa do storitve — dostop se aktivira šele, ko naš strežnik prejme in obdela
+                potrditev plačila od Stripe (prek varnostno preverjenega webhook obvestila), kar se običajno zgodi v
+                nekaj trenutkih, lahko pa traja nekoliko dlje. Potrdilo o plačilu prejmete od Stripe skladno z
+                njihovim lastnim postopkom obdelave plačil. Celoten postopek poteka v slovenskem jeziku. Ta pogoji in
+                Dogovor o obdelavi osebnih podatkov sta vam kadarkoli javno dostopna na tej spletni strani za
+                tiskanje in shranjevanje (npr. v PDF prek brskalnika). Pred dokončno potrditvijo plačila pri Stripe
+                imate možnost preveriti in popraviti vnesene podatke o plačilu, preden je transakcija zaključena.
             </p>
         </section>
 
@@ -164,7 +167,7 @@ const toc = [
         <section id="prodajni-dokumenti">
             <h2>10. Izdajanje prodajnih dokumentov</h2>
             <p>
-                Beležka vam omogoča izdajanje računov, predračunov in dobropisov/knjigovodskih korekcij (storno), kot
+                Beležka vam omogoča izdajanje računov, predračunov in korekcijskih dokumentov (storno), kot
                 tudi prilaganje in pošiljanje zunanjih PDF dokumentov, vključno s pošiljanjem teh dokumentov strankam
                 prek povezanih pogovorov v Beležki.
             </p>

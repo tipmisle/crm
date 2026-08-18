@@ -27,15 +27,30 @@ class SearchController extends Controller
 
         Customer::query()
             ->where('full_name', 'like', "%{$query}%")
+            ->orWhere('company_name', 'like', "%{$query}%")
             ->orWhere('email', 'like', "%{$query}%")
+            ->orWhere('phone', 'like', "%{$query}%")
+            ->orWhere('tax_number', 'like', "%{$query}%")
             ->limit(5)
             ->get()
             ->each(function (Customer $customer) use ($results) {
+                // A business customer is presented with the company name up
+                // front (what most searches will match on for a B2B
+                // customer) — full_name stays visible as the contact person,
+                // never replaced by it. Customer remains the one source of
+                // truth; this is presentation only.
+                $title = $customer->is_business && $customer->company_name
+                    ? $customer->company_name
+                    : $customer->full_name;
+                $subtitle = $customer->is_business && $customer->company_name
+                    ? $customer->full_name
+                    : ($customer->email ?? 'Stranka');
+
                 $results->push([
                     'type' => 'customer',
                     'id' => $customer->id,
-                    'title' => $customer->full_name,
-                    'subtitle' => $customer->email ?? 'Stranka',
+                    'title' => $title,
+                    'subtitle' => $subtitle,
                     'href' => route('customers.show', $customer),
                 ]);
             });
@@ -45,6 +60,8 @@ class SearchController extends Controller
                 ->with('customer')
                 ->where('order_number', 'like', "%{$query}%")
                 ->orWhere('title', 'like', "%{$query}%")
+                ->orWhereHas('customer', fn ($q) => $q->where('full_name', 'like', "%{$query}%")
+                    ->orWhere('company_name', 'like', "%{$query}%"))
                 ->limit(5)
                 ->get()
                 ->each(function (Order $order) use ($results) {
@@ -63,7 +80,8 @@ class SearchController extends Controller
                 ->with('customer')
                 ->where('appointment_number', 'like', "%{$query}%")
                 ->orWhere('service_name', 'like', "%{$query}%")
-                ->orWhereHas('customer', fn ($q) => $q->where('full_name', 'like', "%{$query}%"))
+                ->orWhereHas('customer', fn ($q) => $q->where('full_name', 'like', "%{$query}%")
+                    ->orWhere('company_name', 'like', "%{$query}%"))
                 ->limit(5)
                 ->get()
                 ->each(function (Appointment $appointment) use ($results) {

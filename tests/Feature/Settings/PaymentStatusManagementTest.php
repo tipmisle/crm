@@ -215,3 +215,18 @@ test('is_deposit_default can still be freely toggled off without triggering the 
         ->patch(route('settings.statuses.payment.update', $status->id), ['is_deposit_default' => false])
         ->assertRedirect();
 });
+
+test('a protected payment status label and color can be edited — the semantic flag is fixed, not the label', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    $paid = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'paid')->first();
+
+    $this->actingAs($owner)
+        ->patch(route('settings.statuses.payment.update', $paid->id), ['label' => 'Vse poravnano', 'color' => '#123456'])
+        ->assertRedirect();
+
+    $paid->refresh();
+    expect($paid->label)->toBe('Vse poravnano');
+    expect($paid->color)->toBe('#123456');
+    // The semantic flag itself is untouched by a label/color edit.
+    expect($paid->is_paid)->toBeTrue();
+});

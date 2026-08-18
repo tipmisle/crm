@@ -2,6 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SectionCard from '@/Components/SectionCard.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
+import TwoFactorAuthenticationForm from './Partials/TwoFactorAuthenticationForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
 import { Head } from '@inertiajs/vue3';
@@ -29,6 +30,10 @@ defineProps<{
 
             <SectionCard title="Posodobi geslo" subtitle="Za varnost vašega računa uporabite dolgo, naključno geslo.">
                 <UpdatePasswordForm />
+            </SectionCard>
+
+            <SectionCard title="Dvostopenjsko preverjanje" subtitle="Dodatna zaščita računa z aplikacijo za preverjanje pristnosti.">
+                <TwoFactorAuthenticationForm />
             </SectionCard>
 
             <SectionCard

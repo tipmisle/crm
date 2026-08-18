@@ -311,12 +311,16 @@ environment.**
       invoicing — see `docs/billing.md` Part on FURS/invoicing).
 - [ ] **Payment-failure recovery emails** (Stripe's own dunning emails)
       reviewed for tone/branding before going live.
-- [ ] **`Terms.vue` §8 billing copy finalized** and republished with a
-      bumped `LEGAL_TERMS_VERSION` — it currently still says the service is
-      free with no payment system, which becomes false the moment billing
-      ships.
-- [ ] **Final price/VAT display decision made** — `BILLING_DISPLAY_PRICE`
-      and `config/legal.php`'s VAT fields set accordingly.
+- [x] **`Terms.vue` §8-10 billing copy reflects the actual paid,
+      subscription-based service** — no longer describes Beležka as free;
+      discloses the price/VAT/cancellation model and the real Stripe
+      Checkout → server-side webhook activation flow (see §16 fix note in
+      this milestone). Confirmed by `tests/Feature/Legal/ContentAccuracyTest.php`.
+- [x] **Launch price/VAT display finalized** — `BILLING_DISPLAY_PRICE`
+      ("9,90 €") and `BILLING_DISPLAY_PRICE_VAT_INCLUDED` (VAT included) are
+      the decided values; set them in the production env per
+      `.env.example`. `legal:check`/`deploy:check` fail production without
+      them.
 - [ ] **Slovenian fiscal invoicing (FURS/ZOI/EOR) milestone completed** —
       Stripe's own receipt/invoice is explicitly not a substitute; see
       `docs/billing.md`.

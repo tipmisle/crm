@@ -17,7 +17,6 @@ class BugReportController extends Controller
         $data = $request->validate([
             'subject' => ['required', 'string', 'max:150'],
             'message' => ['required', 'string', 'max:5000'],
-            'page_url' => ['nullable', 'string', 'max:2048'],
         ]);
 
         BugReport::create([
@@ -25,9 +24,29 @@ class BugReportController extends Controller
             'user_id' => $user->id,
             'subject' => $data['subject'],
             'message' => $data['message'],
-            'page_url' => $data['page_url'] ?? null,
+            'page_url' => $this->normalizedPagePath($request),
         ]);
 
         return back()->with('success', 'Prijava napake je bila poslana.');
+    }
+
+    /**
+     * Never trust a client-submitted page_url — it's an easy PII escape
+     * hatch (a search query, email address, or customer name could end up
+     * in the query string). Derive it server-side from the Referer header
+     * instead, keeping only the same-app path — no query string or
+     * fragment, which is all this field needs to be useful to support.
+     */
+    private function normalizedPagePath(Request $request): ?string
+    {
+        $referer = $request->headers->get('referer');
+
+        if (! $referer) {
+            return null;
+        }
+
+        $path = parse_url($referer, PHP_URL_PATH);
+
+        return $path ? substr($path, 0, 255) : null;
     }
 }

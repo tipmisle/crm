@@ -74,7 +74,12 @@ class CustomerExportService
                 // Order.status is a plain string (per-workspace-configurable
                 // status key), not an enum — no ?->value here.
                 'status' => $o->status,
+                'internal_notes' => $o->internal_notes,
                 'customer_notes' => $o->customer_notes,
+                'due_date' => $o->due_date,
+                'delivery_method' => $o->delivery_method,
+                'tracking_number' => $o->tracking_number,
+                'tracking_url' => $o->tracking_url,
                 'notes' => $o->notes->map(fn ($n) => ['body' => $n->body, 'created_at' => $n->created_at?->toIso8601String()])->all(),
                 'items' => $o->items->map(fn ($i) => [
                     'catalog_item_id' => $i->catalog_item_id,
@@ -86,6 +91,8 @@ class CustomerExportService
             'appointments' => $customer->appointments->map(fn ($a) => [
                 'id' => $a->id,
                 'appointment_date' => $a->appointment_date,
+                'start_time' => $a->start_time,
+                'duration_minutes' => $a->duration_minutes,
                 'description' => $a->description,
                 'price' => $a->price,
                 'deposit_amount' => $a->deposit_amount,
@@ -94,6 +101,7 @@ class CustomerExportService
                 // Appointment.status is a plain string (per-workspace-
                 // configurable status key), not an enum — no ?->value here.
                 'status' => $a->status,
+                'internal_notes' => $a->internal_notes,
                 'customer_notes' => $a->customer_notes,
                 'items' => $a->items->map(fn ($i) => [
                     'catalog_item_id' => $i->catalog_item_id,

@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Models\Workspace;
 use Carbon\Carbon;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -49,5 +52,14 @@ class AppServiceProvider extends ServiceProvider
         if (Str::startsWith(config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
+
+        // Sensitive platform-admin mutations (starting a support session,
+        // deactivating accounts, deleting demo workspaces, clearing
+        // integration errors) already require a recently-confirmed
+        // password (routes/admin.php); this adds a per-admin ceiling so a
+        // compromised or careless admin session can't hammer them.
+        RateLimiter::for('admin-mutations', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?? $request->ip());
+        });
     }
 }

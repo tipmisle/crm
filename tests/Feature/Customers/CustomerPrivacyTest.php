@@ -9,6 +9,11 @@ use App\Models\Message;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+function customerPrivacyActingAsConfirmed($test, $owner)
+{
+    return $test->actingAs($owner)->withSession(['auth.password_confirmed_at' => time()]);
+}
+
 function makeCustomerWithConversation(int $workspaceId, string $name = 'Jane Doe'): array
 {
     $customer = Customer::create([
@@ -60,7 +65,7 @@ test('customer export is scoped to only that customer', function () {
     [$customerA] = makeCustomerWithConversation($workspace->id, 'Customer A');
     [$customerB] = makeCustomerWithConversation($workspace->id, 'Customer B');
 
-    $response = $this->actingAs($owner)->post(route('customers.privacy.export', $customerA->id));
+    $response = customerPrivacyActingAsConfirmed($this, $owner)->post(route('customers.privacy.export', $customerA->id));
     $response->assertOk();
 
     $zipBytes = $response->streamedContent();
@@ -84,7 +89,7 @@ test('customer erasure anonymizes only that customer', function () {
     [$customerA, $conversationA, $messageA] = makeCustomerWithConversation($workspace->id, 'Customer A');
     [$customerB] = makeCustomerWithConversation($workspace->id, 'Customer B');
 
-    $this->actingAs($owner)
+    customerPrivacyActingAsConfirmed($this, $owner)
         ->post(route('customers.privacy.erase', $customerA->id), ['confirm' => true])
         ->assertRedirect();
 
@@ -122,7 +127,7 @@ test('customer export with orders does not fatal on the plain-string Order statu
     [$order] = createOrderWithConversation($workspace);
     $order->update(['customer_id' => $customer->id]);
 
-    $response = $this->actingAs($owner)->post(route('customers.privacy.export', $customer->id));
+    $response = customerPrivacyActingAsConfirmed($this, $owner)->post(route('customers.privacy.export', $customer->id));
     $response->assertOk();
 
     $zipBytes = $response->streamedContent();
@@ -159,7 +164,7 @@ test('customer erasure clears billing/address fields and deletes local message a
         ['source' => 'local', 'path' => $attachmentPath, 'type' => 'image'],
     ]]]);
 
-    $this->actingAs($owner)
+    customerPrivacyActingAsConfirmed($this, $owner)
         ->post(route('customers.privacy.erase', $customerA->id), ['confirm' => true])
         ->assertRedirect();
 
@@ -178,7 +183,7 @@ test('erasure requires explicit confirmation', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
     [$customer] = makeCustomerWithConversation($workspace->id);
 
-    $this->actingAs($owner)
+    customerPrivacyActingAsConfirmed($this, $owner)
         ->post(route('customers.privacy.erase', $customer->id), [])
         ->assertSessionHasErrors('confirm');
 
@@ -191,6 +196,27 @@ test('a member of a different workspace cannot export or erase another workspace
 
     [, $otherOwner] = createWorkspaceWithUser();
 
-    $this->actingAs($otherOwner)->post(route('customers.privacy.export', $customer->id))->assertNotFound();
-    $this->actingAs($otherOwner)->post(route('customers.privacy.erase', $customer->id), ['confirm' => true])->assertNotFound();
+    customerPrivacyActingAsConfirmed($this, $otherOwner)->post(route('customers.privacy.export', $customer->id))->assertNotFound();
+    customerPrivacyActingAsConfirmed($this, $otherOwner)->post(route('customers.privacy.erase', $customer->id), ['confirm' => true])->assertNotFound();
+});
+
+test('customer export/erase requires a recently confirmed password', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+    [$customer] = makeCustomerWithConversation($workspace->id);
+
+    $this->actingAs($owner)->post(route('customers.privacy.export', $customer->id))
+        ->assertRedirect(route('password.confirm'));
+
+    $this->actingAs($owner)->post(route('customers.privacy.erase', $customer->id), ['confirm' => true])
+        ->assertRedirect(route('password.confirm'));
+
+    expect($customer->fresh()->full_name)->not->toBe('Izbrisana stranka');
+});
+
+test('an unauthenticated request cannot export or erase a customer', function () {
+    [$workspace] = createWorkspaceWithUser();
+    [$customer] = makeCustomerWithConversation($workspace->id);
+
+    $this->post(route('customers.privacy.export', $customer->id))->assertRedirect(route('login'));
+    $this->post(route('customers.privacy.erase', $customer->id), ['confirm' => true])->assertRedirect(route('login'));
 });

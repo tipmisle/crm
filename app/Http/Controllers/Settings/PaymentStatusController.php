@@ -49,12 +49,12 @@ class PaymentStatusController extends Controller
             'is_refunded' => 'sometimes|boolean',
         ]);
 
-        // Neplačano/Plačano/Vračilo (is_default/is_paid/is_refunded) are
-        // fixed identities, not just protected from deletion — unlike order/
-        // appointment statuses, their label/color can't be edited either.
-        if ($paymentStatus->is_default || $paymentStatus->is_paid || $paymentStatus->is_refunded) {
-            unset($data['label'], $data['color'], $data['bg']);
-        }
+        // The is_default/is_paid/is_refunded FLAG is fixed (protected from
+        // deletion and from being duplicated onto another status below) —
+        // but the user-facing label/color is not a frozen product identity.
+        // "Neplačano"/"Plačano"/"Vračilo" are just the seeded starting
+        // labels; same as order/appointment statuses, the owner can rename
+        // or recolor any status regardless of which semantic role it holds.
 
         // is_default/is_paid/is_refunded are each a single-status role
         // (radio buttons in the UI, never unchecked directly) — a workspace

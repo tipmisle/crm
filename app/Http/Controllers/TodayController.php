@@ -123,7 +123,12 @@ class TodayController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
-            $awaitingConfirmationCount = Appointment::query()->where('status', AppointmentStatus::defaultKey())->count();
+            // The default status's own label, not a hardcoded "čaka na
+            // potrditev" — a workspace's default status doesn't necessarily
+            // mean "awaiting confirmation" once the owner has renamed it.
+            $defaultAppointmentStatus = AppointmentStatus::query()->where('is_default', true)->first()
+                ?? AppointmentStatus::query()->ordered()->first();
+            $awaitingConfirmationCount = Appointment::query()->where('status', $defaultAppointmentStatus?->key)->count();
 
             $appointmentDepositsUnpaidCount = $workspace->accepts_deposit
                 ? Appointment::query()
@@ -149,12 +154,12 @@ class TodayController extends Controller
                 [
                     'key' => 'awaiting_confirmation',
                     'label' => $awaitingConfirmationCount === 1
-                        ? '1 termin čaka na potrditev'
-                        : "{$awaitingConfirmationCount} terminov čaka na potrditev",
+                        ? "1 termin s statusom „{$defaultAppointmentStatus?->label}“"
+                        : "{$awaitingConfirmationCount} terminov s statusom „{$defaultAppointmentStatus?->label}“",
                     'count' => $awaitingConfirmationCount,
                     'href' => route('appointments.index', [
                         'view' => 'list',
-                        'status' => AppointmentStatus::defaultKey(),
+                        'status' => $defaultAppointmentStatus?->key,
                     ]),
                 ],
                 [

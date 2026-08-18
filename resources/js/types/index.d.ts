@@ -7,6 +7,7 @@ export interface User {
     email_verified_at?: string;
     avatar_url?: string | null;
     is_platform_admin?: boolean;
+    two_factor_confirmed_at?: string | null;
 }
 
 export interface ActiveSupportSession {

@@ -100,3 +100,25 @@ test('terms page renders the configured competent court instead of hardcoded tex
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page->where('legal.competent_court', 'Okrožno sodišče v Ljubljani'));
 });
+
+test('no public legal page ever renders the internal NEEDS OWNER INPUT placeholder', function () {
+    // Simulate the worst case: no owner config filled in at all, plus
+    // Meta re-added as an unconfirmed external platform — exactly the
+    // state most likely to leak an internal marker into public copy.
+    config([
+        'legal.company_name' => null,
+        'legal.registered_address' => null,
+        'legal.competent_court' => null,
+        'legal.dpo_contact' => null,
+        'legal.subprocessors' => [],
+        'legal.account_billing_providers' => [
+            ['name' => 'Test Ponudnik', 'purpose' => 'Test', 'data' => 'Test', 'location' => null, 'transfer_mechanism' => null, 'transfer_more_info_url' => null],
+        ],
+    ]);
+
+    foreach (['legal.terms', 'legal.privacy', 'legal.cookies', 'legal.dpa', 'legal.provider', 'legal.subprocessors'] as $routeName) {
+        $response = $this->get(route($routeName));
+        $response->assertOk();
+        $response->assertDontSee('NEEDS OWNER INPUT');
+    }
+});

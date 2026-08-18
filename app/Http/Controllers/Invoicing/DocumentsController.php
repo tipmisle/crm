@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Models\SalesDocument;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,8 +24,10 @@ class DocumentsController extends Controller
 
     public function index(Request $request): Response
     {
+        $timezone = $request->user()->currentWorkspace->timezone;
+
         $query = SalesDocument::query()->with([
-            'customer:id,full_name',
+            'customer:id,full_name,company_name,is_business',
             'order:id,order_number,title',
             'appointment:id,appointment_number,service_name',
             'correctsDocument:id,document_number,issued_at,type',
@@ -35,7 +38,8 @@ class DocumentsController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('document_number', 'like', "%{$search}%")
                     ->orWhere('external_document_number', 'like', "%{$search}%")
-                    ->orWhereHas('customer', fn ($c) => $c->where('full_name', 'like', "%{$search}%"))
+                    ->orWhereHas('customer', fn ($c) => $c->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%"))
                     ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', "%{$search}%"))
                     ->orWhereHas('appointment', fn ($a) => $a->where('appointment_number', 'like', "%{$search}%"));
             });
@@ -56,11 +60,15 @@ class DocumentsController extends Controller
         }
 
         if ($issuedFrom = $request->get('issued_from')) {
-            $query->whereDate('issued_at', '>=', $issuedFrom);
+            // issued_at is a real timestamp — a plain whereDate() truncates
+            // using the DB/server timezone instead of the workspace's,
+            // silently shifting the boundary (same class of bug fixed in
+            // OrderController/AppointmentController's created_from/to).
+            $query->where('issued_at', '>=', Carbon::parse($issuedFrom, $timezone)->startOfDay()->setTimezone(config('app.timezone')));
         }
 
         if ($issuedTo = $request->get('issued_to')) {
-            $query->whereDate('issued_at', '<=', $issuedTo);
+            $query->where('issued_at', '<=', Carbon::parse($issuedTo, $timezone)->endOfDay()->setTimezone(config('app.timezone')));
         }
 
         $documents = $query->orderByDesc('issued_at')->orderByDesc('id')->paginate(25)->withQueryString();

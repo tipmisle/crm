@@ -125,25 +125,6 @@ class SalesDocumentController extends Controller
 
         $customer = $order->customer;
 
-        if (($data['save_recipient_to_customer'] ?? false) && $customer) {
-            // For a B2B customer the recipient name is the company, not
-            // the contact person — saving it back must update company_name,
-            // never overwrite full_name (the live Customer identity). For
-            // a private individual, the recipient name IS the customer's
-            // name, so it saves to full_name as before.
-            $nameField = $customer->is_business ? 'company_name' : 'full_name';
-
-            $customer->update([
-                $nameField => $data['recipient']['name'],
-                'email' => $data['recipient']['email'] ?? $customer->email,
-                'address_line' => $data['recipient']['address_line'] ?? null,
-                'postal_code' => $data['recipient']['postal_code'] ?? null,
-                'city' => $data['recipient']['city'] ?? null,
-                'country' => $data['recipient']['country'] ?? null,
-                'tax_number' => $data['recipient']['tax_number'] ?? null,
-            ]);
-        }
-
         $calculation = app(SalesDocumentCalculationService::class)->calculate(
             $data['line_items'],
             $settings->vat_registered,
@@ -197,6 +178,25 @@ class SalesDocumentController extends Controller
                 $sellerSnapshot, $customerSnapshot, $lineItems, $paymentSnapshot,
                 $subtotal, $vatTotal, $total, $request, $calculation, $pdfService, &$writtenPdfPath,
             ) {
+                // Recipient changes are part of THIS business transaction —
+                // if numbering, document creation, or PDF render/storage
+                // fails below, no recipient change to Customer may survive
+                // either. See CustomerController for why full_name is never
+                // overwritten by a B2B recipient name.
+                if (($data['save_recipient_to_customer'] ?? false) && $customer) {
+                    $nameField = $customer->is_business ? 'company_name' : 'full_name';
+
+                    $customer->update([
+                        $nameField => $data['recipient']['name'],
+                        'email' => $data['recipient']['email'] ?? $customer->email,
+                        'address_line' => $data['recipient']['address_line'] ?? null,
+                        'postal_code' => $data['recipient']['postal_code'] ?? null,
+                        'city' => $data['recipient']['city'] ?? null,
+                        'country' => $data['recipient']['country'] ?? null,
+                        'tax_number' => $data['recipient']['tax_number'] ?? null,
+                    ]);
+                }
+
                 // Only treat this as a manual override when it actually differs
                 // from what auto-numbering would assign — keeps the untouched
                 // (prepopulated) case byte-identical to plain auto-increment,

@@ -11,9 +11,16 @@ interface Provider {
     transfer_more_info_url: string | null;
 }
 
+interface ExternalPlatform {
+    name: string;
+    purpose: string;
+    role_note: string;
+}
+
 interface LegalConfig {
     subprocessors: Provider[];
     account_billing_providers: Provider[];
+    external_platforms: ExternalPlatform[];
     legal_email: string | null;
 }
 
@@ -51,33 +58,29 @@ defineProps<{ legal: LegalConfig }>();
                     </tr>
                 </thead>
                 <tbody>
+                    <tr v-if="!legal.subprocessors.length">
+                        <td colspan="5" class="text-neutral-400">Trenutno ni objavljenih ponudnikov v tej kategoriji.</td>
+                    </tr>
                     <tr v-for="sp in legal.subprocessors" :key="sp.name">
                         <td>{{ sp.name }}</td>
                         <td>{{ sp.purpose }}</td>
                         <td>{{ sp.data }}</td>
-                        <td>{{ sp.location ?? 'NEEDS OWNER INPUT' }}</td>
+                        <td>{{ sp.location ?? '—' }}</td>
                         <td>
                             <a v-if="sp.transfer_mechanism && sp.transfer_more_info_url" :href="sp.transfer_more_info_url" target="_blank" rel="noopener" class="text-[var(--color-accent-600)] hover:underline">
                                 {{ sp.transfer_mechanism }}
                             </a>
                             <span v-else-if="sp.transfer_mechanism">{{ sp.transfer_mechanism }}</span>
-                            <span v-else>NEEDS OWNER INPUT</span>
+                            <span v-else>—</span>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
             <p class="mt-6">
-                Gostovanje aplikacije, podatkovne baze, varnostnih kopij in e-poštnega ponudnika (ponudniki, ki bodo
-                dejansko hranili podatke vaših strank) na tem seznamu še ni, ker izbira produkcijske infrastrukture
-                še ni dokončana — <strong>NEEDS OWNER INPUT</strong>. Take ponudnike bomo na ta seznam dodali takoj,
-                ko bodo dejansko izbrani in v uporabi, še preden začnejo dejansko obdelovati vaše podatke.
-            </p>
-
-            <p class="mt-4">
-                Meta Platforms, Inc. je pri povezovanju Instagrama in Facebook Messengerja lahko tudi samostojen
-                upravljavec določenih podatkov (npr. za lastne varnostne in analitične namene) — to je urejeno v
-                njihovih lastnih pogojih uporabe in politiki zasebnosti, ne v tem dokumentu.
+                Ta seznam se dopolnjuje sproti, kot se v produkcijo dodajajo dejanski ponudniki, ki hranijo ali
+                obdelujejo podatke vaših strank (npr. gostovanje aplikacije, podatkovna baza, varnostne kopije,
+                e-poštni ponudnik) — preden dejansko začnejo obdelovati vaše podatke.
             </p>
 
             <h3 class="mt-8">Obveščanje o novih ali zamenjanih podobdelovalcih</h3>
@@ -113,14 +116,41 @@ defineProps<{ legal: LegalConfig }>();
                         <td>{{ p.name }}</td>
                         <td>{{ p.purpose }}</td>
                         <td>{{ p.data }}</td>
-                        <td>{{ p.location ?? 'NEEDS OWNER INPUT' }}</td>
+                        <td>{{ p.location ?? '—' }}</td>
                         <td>
                             <a v-if="p.transfer_mechanism && p.transfer_more_info_url" :href="p.transfer_more_info_url" target="_blank" rel="noopener" class="text-[var(--color-accent-600)] hover:underline">
                                 {{ p.transfer_mechanism }}
                             </a>
                             <span v-else-if="p.transfer_mechanism">{{ p.transfer_mechanism }}</span>
-                            <span v-else>NEEDS OWNER INPUT</span>
+                            <span v-else>—</span>
                         </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="zunanje-platforme" class="mt-10">
+            <h2>3. Zunanje platforme, ki jih poveže delovni prostor sam</h2>
+            <p>
+                Nekatere povezave (npr. Instagram Direct ali Facebook Messenger) delovni prostor vzpostavi sam, s
+                svojim uporabniškim računom pri tej platformi. Beležka teh ponudnikov ne uvršča med Article 28
+                podobdelovalce, dokler njihova vloga za to konkretno funkcijo ni potrjena iz njihovih lastnih
+                veljavnih pogojev uporabe.
+            </p>
+
+            <table class="mt-4">
+                <thead>
+                    <tr>
+                        <th>Platforma</th>
+                        <th>Namen povezave</th>
+                        <th>Vloga</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="ep in legal.external_platforms" :key="ep.name">
+                        <td>{{ ep.name }}</td>
+                        <td>{{ ep.purpose }}</td>
+                        <td>{{ ep.role_note }}</td>
                     </tr>
                 </tbody>
             </table>

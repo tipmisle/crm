@@ -30,6 +30,16 @@ class EnsurePlatformAdmin
             abort(403);
         }
 
+        // MFA is required before any /admin access — a platform admin
+        // without confirmed 2FA is sent to set it up rather than silently
+        // let in. Never abort() here: this is a routine, expected
+        // first-time state for a freshly granted admin, not a security
+        // violation to audit-log like the branch above.
+        if (! $user->hasEnabledTwoFactorAuthentication()) {
+            return redirect()->route('profile.edit')
+                ->with('error', 'Za dostop do admin panela je potrebno najprej omogočiti dvostopenjsko preverjanje.');
+        }
+
         return $next($request);
     }
 }

@@ -49,6 +49,11 @@ exception. Do not describe this as E2EE anywhere, including internally.
 | `appointments.customer_notes` | text | B | `encrypted` cast (this milestone) | no | ✅ | Customer-facing free text |
 | `order_notes.body` | text | B | `encrypted` cast (this milestone) | no | ✅ | Free-form order note thread |
 | `follow_ups.note` | text (was `varchar(255)`) | B | `encrypted` cast (this milestone) | no | ✅ | Free text; widened before encrypting — see Part 6/7 |
+| `bug_reports.subject` | text (was `varchar(255)`) | B | `encrypted` cast | no (only `status` is filtered) | ✅ | Widened before encrypting; not SQL-searched, so no reason to leave it plain |
+| `bug_reports.message` | text | B | `encrypted` cast | no | ✅ | Free text a user writes describing a bug — can name a customer/order |
+| `feature_requests.subject` | text (was `varchar(255)`) | B | `encrypted` cast | no (only `status` is filtered) | ✅ | Same as `bug_reports.subject` |
+| `feature_requests.message` | text | B | `encrypted` cast | no | ✅ | Same as `bug_reports.message` |
+| `sales_documents.cancellation_reason` | text | B | `encrypted` cast | no | ✅ | Free text a staff member types when storno-ing an invoice; can name the customer/dispute |
 | `customers.full_name` | string | C | plaintext | ✅ `LIKE`, `orderBy`, dedup display | ❌ | Search-critical identifier — see "Why identifiers stay queryable" |
 | `customers.email` | string | C | plaintext | ✅ `LIKE` (search) | ❌ | Search-critical identifier |
 | `customers.phone` | string | C | plaintext | ✅ `LIKE` (search) | ❌ | Search-critical identifier |
@@ -61,6 +66,7 @@ exception. Do not describe this as E2EE anywhere, including internally.
 | `products.description` / `services.description` | text | D | plaintext | no | ❌ | Business-authored catalog copy shown to customers by design |
 | `activity_logs.description` | string | D/C | plaintext | no | ❌ | Interpolates `full_name`/order numbers only — see Part 4 findings |
 | `activity_logs.metadata` | json | D | plaintext | no | ❌ | Always empty in current call sites |
+| `bug_reports.page_url` | string | D | plaintext | no | ❌ | Server-derived from the Referer header path only — no query string/fragment, so it can't carry a search term or email a user typed elsewhere. See `BugReportController::normalizedPagePath()` |
 | `audit_logs.metadata` | json | D | plaintext | no | ❌ | Deliberately identifiers-only — see `docs/admin-security.md` |
 
 ### Why identifiers stay queryable (Part 5)

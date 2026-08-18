@@ -25,7 +25,17 @@ test('a non-owner member cannot open the billing portal', function () {
     $member = User::factory()->create(['current_workspace_id' => $workspace->id]);
     WorkspaceMember::create(['workspace_id' => $workspace->id, 'user_id' => $member->id, 'role' => 'member']);
 
-    $this->actingAs($member)->get(route('settings.billing.portal'))->assertForbidden();
+    $this->actingAs($member)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route('settings.billing.portal'))
+        ->assertForbidden();
+});
+
+test('opening the billing portal requires a recently confirmed password', function () {
+    [$workspace, $owner] = createWorkspaceWithSubscription();
+
+    $this->actingAs($owner)->get(route('settings.billing.portal'))
+        ->assertRedirect(route('password.confirm'));
 });
 
 test('the owner can view billing settings', function () {

@@ -23,12 +23,12 @@ class SalesDocumentNumberingService
 {
     /**
      * @param  array{prefix: string, number: int}|null  $override  Lets the
-     *         person issuing the document override the auto-assigned
-     *         prefix/number (e.g. to match a number already used outside
-     *         Beležka). Still consumed under the same settings-row lock, so
-     *         it's race-safe; the counter only ever moves forward from it
-     *         (never backward), so a lower manual number never reopens
-     *         already-issued ground.
+     *                                                             person issuing the document override the auto-assigned
+     *                                                             prefix/number (e.g. to match a number already used outside
+     *                                                             Beležka). Still consumed under the same settings-row lock, so
+     *                                                             it's race-safe; the counter only ever moves forward from it
+     *                                                             (never backward), so a lower manual number never reopens
+     *                                                             already-issued ground.
      * @return array{prefix: string, number: int}
      */
     public function issueNumber(InvoiceSettings $settings, string $type, ?array $override = null): array

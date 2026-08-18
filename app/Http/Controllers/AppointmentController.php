@@ -26,7 +26,7 @@ class AppointmentController extends Controller
 {
     /** See OrderController::FILTER_KEYS for why this list is centralized. */
     private const FILTER_KEYS = [
-        'search', 'status', 'payment', 'due', 'payment_scope', 'deposit',
+        'search', 'status', 'status_scope', 'payment', 'due', 'payment_scope', 'deposit',
         'customer_id', 'service_id', 'channel_type',
         'created_from', 'created_to',
     ];
@@ -48,10 +48,25 @@ class AppointmentController extends Controller
             });
         }
 
-        if ($status = $request->get('status')) {
+        if ($request->get('status_scope') === 'open') {
+            // Matches AppointmentStatus::openExclusionKeys() — everything
+            // except completed/cancelled/no-show/refunded. Same set Today's
+            // active-appointment counts and Appointment::isUpcoming() use.
+            $query->whereNotIn('status', AppointmentStatus::openExclusionKeys());
+        } elseif ($request->get('status_scope') === 'revenue_eligible') {
+            // Matches the exclusion Analytics uses for revenue math (only
+            // cancelled/no-show/refunded appointments drop out — completed
+            // ones still count) so a drill-down link from a revenue figure
+            // shows the same set. See OrderController's 'not_cancelled'.
+            $query->whereNotIn('status', [
+                ...AppointmentStatus::cancelledKeys(),
+                ...AppointmentStatus::noShowKeys(),
+                ...AppointmentStatus::refundedKeys(),
+            ]);
+        } elseif ($status = $request->get('status')) {
             // Supports a comma-separated list (e.g. "requested,confirmed")
-            // so a link can target the same active-status set the Today
-            // attention counts use, without a single-status constraint.
+            // so a link can target an exact custom-key set, without a
+            // single-status constraint.
             $query->whereIn('status', explode(',', $status));
         }
 
@@ -78,11 +93,14 @@ class AppointmentController extends Controller
         }
 
         if ($createdFrom = $request->get('created_from')) {
-            $query->whereDate('created_at', '>=', $createdFrom);
+            // See OrderController::applyFilters() — created_at is a real
+            // timestamp, so the bound must be computed in the workspace's
+            // own timezone, not truncated in the DB/server timezone.
+            $query->where('created_at', '>=', Carbon::parse($createdFrom, $timezone)->startOfDay()->setTimezone(config('app.timezone')));
         }
 
         if ($createdTo = $request->get('created_to')) {
-            $query->whereDate('created_at', '<=', $createdTo);
+            $query->where('created_at', '<=', Carbon::parse($createdTo, $timezone)->endOfDay()->setTimezone(config('app.timezone')));
         }
 
         $due = $request->get('due');

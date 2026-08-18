@@ -21,6 +21,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -158,42 +159,51 @@ class ConversationController extends Controller
             return back();
         }
 
-        $customer = Customer::create([
-            'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
-            'primary_channel_id' => $conversation->channel_id,
-            'first_contacted_at' => $conversation->created_at,
-            'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
-        ]);
-
-        // If this conversation came in through a real Meta webhook, an
-        // identity already exists (keyed on the stable external PSID/IGSID)
-        // — attach the new Customer to it instead of creating a duplicate,
-        // so future messages from this same external identity resolve here.
-        $identity = $conversation->external_conversation_id
-            ? CustomerIdentity::where('workspace_id', $customer->workspace_id)
-                ->where('channel_type', $conversation->channel->type->value)
-                ->where('external_id', $conversation->external_conversation_id)
-                ->first()
-            : null;
-
-        if ($identity) {
-            $identity->update([
-                'customer_id' => $customer->id,
-                'username' => $identity->username ?? $conversation->customer_username,
-                'display_name' => $identity->display_name ?? $conversation->customer_display_name,
+        // One business transaction: a failure updating/creating the
+        // identity or linking the conversation must not leave a detached,
+        // half-created Customer or a conversation left unlinked after a
+        // Customer row was already committed.
+        $customer = DB::transaction(function () use ($conversation) {
+            $customer = Customer::create([
+                'full_name' => $conversation->customer_display_name ?? 'Neznana stranka',
+                'primary_channel_id' => $conversation->channel_id,
+                'first_contacted_at' => $conversation->created_at,
+                'last_interaction_at' => $conversation->last_message_at ?? $conversation->created_at,
             ]);
-        } else {
-            CustomerIdentity::create([
-                'customer_id' => $customer->id,
-                'workspace_id' => $customer->workspace_id,
-                'channel_type' => $conversation->channel->type,
-                'external_id' => $conversation->external_conversation_id,
-                'username' => $conversation->customer_username,
-                'display_name' => $conversation->customer_display_name,
-            ]);
-        }
 
-        $conversation->update(['customer_id' => $customer->id]);
+            // If this conversation came in through a real Meta webhook, an
+            // identity already exists (keyed on the stable external PSID/
+            // IGSID) — attach the new Customer to it instead of creating a
+            // duplicate, so future messages from this same external
+            // identity resolve here.
+            $identity = $conversation->external_conversation_id
+                ? CustomerIdentity::where('workspace_id', $customer->workspace_id)
+                    ->where('channel_type', $conversation->channel->type->value)
+                    ->where('external_id', $conversation->external_conversation_id)
+                    ->first()
+                : null;
+
+            if ($identity) {
+                $identity->update([
+                    'customer_id' => $customer->id,
+                    'username' => $identity->username ?? $conversation->customer_username,
+                    'display_name' => $identity->display_name ?? $conversation->customer_display_name,
+                ]);
+            } else {
+                CustomerIdentity::create([
+                    'customer_id' => $customer->id,
+                    'workspace_id' => $customer->workspace_id,
+                    'channel_type' => $conversation->channel->type,
+                    'external_id' => $conversation->external_conversation_id,
+                    'username' => $conversation->customer_username,
+                    'display_name' => $conversation->customer_display_name,
+                ]);
+            }
+
+            $conversation->update(['customer_id' => $customer->id]);
+
+            return $customer;
+        });
 
         ActivityLog::record('customer_created', "Stranka {$customer->full_name} je bila dodana iz pogovora", $customer);
 

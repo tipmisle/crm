@@ -86,3 +86,55 @@ test('global search for sales documents respects workspace isolation', function 
     $response->assertJsonMissing(['id' => $documentB->id, 'type' => 'sales_document']);
     expect($response->json('results'))->toBeEmpty();
 });
+
+test('global search finds a business customer by company name and shows it prominently', function () {
+    [, $user] = createWorkspaceWithUser();
+    $this->actingAs($user);
+
+    Customer::create([
+        'full_name' => 'Ana Novak',
+        'is_business' => true,
+        'company_name' => 'Unikatno Podjetje d.o.o.',
+        'tax_number' => 'SI98765432',
+    ]);
+
+    $response = $this->getJson(route('search', ['q' => 'Unikatno Podjetje']));
+
+    $response->assertOk();
+    $response->assertJsonFragment(['type' => 'customer', 'title' => 'Unikatno Podjetje d.o.o.', 'subtitle' => 'Ana Novak']);
+});
+
+test('global search finds a business customer by tax number', function () {
+    [, $user] = createWorkspaceWithUser();
+    $this->actingAs($user);
+
+    Customer::create([
+        'full_name' => 'Ana Novak',
+        'is_business' => true,
+        'company_name' => 'Podjetje d.o.o.',
+        'tax_number' => 'SI11223344',
+    ]);
+
+    $response = $this->getJson(route('search', ['q' => 'SI11223344']));
+
+    $response->assertOk();
+    $response->assertJsonFragment(['type' => 'customer', 'title' => 'Podjetje d.o.o.']);
+});
+
+test('customer list search finds a business customer by company name or tax number', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+
+    Customer::create([
+        'workspace_id' => $workspace->id,
+        'full_name' => 'Ana Novak',
+        'is_business' => true,
+        'company_name' => 'Poslovna Stranka d.o.o.',
+        'tax_number' => 'SI55667788',
+    ]);
+
+    $this->actingAs($user)->get(route('customers.index', ['search' => 'Poslovna Stranka']))
+        ->assertInertia(fn ($page) => $page->has('customers.data', 1));
+
+    $this->actingAs($user)->get(route('customers.index', ['search' => 'SI55667788']))
+        ->assertInertia(fn ($page) => $page->has('customers.data', 1));
+});

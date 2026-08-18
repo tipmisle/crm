@@ -47,23 +47,31 @@ class PaymentStatus extends Model
         return $query->orderBy('sort_order');
     }
 
-    /** Keys flagged as "not yet fully paid" — used for the deposits-outstanding dashboard stat. */
-    public static function outstandingKeys(): array
+    /** See OrderStatus::scoped() for why this exists. */
+    private static function scoped(?int $workspaceId): Builder
     {
-        return static::query()->where('is_outstanding', true)->pluck('key')->all();
+        return $workspaceId === null
+            ? static::query()
+            : static::withoutGlobalScopes()->where('workspace_id', $workspaceId);
+    }
+
+    /** Keys flagged as "not yet fully paid" — used for the deposits-outstanding dashboard stat. */
+    public static function outstandingKeys(?int $workspaceId = null): array
+    {
+        return static::scoped($workspaceId)->where('is_outstanding', true)->pluck('key')->all();
     }
 
     /** The status a new order/appointment with no deposit starts as. */
-    public static function defaultKey(): ?string
+    public static function defaultKey(?int $workspaceId = null): ?string
     {
-        return static::query()->where('is_default', true)->value('key')
-            ?? static::query()->ordered()->value('key');
+        return static::scoped($workspaceId)->where('is_default', true)->value('key')
+            ?? static::scoped($workspaceId)->ordered()->value('key');
     }
 
     /** The status a new order/appointment with a deposit > 0 starts as — falls back to defaultKey() if no status is flagged as the deposit default (e.g. a business that doesn't accept deposits at all). */
-    public static function depositDefaultKey(): ?string
+    public static function depositDefaultKey(?int $workspaceId = null): ?string
     {
-        return static::query()->where('is_deposit_default', true)->value('key')
-            ?? static::defaultKey();
+        return static::scoped($workspaceId)->where('is_deposit_default', true)->value('key')
+            ?? static::defaultKey($workspaceId);
     }
 }

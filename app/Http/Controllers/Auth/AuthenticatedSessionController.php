@@ -29,7 +29,25 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        $user = $request->authenticate();
+
+        // A confirmed 2FA account is never logged in directly — credentials
+        // alone only earn a pending "login.id" in session; the actual
+        // session/login happens in TwoFactorAuthenticatedSessionController
+        // (Laravel Fortify) once the TOTP/recovery code is verified. See
+        // App\Providers\FortifyServiceProvider and
+        // vendor/laravel/fortify's RedirectIfTwoFactorAuthenticatable,
+        // which this mirrors for this app's own login flow.
+        if ($user->hasEnabledTwoFactorAuthentication()) {
+            $request->session()->put([
+                'login.id' => $user->getKey(),
+                'login.remember' => $request->boolean('remember'),
+            ]);
+
+            return redirect()->route('two-factor.login');
+        }
+
+        Auth::login($user, $request->boolean('remember'));
 
         $request->session()->regenerate();
 

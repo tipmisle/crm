@@ -85,8 +85,10 @@ test('an appointment can be created for an existing customer', function () {
         'appointment_date' => now()->addDays(3)->toDateString(),
         'start_time' => '14:00',
         'duration_minutes' => 75,
-        'price' => 35,
         'deposit_amount' => 10,
+        'items' => [
+            ['title' => 'Gel manikura', 'quantity' => 1, 'unit_price' => 35],
+        ],
     ]);
 
     $appointment = Appointment::first();

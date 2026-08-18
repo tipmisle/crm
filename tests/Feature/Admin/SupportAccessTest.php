@@ -20,7 +20,7 @@ function actingAsConfirmedAdmin($test, User $admin)
 test('the workspace owner can grant support access', function () {
     [$workspace, $owner] = createWorkspaceWithUser();
 
-    $this->actingAs($owner)->post(route('settings.support.store'), [
+    $this->actingAs($owner)->withSession(['auth.password_confirmed_at' => time()])->post(route('settings.support.store'), [
         'duration_minutes' => 60,
     ])->assertRedirect();
 
@@ -33,7 +33,7 @@ test('a non-owner workspace member cannot grant support access', function () {
     $member = User::factory()->create(['current_workspace_id' => $workspace->id]);
     WorkspaceMember::create(['workspace_id' => $workspace->id, 'user_id' => $member->id, 'role' => 'member']);
 
-    $this->actingAs($member)->post(route('settings.support.store'), [
+    $this->actingAs($member)->withSession(['auth.password_confirmed_at' => time()])->post(route('settings.support.store'), [
         'duration_minutes' => 60,
     ])->assertForbidden();
 });
@@ -134,7 +134,7 @@ test('granting, starting and ending support access all generate audit events', f
     [$workspace, $owner] = createWorkspaceWithUser();
     $admin = confirmedAdmin();
 
-    $this->actingAs($owner)->post(route('settings.support.store'), [
+    $this->actingAs($owner)->withSession(['auth.password_confirmed_at' => time()])->post(route('settings.support.store'), [
         'duration_minutes' => 30,
     ]);
 
@@ -144,4 +144,14 @@ test('granting, starting and ending support access all generate audit events', f
     $events = AuditLog::pluck('event')->all();
 
     expect($events)->toContain('support_access.granted', 'support_session.started', 'support_session.ended');
+});
+
+test('granting support access requires a recently confirmed password', function () {
+    [$workspace, $owner] = createWorkspaceWithUser();
+
+    $this->actingAs($owner)->post(route('settings.support.store'), [
+        'duration_minutes' => 60,
+    ])->assertRedirect(route('password.confirm'));
+
+    expect(SupportAccessGrant::where('workspace_id', $workspace->id)->active()->exists())->toBeFalse();
 });

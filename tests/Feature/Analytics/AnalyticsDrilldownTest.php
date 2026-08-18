@@ -23,31 +23,32 @@ test('the top product with a catalog link drills down to exactly the orders for 
     $linked = Order::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'price' => 90,
         'status' => 'confirmed',
     ]);
+    $linked->items()->create(['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => 90]);
 
     // A one-off custom order with no catalog link — must stay non-clickable.
-    Order::create([
+    $custom = Order::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
         'title' => 'Enkratno naročilo po meri',
         'price' => 200,
         'status' => 'confirmed',
     ]);
+    $custom->items()->create(['title' => 'Enkratno naročilo po meri', 'quantity' => 1, 'unit_price' => 200]);
 
     // A cancelled order for the same product must not be counted in the
     // revenue total or leak into the drill-down.
     $cancelled = Order::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
-        'catalog_item_id' => $product->id,
         'title' => $product->name,
         'price' => 90,
         'status' => 'cancelled',
     ]);
+    $cancelled->items()->create(['catalog_item_id' => $product->id, 'title' => $product->name, 'quantity' => 1, 'unit_price' => 90]);
 
     $response = $this->actingAs($user)->get(route('analytics.index'));
 
@@ -84,7 +85,6 @@ test('the top service with a catalog link drills down to exactly the appointment
     $linked = Appointment::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
-        'service_id' => $service->id,
         'service_name' => $service->name,
         'appointment_date' => now(),
         'start_time' => '10:00',
@@ -92,8 +92,9 @@ test('the top service with a catalog link drills down to exactly the appointment
         'price' => 35,
         'status' => 'confirmed',
     ]);
+    $linked->items()->create(['catalog_item_id' => $service->id, 'title' => $service->name, 'quantity' => 1, 'unit_price' => 35]);
 
-    Appointment::create([
+    $custom = Appointment::create([
         'workspace_id' => $workspace->id,
         'customer_id' => $customer->id,
         'service_name' => 'Individualna storitev',
@@ -103,6 +104,7 @@ test('the top service with a catalog link drills down to exactly the appointment
         'price' => 50,
         'status' => 'confirmed',
     ]);
+    $custom->items()->create(['title' => 'Individualna storitev', 'quantity' => 1, 'unit_price' => 50]);
 
     $response = $this->actingAs($user)->get(route('analytics.index'));
 

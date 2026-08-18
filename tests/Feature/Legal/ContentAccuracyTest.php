@@ -45,7 +45,9 @@ test('terms page discloses sales documents and disclaims accounting/tax advisory
     $source = legalPageSource('Terms');
 
     expect($source)->toContain('predračun');
-    expect($source)->toContain('dobropis');
+    expect($source)->toContain('storno');
+    expect($source)->not->toContain('dobropis');
+    expect($source)->not->toContain('Dobropis');
     expect($source)->toContain('računovodski ali davčno-svetovalni servis');
 });
 

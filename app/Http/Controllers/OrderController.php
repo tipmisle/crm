@@ -56,11 +56,13 @@ class OrderController extends Controller
 
         if ($request->get('status_scope') === 'open') {
             $query->whereNotIn('status', OrderStatus::openExclusionKeys());
-        } elseif ($request->get('status_scope') === 'not_cancelled') {
-            // Matches the exclusion Analytics uses for revenue math (only
-            // cancelled/refunded orders drop out — completed ones still
-            // count) so a drill-down link from a revenue figure shows the
-            // same set.
+        } elseif (in_array($request->get('status_scope'), ['not_cancelled', 'revenue_eligible'], true)) {
+            // 'revenue_eligible' is the current name; 'not_cancelled' is
+            // kept as a backward-compatible alias for the same scope (any
+            // saved/bookmarked link built before the rename). Matches the
+            // exclusion Analytics uses for revenue math (only cancelled/
+            // refunded orders drop out — completed ones still count) so a
+            // drill-down link from a revenue figure shows the same set.
             $query->whereNotIn('status', [...OrderStatus::cancelledKeys(), ...OrderStatus::refundedKeys()]);
         } elseif ($status = $request->get('status')) {
             $query->where('status', $status);
@@ -89,11 +91,18 @@ class OrderController extends Controller
         }
 
         if ($createdFrom = $request->get('created_from')) {
-            $query->whereDate('created_at', '>=', $createdFrom);
+            // created_at is a real timestamp (unlike due_date), so a
+            // "created_from" date must be interpreted as the start of that
+            // calendar day in the WORKSPACE's own timezone, then converted
+            // to the app/storage timezone for the comparison — a plain
+            // whereDate() truncates using the DB/server timezone instead,
+            // which silently shifts the boundary for any workspace not on
+            // that timezone (matches Analytics' own local-day semantics).
+            $query->where('created_at', '>=', Carbon::parse($createdFrom, $timezone)->startOfDay()->setTimezone(config('app.timezone')));
         }
 
         if ($createdTo = $request->get('created_to')) {
-            $query->whereDate('created_at', '<=', $createdTo);
+            $query->where('created_at', '<=', Carbon::parse($createdTo, $timezone)->endOfDay()->setTimezone(config('app.timezone')));
         }
 
         $due = $request->get('due');

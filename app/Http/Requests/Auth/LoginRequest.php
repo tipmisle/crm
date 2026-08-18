@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -34,15 +35,30 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
+     * Validate the request's credentials and return the authenticated
+     * user, WITHOUT touching the auth guard's resolved-user state at all
+     * — the caller (AuthenticatedSessionController) decides whether to log
+     * the user in directly or redirect to the two-factor challenge first,
+     * based on $user->hasEnabledTwoFactorAuthentication(). Validates
+     * directly against the guard's own user provider (same approach
+     * Fortify's RedirectIfTwoFactorAuthenticatable uses) rather than
+     * Auth::once()/Auth::attempt(), which both leave Auth::check() true
+     * for the remainder of the request/process even though no session was
+     * ever persisted — exactly the state a pending-2FA login must not be
+     * left in.
      *
      * @throws ValidationException
      */
-    public function authenticate(): void
+    public function authenticate(): User
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $provider = Auth::guard()->getProvider();
+
+        /** @var User|null $user */
+        $user = $provider->retrieveByCredentials($this->only('email', 'password'));
+
+        if (! $user || ! $provider->validateCredentials($user, ['password' => $this->string('password')])) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -50,8 +66,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if (! Auth::user()->isActive()) {
-            Auth::logout();
+        if (! $user->isActive()) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -60,6 +75,8 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        return $user;
     }
 
     /**

@@ -2,12 +2,15 @@
 
 use App\Models\Appointment;
 use App\Models\AppointmentStatus;
+use App\Models\BugReport;
 use App\Models\Customer;
+use App\Models\FeatureRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\CustomerExportService;
 use App\Services\ExportWorkspaceDataService;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 function readZipEntry(string $zipBytes, string $entry): string
 {
@@ -23,7 +26,7 @@ function readZipEntry(string $zipBytes, string $entry): string
     return $content;
 }
 
-function captureStream(Symfony\Component\HttpFoundation\StreamedResponse $response): string
+function captureStream(StreamedResponse $response): string
 {
     ob_start();
     $response->sendContent();
@@ -145,4 +148,101 @@ test('workspace data export includes B2B customer fields, item breakdowns, and c
 
     $appointmentItemsCsv = readZipEntry($zipBytes, 'appointment-items.csv');
     expect($appointmentItemsCsv)->toContain('Storitev A');
+});
+
+test('customer export includes distinctive values from every sensitive customer-linked free-text field', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    $workspace->update(['appointments_enabled' => true]);
+    $this->actingAs($user);
+
+    $customer = Customer::create([
+        'workspace_id' => $workspace->id,
+        'full_name' => 'Ana Novak',
+        'notes' => 'MARKER-CUSTOMER-NOTES',
+        'first_contacted_at' => now(),
+        'last_interaction_at' => now(),
+    ]);
+
+    $order = Order::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'title' => 'Naročilo',
+        'description' => 'MARKER-ORDER-DESCRIPTION',
+        'internal_notes' => 'MARKER-ORDER-INTERNAL',
+        'customer_notes' => 'MARKER-ORDER-CUSTOMER-NOTES',
+        'tracking_number' => 'MARKER-TRACKING-123',
+        'price' => 50,
+        'status' => 'new',
+    ]);
+    $order->notes()->create(['user_id' => $user->id, 'body' => 'MARKER-ORDER-NOTE-BODY']);
+
+    $appointment = Appointment::create([
+        'workspace_id' => $workspace->id,
+        'customer_id' => $customer->id,
+        'service_name' => 'Termin',
+        'description' => 'MARKER-APPOINTMENT-DESCRIPTION',
+        'internal_notes' => 'MARKER-APPOINTMENT-INTERNAL',
+        'customer_notes' => 'MARKER-APPOINTMENT-CUSTOMER-NOTES',
+        'appointment_date' => now()->addDay()->toDateString(),
+        'start_time' => '10:00',
+        'duration_minutes' => 45,
+        'price' => 40,
+        'status' => 'requested',
+    ]);
+
+    $customer->followUps()->create(['note' => 'MARKER-FOLLOWUP-NOTE', 'due_at' => now()->addDay()]);
+
+    $zipBytes = captureStream(app(CustomerExportService::class)->build($customer));
+    $json = readZipEntry($zipBytes, 'customer.json');
+
+    foreach ([
+        'MARKER-CUSTOMER-NOTES',
+        'MARKER-ORDER-DESCRIPTION',
+        'MARKER-ORDER-INTERNAL',
+        'MARKER-ORDER-CUSTOMER-NOTES',
+        'MARKER-TRACKING-123',
+        'MARKER-ORDER-NOTE-BODY',
+        'MARKER-APPOINTMENT-DESCRIPTION',
+        'MARKER-APPOINTMENT-INTERNAL',
+        'MARKER-APPOINTMENT-CUSTOMER-NOTES',
+        'MARKER-FOLLOWUP-NOTE',
+    ] as $marker) {
+        expect($json)->toContain($marker);
+    }
+
+    $data = json_decode($json, true);
+    expect($data['appointments'][0]['start_time'])->toBe('10:00');
+    expect($data['appointments'][0]['duration_minutes'])->toBe(45);
+});
+
+test('workspace data export includes decrypted bug reports and feature requests, but no secrets', function () {
+    Storage::fake('local');
+
+    [$workspace, $user] = createWorkspaceWithUser();
+
+    BugReport::create([
+        'workspace_id' => $workspace->id,
+        'user_id' => $user->id,
+        'subject' => 'MARKER-BUG-SUBJECT',
+        'message' => 'MARKER-BUG-MESSAGE',
+        'page_url' => '/settings/support',
+    ]);
+
+    FeatureRequest::create([
+        'workspace_id' => $workspace->id,
+        'user_id' => $user->id,
+        'subject' => 'MARKER-FEATURE-SUBJECT',
+        'message' => 'MARKER-FEATURE-MESSAGE',
+    ]);
+
+    $export = app(ExportWorkspaceDataService::class)->build($workspace, User::find($user->id));
+    $zipBytes = Storage::disk('local')->get($export->disk_path);
+
+    $bugReportsCsv = readZipEntry($zipBytes, 'bug-reports.csv');
+    expect($bugReportsCsv)->toContain('MARKER-BUG-SUBJECT');
+    expect($bugReportsCsv)->toContain('MARKER-BUG-MESSAGE');
+
+    $featureRequestsCsv = readZipEntry($zipBytes, 'feature-requests.csv');
+    expect($featureRequestsCsv)->toContain('MARKER-FEATURE-SUBJECT');
+    expect($featureRequestsCsv)->toContain('MARKER-FEATURE-MESSAGE');
 });

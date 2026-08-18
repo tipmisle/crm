@@ -56,7 +56,7 @@ function setRange(range: { from: string; to: string }) {
 }
 
 function typeLabel(doc: SalesDocument): string {
-    return doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : doc.type === 'storno' ? 'Dobropis (storno)' : 'Drugo';
+    return doc.type === 'proforma' ? 'Predračun' : doc.type === 'invoice' ? 'Račun' : doc.type === 'storno' ? 'Storno računa' : 'Drugo';
 }
 
 function subjectRoute(doc: SalesDocument): string | null {
@@ -106,7 +106,7 @@ function subjectLabel(doc: SalesDocument): string | null {
                         <option value="">Vse vrste</option>
                         <option value="invoice">Račun</option>
                         <option value="proforma">Predračun</option>
-                        <option value="storno">Dobropis (storno)</option>
+                        <option value="storno">Storno računa</option>
                         <option value="other">Drugo</option>
                     </select>
                 </div>
@@ -173,7 +173,7 @@ function subjectLabel(doc: SalesDocument): string | null {
                             </td>
                             <td class="px-4 py-2.5">
                                 <Link v-if="doc.customer" :href="route('customers.show', doc.customer.id)" class="text-neutral-700 hover:text-[var(--color-accent-600)] hover:underline">
-                                    {{ doc.customer.full_name }}
+                                    {{ doc.customer.is_business && doc.customer.company_name ? doc.customer.company_name : doc.customer.full_name }}
                                 </Link>
                                 <span v-else class="text-neutral-400">—</span>
                             </td>

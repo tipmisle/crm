@@ -35,7 +35,7 @@
 
 @if(!empty($is_correction))
     <div class="correction-banner">
-        <strong>Ta dokument je DOBROPIS / STORNO računa {{ $corrects_document_number ?? '' }} z dne {{ $corrects_issued_at ?? '' }}.</strong>
+        <strong>Ta dokument je STORNO računa {{ $corrects_document_number ?? '' }} z dne {{ $corrects_issued_at ?? '' }}.</strong>
         Vsi zneski v tem dokumentu obrnejo prvotno izdani račun in ga v celoti razveljavijo.
         @if(!empty($correction_reason))
             Razlog: {{ $correction_reason }}

@@ -30,14 +30,14 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ServiceController;
-use App\Http\Controllers\Settings\BillingController;
-use App\Http\Controllers\Settings\InvoiceSettingsController;
 use App\Http\Controllers\Settings\AppointmentStatusController;
+use App\Http\Controllers\Settings\BillingController;
+use App\Http\Controllers\Settings\BugReportController;
+use App\Http\Controllers\Settings\FeatureRequestController;
+use App\Http\Controllers\Settings\InvoiceSettingsController;
 use App\Http\Controllers\Settings\OrderStatusController;
 use App\Http\Controllers\Settings\PaymentStatusController;
 use App\Http\Controllers\Settings\StatusesController as SettingsStatusesController;
-use App\Http\Controllers\Settings\BugReportController;
-use App\Http\Controllers\Settings\FeatureRequestController;
 use App\Http\Controllers\Settings\SupportAccessController;
 use App\Http\Controllers\Settings\WorkspaceExportController;
 use App\Http\Controllers\Settings\WorkspacePrivacyController;
@@ -74,13 +74,19 @@ Route::middleware('auth')->group(function () {
     Route::patch('/settings/capabilities', [SettingsController::class, 'updateCapabilities'])->name('settings.capabilities.update');
 
     Route::get('/settings/support', [SupportAccessController::class, 'edit'])->name('settings.support.edit');
-    Route::post('/settings/support', [SupportAccessController::class, 'store'])->name('settings.support.store');
+    // Granting support access to a live workspace's content is sensitive
+    // enough to gate behind a recently-confirmed password — but leaving/
+    // revoking it must never be gated, so it's always immediately reachable.
+    Route::middleware('password.confirm')->post('/settings/support', [SupportAccessController::class, 'store'])->name('settings.support.store');
     Route::delete('/settings/support', [SupportAccessController::class, 'destroy'])->name('settings.support.destroy');
     Route::post('/settings/support/bug-reports', [BugReportController::class, 'store'])->name('settings.support.bug-reports.store');
     Route::post('/settings/support/feature-requests', [FeatureRequestController::class, 'store'])->name('settings.support.feature-requests.store');
 
     Route::get('/settings/billing', [BillingController::class, 'edit'])->name('settings.billing.edit');
-    Route::get('/settings/billing/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
+    // The Stripe Customer Portal lets the owner change payment method,
+    // cancel, or view invoices — billing/cancellation-affecting, so it's
+    // gated the same as other high-sensitivity actions above.
+    Route::middleware('password.confirm')->get('/settings/billing/portal', [BillingController::class, 'portal'])->name('settings.billing.portal');
 
     Route::get('/settings/statuses', [SettingsStatusesController::class, 'edit'])->name('settings.statuses.edit');
     Route::post('/settings/statuses/order', [OrderStatusController::class, 'store'])->name('settings.statuses.order.store');
@@ -187,8 +193,13 @@ Route::middleware('auth')->group(function () {
         Route::patch('/follow-ups/{followUp}/complete', [FollowUpController::class, 'complete'])->name('follow-ups.complete');
         Route::delete('/follow-ups/{followUp}', [FollowUpController::class, 'destroy'])->name('follow-ups.destroy');
 
-        Route::post('/customers/{customer}/privacy/export', [CustomerPrivacyController::class, 'exportData'])->name('customers.privacy.export');
-        Route::post('/customers/{customer}/privacy/erase', [CustomerPrivacyController::class, 'eraseData'])->name('customers.privacy.erase');
+        // Exporting or erasing a customer's data exposes/destroys personal
+        // data — same password.confirm gate as workspace export/deletion
+        // (routes/web.php above) and admin support access (routes/admin.php).
+        Route::middleware('password.confirm')->group(function () {
+            Route::post('/customers/{customer}/privacy/export', [CustomerPrivacyController::class, 'exportData'])->name('customers.privacy.export');
+            Route::post('/customers/{customer}/privacy/erase', [CustomerPrivacyController::class, 'eraseData'])->name('customers.privacy.erase');
+        });
 
         Route::get('/settings/integrations/meta/connect', [MetaIntegrationController::class, 'connect'])->name('integrations.meta.connect');
         Route::get('/settings/integrations/meta/callback', [MetaIntegrationController::class, 'callback'])->name('integrations.meta.callback');

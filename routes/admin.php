@@ -46,7 +46,7 @@ Route::middleware(['auth', 'platform.admin'])->prefix('admin')->name('admin.')->
     // Sensitive mutations (starting to view customer content, deactivating
     // accounts, deleting a demo workspace) require a recently-confirmed
     // password on top of the platform-admin gate above.
-    Route::middleware('password.confirm')->group(function () {
+    Route::middleware(['password.confirm', 'throttle:admin-mutations'])->group(function () {
         Route::post('/workspaces/{workspace}/support/start', [WorkspaceController::class, 'startSupportSession'])->name('workspaces.support.start');
         Route::delete('/workspaces/{workspace}/demo', [WorkspaceController::class, 'destroyDemo'])->name('workspaces.destroy-demo');
 

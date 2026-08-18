@@ -4,6 +4,7 @@ use App\Models\Appointment;
 use App\Models\Message;
 use App\Models\Order;
 use App\Models\SalesDocument;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -325,4 +326,21 @@ test('sending the storno document uses the original subject Order conversation',
     $message = Message::where('conversation_id', $conversation->id)->latest('id')->first();
     expect($message)->not->toBeNull();
     expect($message->body)->toContain('popravek/storno');
+});
+
+test('the storno cancellation reason is encrypted at rest', function () {
+    [$workspace, $user] = createWorkspaceWithUser();
+    configureInvoicing($workspace);
+    [$order] = createOrderWithConversation($workspace);
+    $this->actingAs($user);
+    $document = issueInvoice($order);
+
+    $this->post(route('documents.storno', $document), ['reason' => 'Stranka Nina Novak je preklicala naročilo.']);
+
+    $correction = $document->fresh()->correction;
+    expect($correction->cancellation_reason)->toBe('Stranka Nina Novak je preklicala naročilo.');
+
+    $raw = DB::table('sales_documents')->where('id', $correction->id)->value('cancellation_reason');
+    expect($raw)->not->toBe('Stranka Nina Novak je preklicala naročilo.');
+    expect($raw)->not->toContain('Nina Novak');
 });
