@@ -69,9 +69,8 @@ class WorkspaceStatusDefaults
 
         $paymentStatuses = [
             ['key' => 'unpaid', 'label' => 'Neplačano', 'color' => '#B91C1C', 'bg' => '#FEE2E2', 'is_default' => true, 'is_outstanding' => true],
-            ['key' => 'deposit_due', 'label' => 'Čaka se ara', 'color' => '#B45309', 'bg' => '#FEF3C7', 'is_deposit_default' => true, 'is_outstanding' => true],
+            ['key' => 'deposit_due', 'label' => 'Ara neplačana', 'color' => '#B45309', 'bg' => '#FEF3C7', 'is_deposit_default' => true, 'is_outstanding' => true],
             ['key' => 'deposit_paid', 'label' => 'Ara plačana', 'color' => '#0E7490', 'bg' => '#E0F7FA'],
-            ['key' => 'partially_paid', 'label' => 'Delno plačano', 'color' => '#6A3CCB', 'bg' => '#EBE5FD'],
             ['key' => 'paid', 'label' => 'Plačano', 'color' => '#15803D', 'bg' => '#DCFCE7', 'is_paid' => true],
             ['key' => 'refunded', 'label' => 'Vračilo', 'color' => '#B91C1C', 'bg' => '#FEE2E2', 'is_refunded' => true],
         ];

@@ -49,39 +49,38 @@ class PaymentStatusController extends Controller
             'is_refunded' => 'sometimes|boolean',
         ]);
 
-        // The is_default/is_paid/is_refunded FLAG is fixed (protected from
-        // deletion and from being duplicated onto another status below) —
-        // but the user-facing label/color is not a frozen product identity.
-        // "Neplačano"/"Plačano"/"Vračilo" are just the seeded starting
-        // labels; same as order/appointment statuses, the owner can rename
-        // or recolor any status regardless of which semantic role it holds.
+        // The is_default/is_deposit_default/is_paid/is_refunded FLAG is
+        // fixed (protected from deletion and from being duplicated onto
+        // another status below) — but the user-facing label/color is not a
+        // frozen product identity. "Neplačano"/"Ara neplačana"/"Plačano"/
+        // "Vračilo" are just the seeded starting labels; same as order/
+        // appointment statuses, the owner can rename or recolor any status
+        // regardless of which semantic role it holds.
 
-        // is_default/is_paid/is_refunded are each a single-status role
-        // (radio buttons in the UI, never unchecked directly) — a workspace
-        // must always have exactly one status filling each role, so a false
-        // value for one of these is a no-op rather than leaving zero
-        // statuses flagged.
-        foreach (['is_default', 'is_paid', 'is_refunded'] as $mandatoryFlag) {
+        // Each of these 4 flags is a single-status role (one dropdown in
+        // the UI, never unchecked directly) — a workspace must always have
+        // exactly one status filling each role, so a false value for one
+        // of these is a no-op rather than leaving zero statuses flagged.
+        foreach (['is_default', 'is_deposit_default', 'is_paid', 'is_refunded'] as $mandatoryFlag) {
             if (array_key_exists($mandatoryFlag, $data) && ! $data[$mandatoryFlag]) {
                 unset($data[$mandatoryFlag]);
             }
         }
 
-        // is_default/is_paid/is_refunded describe mutually exclusive
-        // payment states — a status can't simultaneously BE "the default
-        // unpaid status" and "the paid status". is_deposit_default is
-        // independent and optional/single where set (see class docblock).
-        $exclusiveRoleFlags = ['is_default', 'is_paid', 'is_refunded'];
-        $allSingletonFlags = ['is_default', 'is_deposit_default', 'is_paid', 'is_refunded'];
+        // All 4 describe mutually exclusive payment states — a status
+        // can't simultaneously BE "the default unpaid status" and "the
+        // paid status" (or "the deposit-default status" and "the refund
+        // status").
+        $exclusiveRoleFlags = ['is_default', 'is_deposit_default', 'is_paid', 'is_refunded'];
 
-        $flagsToMove = collect($allSingletonFlags)->filter(fn ($flag) => ! empty($data[$flag]))->values();
+        $flagsToMove = collect($exclusiveRoleFlags)->filter(fn ($flag) => ! empty($data[$flag]))->values();
 
         $requestedExclusiveFlags = $flagsToMove->intersect($exclusiveRoleFlags);
 
         abort_if(
             $requestedExclusiveFlags->count() > 1,
             422,
-            'Status ne more hkrati imeti več izključujočih se vlog (neplačano, plačano, vračilo).'
+            'Status ne more hkrati imeti več izključujočih se vlog (neplačano, ara, plačano, vračilo).'
         );
 
         if ($requestedExclusiveFlags->isNotEmpty()) {
@@ -123,9 +122,9 @@ class PaymentStatusController extends Controller
         abort_if(PaymentStatus::query()->count() <= 1, 422, 'Delovni prostor mora imeti vsaj en status plačila.');
 
         abort_if(
-            $paymentStatus->is_default || $paymentStatus->is_paid || $paymentStatus->is_refunded,
+            $paymentStatus->is_default || $paymentStatus->is_deposit_default || $paymentStatus->is_paid || $paymentStatus->is_refunded,
             422,
-            'Ta status je obvezen (neplačano, plačano ali vračilo) in ga ni mogoče izbrisati. Najprej premakni to oznako na drug status.'
+            'Ta status je obvezen (neplačano, ara, plačano ali vračilo) in ga ni mogoče izbrisati. Najprej premakni to oznako na drug status.'
         );
 
         $workspace = $request->user()->currentWorkspace;

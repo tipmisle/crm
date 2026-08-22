@@ -75,7 +75,7 @@ function updateAppointmentStatus(status: StatusRow, data: Partial<StatusRow>) {
 }
 
 // A workspace must always have exactly one order status filling each of
-// these 4 fixed roles, and one payment status filling each of these 3 — see
+// these 4 fixed roles, and one payment status filling each of these 4 — see
 // Settings\OrderStatusController/PaymentStatusController::destroy(), which
 // rejects deleting whichever status currently holds a role. Every row gets
 // a "vloga" dropdown showing which of these fixed roles (if any) it holds;
@@ -89,8 +89,9 @@ const ORDER_ROLES: { flag: 'is_default' | 'is_completed' | 'is_cancelled' | 'is_
     { flag: 'is_refunded', label: 'vračilo' },
 ];
 
-const PAYMENT_ROLES: { flag: 'is_default' | 'is_paid' | 'is_refunded'; label: string }[] = [
+const PAYMENT_ROLES: { flag: 'is_default' | 'is_deposit_default' | 'is_paid' | 'is_refunded'; label: string }[] = [
     { flag: 'is_default', label: 'privzet' },
+    { flag: 'is_deposit_default', label: 'ara' },
     { flag: 'is_paid', label: 'plačano' },
     { flag: 'is_refunded', label: 'vračilo' },
 ];
@@ -140,15 +141,6 @@ function movePaymentRole(status: StatusRow, flag: string) {
 function moveAppointmentRole(status: StatusRow, flag: string) {
     if (!flag) return;
     updateAppointmentStatus(status, { [flag]: true } as Partial<StatusRow>);
-}
-
-// is_deposit_default is optional/singleton (unlike is_default/is_paid/
-// is_refunded) — it CAN be cleared entirely, not just moved. An empty
-// selection sends is_deposit_default: false, a no-op-safe removal per
-// PaymentStatusController (a mandatory role would ignore a false value,
-// but this one isn't mandatory).
-function setDepositDefault(status: StatusRow, checked: boolean) {
-    updatePaymentStatus(status, { is_deposit_default: checked });
 }
 
 function setOutstanding(status: StatusRow, checked: boolean) {
@@ -470,7 +462,7 @@ function addAppointmentStatus() {
                                     :disabled="isPaymentStatusProtected(status)"
                                     :title="
                                         isPaymentStatusProtected(status)
-                                            ? 'Ta status je obvezen (neplačano, plačano ali vračilo) — najprej premakni oznako na drug status'
+                                            ? 'Ta status je obvezen (neplačano, ara, plačano ali vračilo) — najprej premakni oznako na drug status'
                                             : status.in_use
                                               ? 'Status je v uporabi — izberi, kam prestaviti obstoječe zapise'
                                               : 'Izbriši status'
@@ -482,14 +474,6 @@ function addAppointmentStatus() {
                                 </button>
                             </div>
                             <div class="ml-[3.375rem] mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
-                                <label class="flex items-center gap-1.5">
-                                    <input
-                                        type="checkbox"
-                                        :checked="status.is_deposit_default"
-                                        @change="setDepositDefault(status, ($event.target as HTMLInputElement).checked)"
-                                    />
-                                    Privzet za aro
-                                </label>
                                 <label class="flex items-center gap-1.5">
                                     <input
                                         type="checkbox"

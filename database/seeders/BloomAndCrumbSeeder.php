@@ -481,7 +481,6 @@ class BloomAndCrumbSeeder extends Seeder
                     PaymentStatus::Unpaid => 0,
                     PaymentStatus::DepositDue => 0,
                     PaymentStatus::DepositPaid => $deposit,
-                    PaymentStatus::PartiallyPaid => min($price, $deposit + rand(10, 60)),
                     PaymentStatus::Paid => $price,
                 };
 
@@ -562,10 +561,8 @@ class BloomAndCrumbSeeder extends Seeder
         $roll = rand(1, 100);
 
         return match (true) {
-            $roll <= 15 => PaymentStatus::Unpaid,
-            $roll <= 45 => PaymentStatus::DepositDue,
+            $roll <= 30 => PaymentStatus::Unpaid,
             $roll <= 75 => PaymentStatus::DepositPaid,
-            $roll <= 92 => PaymentStatus::PartiallyPaid,
             default => PaymentStatus::Paid,
         };
     }

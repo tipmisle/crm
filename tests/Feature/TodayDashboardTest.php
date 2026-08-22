@@ -90,10 +90,10 @@ test('the "due today" attention count links to exactly the orders it counted', f
 test('the "deposits unpaid" attention count respects custom outstanding payment statuses', function () {
     [$workspace, $user] = createWorkspaceWithUser();
 
-    // Flag an already-seeded, non-default payment status ("partially_paid")
+    // Flag an already-seeded, non-default payment status ("deposit_paid")
     // as outstanding — the count/link must include it, not just the
     // hardcoded 'deposit_due' default.
-    $customStatus = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'partially_paid')->firstOrFail();
+    $customStatus = PaymentStatus::where('workspace_id', $workspace->id)->where('key', 'deposit_paid')->firstOrFail();
     $customStatus->update(['is_outstanding' => true]);
 
     $customer = Customer::create([
